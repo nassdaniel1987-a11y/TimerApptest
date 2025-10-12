@@ -2,6 +2,8 @@ package com.example.timerapp.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Close
@@ -19,19 +21,20 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun AlarmFullscreenScreen(
-    timerName: String,
+    timerNames: List<String>,
+    timerCategories: List<String>,
     onDismiss: () -> Unit,
     onSnooze: () -> Unit
 ) {
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
-    
+
     LaunchedEffect(Unit) {
         while (true) {
             currentTime = LocalTime.now()
             kotlinx.coroutines.delay(1000)
         }
     }
-    
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -41,7 +44,9 @@ fun AlarmFullscreenScreen(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(32.dp)
+            modifier = Modifier
+                .padding(32.dp)
+                .fillMaxWidth()
         ) {
             // Alarm Icon
             Icon(
@@ -50,38 +55,88 @@ fun AlarmFullscreenScreen(
                 modifier = Modifier.size(120.dp),
                 tint = MaterialTheme.colorScheme.onErrorContainer
             )
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             // Uhrzeit
             Text(
                 text = currentTime.format(DateTimeFormatter.ofPattern("HH:mm")),
-                fontSize = 72.sp,
+                style = MaterialTheme.typography.displayLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // Timer Name
-            Text(
-                text = timerName,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = "Zeit abgelaufen!",
-                fontSize = 20.sp,
-                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
-            )
-            
-            Spacer(modifier = Modifier.height(64.dp))
-            
+
+            // ✅ NEU: Zeigt Anzahl der abgelaufenen Timer
+            if (timerNames.size > 1) {
+                Text(
+                    text = "${timerNames.size} Timer abgelaufen!",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            } else {
+                Text(
+                    text = "Zeit abgelaufen!",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // ✅ NEU: Scrollbare Liste aller Timer-Namen
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    timerNames.forEachIndexed { index, name ->
+                        Column {
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+
+                            // Zeigt die Kategorie nur an, wenn sie vorhanden ist
+                            if (index < timerCategories.size && timerCategories[index].isNotBlank()) {
+                                Text(
+                                    text = timerCategories[index],
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                                )
+                            }
+
+                            // Trennlinie zwischen Timern (außer beim letzten)
+                            if (index < timerNames.size - 1) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Divider(
+                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.3f),
+                                    thickness = 1.dp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
             // Buttons
             Button(
                 onClick = onDismiss,
@@ -94,11 +149,11 @@ fun AlarmFullscreenScreen(
             ) {
                 Icon(Icons.Default.Close, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("AUSSCHALTEN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("AUSSCHALTEN", style = MaterialTheme.typography.labelLarge)
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             OutlinedButton(
                 onClick = onSnooze,
                 modifier = Modifier
@@ -110,7 +165,7 @@ fun AlarmFullscreenScreen(
             ) {
                 Icon(Icons.Default.Snooze, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("SCHLUMMERN", fontSize = 16.sp)
+                Text("SCHLUMMERN", style = MaterialTheme.typography.labelMedium)
             }
         }
     }

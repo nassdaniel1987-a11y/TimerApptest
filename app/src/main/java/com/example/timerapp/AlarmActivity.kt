@@ -13,7 +13,7 @@ class AlarmActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Fullscreen aktivieren
+        // Fullscreen aktivieren (auch bei gesperrtem Bildschirm)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
@@ -26,10 +26,13 @@ class AlarmActivity : ComponentActivity() {
             )
         }
 
-        val timerId = intent.getStringExtra("TIMER_ID") ?: ""
-        val timerName = intent.getStringExtra("TIMER_NAME") ?: "Timer"
+        // ✅ NEU: Unterstützt mehrere Timer
+        val timerNames = intent.getStringArrayExtra("TIMER_NAMES")
+        val timerCategories = intent.getStringArrayExtra("TIMER_CATEGORIES")
 
-        // ----- HIER IST DIE ÄNDERUNG -----
+        val names = timerNames?.toList() ?: listOf(intent.getStringExtra("TIMER_NAME") ?: "Timer")
+        val categories = timerCategories?.toList() ?: listOf(intent.getStringExtra("TIMER_CATEGORY") ?: "")
+
         // Die Activity startet jetzt selbst Ton und Vibration.
         val settingsManager = SettingsManager.getInstance(this)
         if (settingsManager.isSoundEnabled) {
@@ -38,12 +41,12 @@ class AlarmActivity : ComponentActivity() {
         if (settingsManager.isVibrationEnabled) {
             AlarmReceiver.startVibration(this)
         }
-        // -----------------------------
 
         setContent {
             TimerAppTheme {
                 AlarmFullscreenScreen(
-                    timerName = timerName,
+                    timerNames = names,
+                    timerCategories = categories,
                     onDismiss = {
                         AlarmReceiver.stopAlarmSound()
                         AlarmReceiver.stopVibration()

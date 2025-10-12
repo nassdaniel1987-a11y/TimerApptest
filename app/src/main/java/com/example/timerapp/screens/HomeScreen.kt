@@ -9,6 +9,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -120,7 +122,10 @@ fun HomeScreen(
                                 modifier = Modifier.animateItemPlacement(),
                                 timer = timer,
                                 onComplete = { viewModel.markTimerCompleted(timer.id) },
-                                onDelete = { viewModel.deleteTimer(timer.id) }
+                                onDelete = { viewModel.deleteTimer(timer.id) },
+                                onEdit = { editedTimer ->
+                                    viewModel.updateTimer(timer.id, editedTimer)
+                                }
                             )
                         }
                     }
@@ -135,7 +140,8 @@ fun HomeScreen(
                                 modifier = Modifier.animateItemPlacement(),
                                 timer = timer,
                                 onComplete = { /* Nichts tun */ },
-                                onDelete = { viewModel.deleteTimer(timer.id) }
+                                onDelete = { viewModel.deleteTimer(timer.id) },
+                                onEdit = { /* Abgeschlossene Timer nicht bearbeitbar */ }
                             )
                         }
                     }
@@ -160,9 +166,11 @@ private fun TimerCard(
     timer: Timer,
     onComplete: () -> Unit,
     onDelete: () -> Unit,
+    onEdit: (Timer) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
 
     val targetTime = remember(timer.target_time) {
         try { ZonedDateTime.parse(timer.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME) }
@@ -174,16 +182,13 @@ private fun TimerCard(
     }
 
     val now = ZonedDateTime.now()
-    val minutesUntil = ChronoUnit.MINUTES.between(now, targetTime)
-    val hoursUntil = ChronoUnit.HOURS.between(now, targetTime)
     val isPast = targetTime.isBefore(now)
 
+    // ✅ GEÄNDERT: Zeigt nur noch die Uhrzeit an
     val timeText = when {
         timer.is_completed -> "Abgeschlossen"
         isPast -> "Abgelaufen"
-        minutesUntil < 60 -> "in $minutesUntil Min"
-        hoursUntil < 24 -> "in $hoursUntil Std"
-        else -> targetTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
+        else -> targetTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " Uhr"
     }
 
     ElevatedCard(
@@ -215,6 +220,12 @@ private fun TimerCard(
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
+                // ✅ NEU: Bearbeiten-Button (nur bei aktiven Timern)
+                if (!timer.is_completed) {
+                    IconButton(onClick = { showEditDialog = true }) {
+                        Icon(imageVector = Icons.Default.Edit, contentDescription = "Bearbeiten")
+                    }
+                }
                 if (!timer.is_completed) {
                     IconButton(onClick = onComplete) {
                         Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Abschließen")
@@ -227,6 +238,7 @@ private fun TimerCard(
         }
     }
 
+    // Delete Dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -243,9 +255,187 @@ private fun TimerCard(
             }
         )
     }
+
+    // ✅ NEU: Edit Dialog
+    if (showEditDialog) {
+        EditTimerDialog(
+            timer = timer,
+            onDismiss = { showEditDialog = false },
+            onSave = { editedTimer ->
+                onEdit(editedTimer)
+                showEditDialog = false
+            }
+        )
+    }
 }
 
-// HIER SIND DIE FEHLENDEN FUNKTIONEN
+// ✅ NEU: Dialog zum Bearbeiten von Timern
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditTimerDialog(
+    timer: Timer,
+    onDismiss: () -> Unit,
+    onSave: (Timer) -> Unit
+) {
+    var name by remember { mutableStateOf(timer.name) }
+    var note by remember { mutableStateOf(timer.note ?: "") }
+
+    val targetTime = remember {
+        try {
+            ZonedDateTime.parse(timer.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        } catch (e: Exception) {
+            ZonedDateTime.now()
+        }
+    }
+
+    var selectedDate by remember { mutableStateOf(targetTime.toLocalDate()) }
+    var selectedTime by remember { mutableStateOf(targetTime.toLocalTime()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val germanZone = java.time.ZoneId.of("Europe/Berlin")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Timer bearbeiten") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Name
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                // Datum
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { showDatePicker = true }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Datum",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                // Zeit
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Uhrzeit",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        WheelTimePicker(
+                            initialTime = selectedTime,
+                            onTimeSelected = { selectedTime = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                // Notiz
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Notiz (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val newTargetDateTime = ZonedDateTime.of(
+                        selectedDate,
+                        selectedTime,
+                        germanZone
+                    )
+
+                    val editedTimer = timer.copy(
+                        name = name,
+                        target_time = newTargetDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                        note = note.ifBlank { null }
+                    )
+                    onSave(editedTimer)
+                },
+                enabled = name.isNotBlank()
+            ) {
+                Text("Speichern")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Abbrechen")
+            }
+        }
+    )
+
+    // Date Picker Dialog
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.atStartOfDay(germanZone).toInstant().toEpochMilli()
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            selectedDate = java.time.Instant.ofEpochMilli(millis)
+                                .atZone(germanZone)
+                                .toLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
 @Composable
 private fun ExactAlarmPermissionRationaleDialog(onGoToSettings: () -> Unit) {
     AlertDialog(

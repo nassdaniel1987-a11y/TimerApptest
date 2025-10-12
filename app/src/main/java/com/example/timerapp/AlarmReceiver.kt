@@ -34,7 +34,6 @@ class AlarmReceiver : BroadcastReceiver() {
             Log.d("AlarmReceiver", "📴 Vibration gestoppt")
         }
 
-        // Die Logik zum Starten wurde hierher verschoben, damit die Activity sie aufrufen kann
         fun playAlarmSound(context: Context) {
             try {
                 stopAlarmSound() // Falls noch läuft
@@ -76,22 +75,38 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        val timerId = intent.getStringExtra("TIMER_ID") ?: return
-        val timerName = intent.getStringExtra("TIMER_NAME") ?: "Timer"
+        // ✅ NEU: Unterstützt gruppierte Timer
+        val timerIds = intent.getStringArrayExtra("TIMER_IDS")
+        val timerNames = intent.getStringArrayExtra("TIMER_NAMES")
+        val timerCategories = intent.getStringArrayExtra("TIMER_CATEGORIES")
         val isPreReminder = intent.getBooleanExtra("IS_PRE_REMINDER", false)
 
-        Log.d("AlarmReceiver", "🔔 Alarm ausgelöst: $timerName (Pre: $isPreReminder)")
+        if (timerIds != null && timerNames != null && timerCategories != null) {
+            // Gruppierter Alarm
+            Log.d("AlarmReceiver", "🔔 Gruppen-Alarm ausgelöst für ${timerIds.size} Timer")
 
-        // Die Benachrichtigung wird immer noch angezeigt.
-        // Sie ist der Auslöser für den Fullscreen-Intent.
-        NotificationHelper.showTimerNotification(
-            context = context,
-            timerId = timerId,
-            timerName = timerName,
-            isPreReminder = isPreReminder
-        )
+            NotificationHelper.showGroupedTimerNotification(
+                context = context,
+                timerIds = timerIds.toList(),
+                timerNames = timerNames.toList(),
+                timerCategories = timerCategories.toList(),
+                isPreReminder = isPreReminder
+            )
+        } else {
+            // Fallback: Einzelner Timer (alte Implementierung)
+            val timerId = intent.getStringExtra("TIMER_ID") ?: return
+            val timerName = intent.getStringExtra("TIMER_NAME") ?: "Timer"
+            val timerCategory = intent.getStringExtra("TIMER_CATEGORY") ?: "Allgemein"
 
-        // Die manuelle Steuerung von Ton und Vibration wird hier entfernt,
-        // da die AlarmActivity dies nun übernimmt.
+            Log.d("AlarmReceiver", "🔔 Einzelner Alarm ausgelöst: $timerName")
+
+            NotificationHelper.showTimerNotification(
+                context = context,
+                timerId = timerId,
+                timerName = timerName,
+                timerCategory = timerCategory,
+                isPreReminder = isPreReminder
+            )
+        }
     }
 }

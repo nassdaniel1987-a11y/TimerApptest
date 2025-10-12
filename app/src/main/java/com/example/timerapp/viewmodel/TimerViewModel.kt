@@ -34,10 +34,31 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     fun sync() {
         viewModelScope.launch {
             _isLoading.value = true
+
+            // Alte Timer-IDs merken (vor dem Refresh)
+            val oldTimerIds = timers.value.map { it.id }.toSet()
+
+            // Daten aus Supabase laden
             repository.refreshTimers()
             repository.refreshCategories()
             repository.refreshTemplates()
             repository.refreshQRCodes()
+
+            // Neue Timer-IDs nach dem Refresh
+            val newTimerIds = timers.value.map { it.id }.toSet()
+
+            // Timer, die gelöscht wurden (in alten IDs, aber nicht in neuen)
+            val deletedTimerIds = oldTimerIds - newTimerIds
+
+            // Alarme für gelöschte Timer abbrechen
+            deletedTimerIds.forEach { timerId ->
+                alarmScheduler.cancelAlarm(timerId)
+            }
+
+            // ✅ NEU: Alle Alarme neu gruppieren und planen
+            val activeTimers = timers.value.filter { !it.is_completed }
+            alarmScheduler.rescheduleAllAlarms(activeTimers)
+
             _isLoading.value = false
         }
     }
@@ -46,9 +67,11 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     fun createTimer(timer: Timer) {
         viewModelScope.launch {
             val createdTimer = repository.createTimer(timer)
-            createdTimer?.let {
-                alarmScheduler.scheduleAlarm(it)
+            if (createdTimer != null) {
                 repository.refreshTimers()
+                // ✅ NEU: Alle Alarme neu gruppieren
+                val activeTimers = timers.value.filter { !it.is_completed }
+                alarmScheduler.rescheduleAllAlarms(activeTimers)
             }
         }
     }
@@ -56,8 +79,9 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     fun updateTimer(id: String, timer: Timer) {
         viewModelScope.launch {
             repository.updateTimer(id, timer)
-            alarmScheduler.cancelAlarm(id)
-            alarmScheduler.scheduleAlarm(timer.copy(id = id))
+            // ✅ NEU: Alle Alarme neu gruppieren
+            val activeTimers = timers.value.filter { !it.is_completed }
+            alarmScheduler.rescheduleAllAlarms(activeTimers)
         }
     }
 
@@ -65,6 +89,9 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             alarmScheduler.cancelAlarm(id)
             repository.deleteTimer(id)
+            // ✅ NEU: Alle Alarme neu gruppieren
+            val activeTimers = timers.value.filter { !it.is_completed }
+            alarmScheduler.rescheduleAllAlarms(activeTimers)
         }
     }
 
@@ -72,6 +99,9 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.markTimerCompleted(id)
             alarmScheduler.cancelAlarm(id)
+            // ✅ NEU: Alle Alarme neu gruppieren
+            val activeTimers = timers.value.filter { !it.is_completed }
+            alarmScheduler.rescheduleAllAlarms(activeTimers)
         }
     }
 
