@@ -11,10 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.timerapp.screens.*
 import com.example.timerapp.ui.theme.TimerAppTheme
 import com.example.timerapp.utils.NotificationHelper
@@ -60,7 +62,6 @@ fun AppNavigation(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    // Hilfsmethode, um die aktuelle Route zu verfolgen und das Menü zu aktualisieren
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: "home"
 
@@ -148,8 +149,25 @@ fun AppNavigation(
                     viewModel = viewModel,
                     onNavigateBack = {
                         navController.popBackStack()
+                    },
+                    onNavigateToDetail = { qrCodeId ->
+                        navController.navigate("qr_code_detail/$qrCodeId")
                     }
                 )
+            }
+
+            composable(
+                route = "qr_code_detail/{qrCodeId}",
+                arguments = listOf(navArgument("qrCodeId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val qrCodeId = backStackEntry.arguments?.getString("qrCodeId")
+                if (qrCodeId != null) {
+                    QRCodeDetailScreen(
+                        qrCodeId = qrCodeId,
+                        viewModel = viewModel,
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
             }
         }
     }

@@ -4,24 +4,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.timerapp.models.QRCodeData
-import com.example.timerapp.models.toQRString
-import com.example.timerapp.utils.QRCodeGenerator
-import com.example.timerapp.utils.ShareHelper
 import com.example.timerapp.viewmodel.TimerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageQRCodesScreen(
     viewModel: TimerViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToDetail: (String) -> Unit // Parameter für die Navigation zur Detailseite
 ) {
     val qrCodes by viewModel.qrCodes.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
@@ -56,10 +55,11 @@ fun ManageQRCodesScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(qrCodes) { qrCode ->
+                items(qrCodes, key = { it.id }) { qrCode ->
                     QRCodeItem(
                         qrCodeData = qrCode,
-                        onDelete = { viewModel.deleteQRCode(qrCode.id) }
+                        onDelete = { viewModel.deleteQRCode(qrCode.id) },
+                        onClick = { onNavigateToDetail(qrCode.id) } // Navigation hier aufrufen
                     )
                 }
             }
@@ -77,36 +77,28 @@ fun ManageQRCodesScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QRCodeItem(
     qrCodeData: QRCodeData,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(qrCodeData.name, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text("Uhrzeit: ${qrCodeData.time}", style = MaterialTheme.typography.bodySmall)
-            Text("Kategorie: ${qrCodeData.category}", style = MaterialTheme.typography.bodySmall)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = {
-                    val qrBitmap = QRCodeGenerator.generateQRCode(qrCodeData.toQRString())
-                    if (qrBitmap != null) {
-                        val shareText = "Timer QR-Code für: ${qrCodeData.name} (${qrCodeData.time})"
-                        ShareHelper.shareQRCodeImage(context, qrBitmap, shareText)
-                    }
-                }) {
-                    Icon(Icons.Default.Share, contentDescription = "Als Bild teilen")
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
-                }
+    ElevatedCard(
+        onClick = onClick, // Die ganze Karte ist klickbar
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(qrCodeData.name, style = MaterialTheme.typography.titleMedium)
+                Text("Uhrzeit: ${qrCodeData.time}", style = MaterialTheme.typography.bodySmall)
+            }
+            // IconButton bleibt klickbar, um das Löschen nicht zu blockieren
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error)
             }
         }
     }

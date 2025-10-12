@@ -4,6 +4,7 @@ import android.Manifest
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -61,7 +62,7 @@ fun QRScannerScreen(
         }
     ) { padding ->
         when {
-            cameraPermissionState.status.isGranted -> { // Geändert
+            cameraPermissionState.status.isGranted -> {
                 CameraPreview(
                     modifier = Modifier
                         .fillMaxSize()
@@ -74,19 +75,11 @@ fun QRScannerScreen(
                             val hour = timeParts[0].toInt()
                             val minute = timeParts[1].toInt()
 
-                            val targetDateTime = if (qrData.isFlexible) {
-                                ZonedDateTime.of(
-                                    LocalDate.now(),
-                                    LocalTime.of(hour, minute),
-                                    germanZone
-                                )
-                            } else {
-                                ZonedDateTime.of(
-                                    LocalDate.now(),
-                                    LocalTime.of(hour, minute),
-                                    germanZone
-                                )
-                            }
+                            val targetDateTime = ZonedDateTime.of(
+                                LocalDate.now(),
+                                LocalTime.of(hour, minute),
+                                germanZone
+                            )
 
                             val timer = com.example.timerapp.models.Timer(
                                 name = qrData.name,
@@ -101,7 +94,7 @@ fun QRScannerScreen(
                     }
                 )
             }
-            cameraPermissionState.status.shouldShowRationale -> { // Geändert
+            cameraPermissionState.status.shouldShowRationale -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -154,26 +147,33 @@ private fun CameraPreview(
     var torchEnabled by remember { mutableStateOf(false) }
     var camera by remember { mutableStateOf<Camera?>(null) }
 
+    var hasScanned by remember { mutableStateOf(false) }
+    val mainExecutor = ContextCompat.getMainExecutor(context)
+
     Box(modifier = modifier) {
         AndroidView(
             factory = { ctx ->
                 val previewView = PreviewView(ctx)
                 val executor = Executors.newSingleThreadExecutor()
-                val barcodeScanner = BarcodeScanning.getClient()
 
                 cameraProviderFuture.addListener({
                     val cameraProvider = cameraProviderFuture.get()
-
                     val preview = Preview.Builder().build().also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
-
                     val imageAnalysis = ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
                         .also {
                             it.setAnalyzer(executor) { imageProxy ->
-                                processImageProxy(barcodeScanner, imageProxy, onQRCodeScanned)
+                                processImageProxy(imageProxy) { qrString ->
+                                    if (!hasScanned) {
+                                        hasScanned = true
+                                        mainExecutor.execute {
+                                            onQRCodeScanned(qrString)
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -190,14 +190,13 @@ private fun CameraPreview(
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
-                }, ContextCompat.getMainExecutor(ctx))
+                }, mainExecutor)
 
                 previewView
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Torch Toggle Button
         IconButton(
             onClick = {
                 camera?.cameraControl?.enableTorch(!torchEnabled)
@@ -219,7 +218,6 @@ private fun CameraPreview(
             }
         }
 
-        // Scan Area Indicator
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -232,14 +230,13 @@ private fun CameraPreview(
                     .aspectRatio(1f),
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                 shape = MaterialTheme.shapes.medium,
-                border = androidx.compose.foundation.BorderStroke(
+                border = BorderStroke(
                     2.dp,
                     MaterialTheme.colorScheme.primary
                 )
             ) {}
         }
 
-        // Instructions
         Text(
             text = "Richte die Kamera auf den QR-Code",
             style = MaterialTheme.typography.bodyLarge,
@@ -253,31 +250,25 @@ private fun CameraPreview(
 
 @androidx.annotation.OptIn(ExperimentalGetImage::class)
 private fun processImageProxy(
-    barcodeScanner: com.google.mlkit.vision.barcode.BarcodeScanner,
     imageProxy: ImageProxy,
     onQRCodeScanned: (String) -> Unit
 ) {
+    val barcodeScanner = BarcodeScanning.getClient()
     val mediaImage = imageProxy.image
     if (mediaImage != null) {
-        val image = InputImage.fromMediaImage(
-            mediaImage,
-            imageProxy.imageInfo.rotationDegrees
-        )
+        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
 
         barcodeScanner.process(image)
             .addOnSuccessListener { barcodes ->
-                for (barcode in barcodes) {
-                    if (barcode.format == Barcode.FORMAT_QR_CODE) {
-                        barcode.rawValue?.let { value ->
-                            if (value.startsWith("TIMER:")) {
-                                onQRCodeScanned(value)
-                            }
-                        }
+                barcodes.firstOrNull()?.rawValue?.let { value ->
+                    if (value.startsWith("TIMER:")) {
+                        onQRCodeScanned(value)
                     }
                 }
             }
             .addOnCompleteListener {
                 imageProxy.close()
+                barcodeScanner.close() // Wichtig: Scanner schließen, um Ressourcen freizugeben
             }
     } else {
         imageProxy.close()
