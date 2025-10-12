@@ -152,7 +152,17 @@ fun AppNavigation(
                     },
                     onNavigateToDetail = { qrCodeId ->
                         navController.navigate("qr_code_detail/$qrCodeId")
+                    },
+                    onNavigateToCreate = {
+                        navController.navigate("create_qr_code")
                     }
+                )
+            }
+
+            composable("create_qr_code") {
+                CreateQRCodeScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

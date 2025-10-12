@@ -18,13 +18,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import java.time.LocalTime
 import kotlin.math.abs
 
@@ -145,23 +143,23 @@ private fun WheelPicker(
             contentPadding = PaddingValues(vertical = padding)
         ) {
             items(items.size) { index ->
-                val layoutInfo = remember { derivedStateOf { state.layoutInfo } }.value
-                val itemInfo = layoutInfo.visibleItemsInfo.find { it.index == index }
+                // ----- HIER IST DIE KORREKTUR -----
+                // Wir verwenden eine stabilere Methode zur Berechnung der Transformation,
+                // die nicht auf potenziell unvollständige Layout-Informationen zugreift.
+                val rotationX = remember(state.firstVisibleItemScrollOffset, state.firstVisibleItemIndex) {
+                    val firstItemOffset = state.firstVisibleItemScrollOffset
+                    val firstItemIndex = state.firstVisibleItemIndex
+                    val itemOffset = (index - firstItemIndex) * itemHeight.value - (firstItemOffset / 20f)
+                    -itemOffset
+                }
 
-                // ----- HIER IST DIE NEUE OPTISCHE VERBESSERUNG -----
-                val itemOffset = itemInfo?.offset ?: 0
-                val viewportCenter = layoutInfo.viewportSize.height / 2
-                val itemCenter = itemOffset + itemHeight.value * LocalDensity.current.density / 2
+                val alpha = remember(rotationX) {
+                    1f - (abs(rotationX) * 0.01f).coerceIn(0f, 1f)
+                }
 
-                val distanceFromCenter = abs(itemCenter - viewportCenter)
-                val totalDistance = viewportCenter.toFloat()
-
-                // Skalierung und Transparenz basierend auf der Distanz zur Mitte
-                val scale = 1f - (distanceFromCenter / totalDistance * 0.5f).coerceIn(0f, 0.5f)
-                val alpha = 1f - (distanceFromCenter / totalDistance * 0.7f).coerceIn(0f, 1f)
-
-                // 3D-Rotationseffekt für den Zylinder-Look
-                val rotationX = -20f * (itemCenter - viewportCenter) / viewportCenter
+                val scale = remember(rotationX) {
+                    1f - (abs(rotationX) * 0.005f).coerceIn(0f, 0.5f)
+                }
 
                 Text(
                     text = items[index],
@@ -173,10 +171,10 @@ private fun WheelPicker(
                         .height(itemHeight)
                         .wrapContentHeight(Alignment.CenterVertically)
                         .graphicsLayer {
+                            this.rotationX = rotationX
+                            this.alpha = alpha
                             this.scaleX = scale
                             this.scaleY = scale
-                            this.alpha = alpha
-                            this.rotationX = rotationX // Der neue 3D-Effekt
                         },
                     style = LocalTextStyle.current
                 )
