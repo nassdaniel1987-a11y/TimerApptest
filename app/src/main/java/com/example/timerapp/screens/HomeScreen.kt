@@ -5,8 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
-import android.util.Log
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -30,7 +30,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     viewModel: TimerViewModel,
@@ -43,7 +43,6 @@ fun HomeScreen(
     val activeTimers = timers.filter { !it.is_completed }
     val completedTimers = timers.filter { it.is_completed }
 
-    // Code für die Berechtigungsprüfung
     val context = LocalContext.current
     var hasExactAlarmPermission by remember { mutableStateOf(true) }
 
@@ -51,9 +50,7 @@ fun HomeScreen(
         hasExactAlarmPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             alarmManager.canScheduleExactAlarms()
-        } else {
-            true
-        }
+        } else { true }
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -64,26 +61,23 @@ fun HomeScreen(
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     if (!hasExactAlarmPermission) {
-        ExactAlarmPermissionRationaleDialog(
-            onGoToSettings = {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).also {
-                        context.startActivity(it)
-                    }
-                }
+        ExactAlarmPermissionRationaleDialog(onGoToSettings = {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).also { context.startActivity(it) }
             }
-        )
+        })
     }
 
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            LargeTopAppBar(
                 title = { Text("Timer") },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
@@ -94,7 +88,8 @@ fun HomeScreen(
                     IconButton(onClick = { viewModel.sync() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Aktualisieren")
                     }
-                }
+                },
+                scrollBehavior = scrollBehavior
             )
         },
         floatingActionButton = {
@@ -108,26 +103,21 @@ fun HomeScreen(
             onRefresh = { viewModel.sync() },
             modifier = Modifier.padding(padding)
         ) {
-            // ----- WIEDERHERGESTELLTER CODE -----
             if (timers.isEmpty()) {
                 EmptyState(onCreateTimer = onCreateTimer)
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     if (activeTimers.isNotEmpty()) {
                         item {
-                            Text(
-                                text = "Aktive Timer",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
+                            ListHeader("Aktive Timer")
                         }
-                        items(activeTimers) { timer ->
+                        items(activeTimers, key = { it.id }) { timer ->
                             TimerCard(
+                                modifier = Modifier.animateItemPlacement(),
                                 timer = timer,
                                 onComplete = { viewModel.markTimerCompleted(timer.id) },
                                 onDelete = { viewModel.deleteTimer(timer.id) }
@@ -138,74 +128,51 @@ fun HomeScreen(
                     if (completedTimers.isNotEmpty()) {
                         item {
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Abgeschlossen",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
+                            ListHeader("Abgeschlossen")
                         }
-                        items(completedTimers) { timer ->
+                        items(completedTimers, key = { it.id }) { timer ->
                             TimerCard(
+                                modifier = Modifier.animateItemPlacement(),
                                 timer = timer,
-                                onComplete = { /* Nichts tun bei abgeschlossenen */ },
+                                onComplete = { /* Nichts tun */ },
                                 onDelete = { viewModel.deleteTimer(timer.id) }
                             )
                         }
                     }
                 }
             }
-            // ----- ENDE WIEDERHERGESTELLTER CODE -----
         }
     }
 }
 
 @Composable
-private fun ExactAlarmPermissionRationaleDialog(
-    onGoToSettings: () -> Unit
-) {
-    // ... (unverändert)
+fun ListHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(vertical = 8.dp)
+    )
 }
 
-@Composable
-private fun EmptyState(onCreateTimer: () -> Unit) {
-    // ... (unverändert)
-}
-
-
-// ----- START DER REPARIERTEN TIMERCARD -----
 @Composable
 private fun TimerCard(
     timer: Timer,
     onComplete: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Wir versuchen, das Datum zu verarbeiten.
-    val targetTime: ZonedDateTime? = try {
-        ZonedDateTime.parse(timer.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-    } catch (e: Exception) {
-        // Wenn es fehlschlägt, loggen wir den Fehler und geben null zurück.
-        Log.e("TimerCard", "Konnte Datum nicht verarbeiten: ${timer.target_time}", e)
-        null
+    val targetTime = remember(timer.target_time) {
+        try { ZonedDateTime.parse(timer.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME) }
+        catch (e: Exception) { null }
     }
 
-    // Wenn die Verarbeitung fehlschlägt, zeigen wir eine Fehler-Karte an.
     if (targetTime == null) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-        ) {
-            Text(
-                text = "Fehlerhafte Timer-Daten für '${timer.name}'. Zeit-String: ${timer.target_time}",
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-        return // Beenden die Funktion für diese Karte
+        return
     }
 
-    // Wenn alles gut geht, wird der normale Code ausgeführt.
     val now = ZonedDateTime.now()
     val minutesUntil = ChronoUnit.MINUTES.between(now, targetTime)
     val hoursUntil = ChronoUnit.HOURS.between(now, targetTime)
@@ -219,93 +186,42 @@ private fun TimerCard(
         else -> targetTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
     }
 
-    val cardColor = when {
-        timer.is_completed -> MaterialTheme.colorScheme.surfaceVariant
-        isPast -> MaterialTheme.colorScheme.errorContainer
-        minutesUntil < 30 -> MaterialTheme.colorScheme.tertiaryContainer
-        else -> MaterialTheme.colorScheme.primaryContainer
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { },
-        colors = CardDefaults.cardColors(containerColor = cardColor)
+    ElevatedCard(
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = timer.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(text = timer.name, style = MaterialTheme.typography.titleMedium)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.AccessTime,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = timeText,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Icon(imageVector = Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = timeText, style = MaterialTheme.typography.bodyMedium)
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Category,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = timer.category,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Icon(imageVector = Icons.Default.Category, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = timer.category, style = MaterialTheme.typography.bodySmall)
                 }
-
                 if (timer.note?.isNotBlank() == true) {
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = timer.note,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Column(horizontalAlignment = Alignment.End) {
                 if (!timer.is_completed) {
                     IconButton(onClick = onComplete) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Abschließen",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Abschließen")
                     }
                 }
-
                 IconButton(onClick = { showDeleteDialog = true }) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Löschen",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Löschen")
                 }
             }
         }
@@ -317,21 +233,67 @@ private fun TimerCard(
             title = { Text("Timer löschen?") },
             text = { Text("Möchtest du '${timer.name}' wirklich löschen?") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDelete()
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text("Löschen")
-                }
+                TextButton(onClick = {
+                    onDelete()
+                    showDeleteDialog = false
+                }) { Text("Löschen") }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Abbrechen")
-                }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Abbrechen") }
             }
         )
     }
 }
-// ----- ENDE DER REPARIERTEN TIMERCARD -----
+
+// HIER SIND DIE FEHLENDEN FUNKTIONEN
+@Composable
+private fun ExactAlarmPermissionRationaleDialog(onGoToSettings: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = { /* Nicht schließbar */ },
+        icon = { Icon(Icons.Default.Alarm, contentDescription = null) },
+        title = { Text("Berechtigung erforderlich") },
+        text = {
+            Text(
+                "Damit die Timer zuverlässig funktionieren, auch wenn die App geschlossen ist, " +
+                        "benötigt die App die Berechtigung 'Alarme & Erinnerungen'."
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onGoToSettings) {
+                Text("Zu den Einstellungen")
+            }
+        }
+    )
+}
+
+@Composable
+private fun EmptyState(onCreateTimer: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Timer,
+                contentDescription = null,
+                modifier = Modifier.size(120.dp),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Keine Timer vorhanden",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(onClick = onCreateTimer) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Neuen Timer erstellen")
+            }
+        }
+    }
+}

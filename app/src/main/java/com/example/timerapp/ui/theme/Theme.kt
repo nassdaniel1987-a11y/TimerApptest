@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Ersetze das alte Farbschema durch die neuen M3-Farben
 private val LightColorScheme = lightColorScheme(
     primary = md_theme_light_primary,
     onPrimary = md_theme_light_onPrimary,
@@ -77,23 +76,18 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun TimerAppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Neuer Parameter: Dynamic color ist standardmäßig an
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
-        // Wenn dynamic color an ist und wir auf Android 12+ sind...
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            // ...verwende die Farben vom Handy-Hintergrundbild
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        // Ansonsten verwende unser vordefiniertes Dark/Light-Theme
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
 
-    // Dieser Teil passt die Farbe der Systemleisten (oben/unten) an
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -105,7 +99,7 @@ fun TimerAppTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography, // Stellt sicher, dass deine Typografie verwendet wird
+        typography = Typography, // Hier wird die Typography aus Type.kt verwendet
         content = content
     )
 }
