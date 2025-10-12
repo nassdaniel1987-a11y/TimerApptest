@@ -1,5 +1,6 @@
 package com.example.timerapp.models
 
+import kotlinx.serialization.SerialName // <-- NEUER IMPORT
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -9,7 +10,13 @@ data class QRCodeData(
     val time: String, // Format: "HH:mm"
     val category: String,
     val note: String? = null,
+
+    // ----- HIER IST DIE KORREKTUR -----
+    // Diese Anmerkung ordnet den Datenbank-Namen 'isflexible'
+    // unserem Kotlin-Feld 'isFlexible' zu.
+    @SerialName("isflexible")
     val isFlexible: Boolean = false,
+
     val created_at: String = ""
 )
 
@@ -21,10 +28,10 @@ fun QRCodeData.toQRString(): String {
 fun parseQRString(qrString: String): QRCodeData? {
     return try {
         if (!qrString.startsWith("TIMER:")) return null
-        
+
         val parts = qrString.removePrefix("TIMER:").split("|")
         if (parts.size < 5) return null
-        
+
         QRCodeData(
             name = parts[0],
             time = parts[1],

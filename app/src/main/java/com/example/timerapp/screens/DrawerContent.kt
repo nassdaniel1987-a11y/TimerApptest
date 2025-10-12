@@ -16,6 +16,7 @@ fun DrawerContent(
     onNavigateToSettings: () -> Unit,
     onNavigateToQRScanner: () -> Unit,
     onNavigateToCategories: () -> Unit,
+    onNavigateToManageQRCodes: () -> Unit, // <-- HIER IST DER FEHLENDE PARAMETER
     onCloseDrawer: () -> Unit
 ) {
     ModalDrawerSheet {
@@ -49,9 +50,9 @@ fun DrawerContent(
                     )
                 }
             }
-            
+
             Divider(modifier = Modifier.padding(vertical = 8.dp))
-            
+
             // Navigation Items
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.Home, contentDescription = null) },
@@ -63,7 +64,7 @@ fun DrawerContent(
                 },
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
-            
+
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.QrCodeScanner, contentDescription = null) },
                 label = { Text("QR-Code scannen") },
@@ -74,7 +75,7 @@ fun DrawerContent(
                 },
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
-            
+
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.Category, contentDescription = null) },
                 label = { Text("Kategorien") },
@@ -85,9 +86,20 @@ fun DrawerContent(
                 },
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
-            
+
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.QrCode, contentDescription = null) },
+                label = { Text("QR-Codes verwalten") },
+                selected = currentRoute == "manage_qr_codes",
+                onClick = {
+                    onNavigateToManageQRCodes() // Und hier wird er verwendet
+                    onCloseDrawer()
+                },
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+
             Divider(modifier = Modifier.padding(vertical = 8.dp))
-            
+
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                 label = { Text("Einstellungen") },
@@ -98,7 +110,7 @@ fun DrawerContent(
                 },
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
-            
+
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.Help, contentDescription = null) },
                 label = { Text("Hilfe") },
@@ -106,9 +118,9 @@ fun DrawerContent(
                 onClick = { onCloseDrawer() },
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
-            
+
             Spacer(modifier = Modifier.weight(1f))
-            
+
             // Footer Info
             Box(
                 modifier = Modifier

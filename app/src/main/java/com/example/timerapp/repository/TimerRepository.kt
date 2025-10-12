@@ -35,41 +35,39 @@ class TimerRepository {
             val response = client.from("timers")
                 .select()
                 .decodeList<Timer>()
-
-            // Nach target_time sortieren
             _timers.value = response.sortedBy {
                 ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                     .toInstant()
                     .toEpochMilli()
             }
-
-            Log.d("TimerRepository", "✅ ${response.size} Timer geladen")
         } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler beim Laden: ${e.message}")
+            Log.e("TimerRepository", "❌ Fehler beim Laden der Timer: ${e.message}")
         }
     }
 
     suspend fun createTimer(timer: Timer): Timer? {
         return try {
-            val response = client.from("timers").insert(timer) {
-                select() // Wichtig: Hiermit fordern wir die Rückgabe an
-            }.decodeSingle<Timer>()
-
+            val response = client.from("timers").insert(timer) { select() }.decodeSingle<Timer>()
             Log.d("TimerRepository", "✅ Timer erstellt: ${response.name}")
-            response // Den neuen Timer zurückgeben
+            response
         } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler beim Erstellen: ${e.message}")
-            null // Bei einem Fehler null zurückgeben
+            Log.e("TimerRepository", "❌ Fehler beim Erstellen des Timers: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun deleteTimer(id: String) {
+        try {
+            client.from("timers").delete { filter { eq("id", id) } }
+            refreshTimers()
+        } catch (e: Exception) {
+            Log.e("TimerRepository", "❌ Fehler beim Löschen des Timers: ${e.message}")
         }
     }
 
     suspend fun updateTimer(id: String, timer: Timer) {
         try {
-            client.from("timers").update(timer) {
-                filter {
-                    eq("id", id)
-                }
-            }
+            client.from("timers").update(timer) { filter { eq("id", id) } }
             refreshTimers()
             Log.d("TimerRepository", "✅ Timer aktualisiert: $id")
         } catch (e: Exception) {
@@ -77,27 +75,9 @@ class TimerRepository {
         }
     }
 
-    suspend fun deleteTimer(id: String) {
-        try {
-            client.from("timers").delete {
-                filter {
-                    eq("id", id)
-                }
-            }
-            refreshTimers()
-            Log.d("TimerRepository", "✅ Timer gelöscht: $id")
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler beim Löschen: ${e.message}")
-        }
-    }
-
     suspend fun markTimerCompleted(id: String) {
         try {
-            client.from("timers").update(mapOf("is_completed" to true)) {
-                filter {
-                    eq("id", id)
-                }
-            }
+            client.from("timers").update(mapOf("is_completed" to true)) { filter { eq("id", id) } }
             refreshTimers()
             Log.d("TimerRepository", "✅ Timer abgeschlossen: $id")
         } catch (e: Exception) {
@@ -108,9 +88,7 @@ class TimerRepository {
     // Category Operations
     suspend fun refreshCategories() {
         try {
-            val response = client.from("categories")
-                .select()
-                .decodeList<Category>()
+            val response = client.from("categories").select().decodeList<Category>()
             _categories.value = response
             Log.d("TimerRepository", "✅ ${response.size} Kategorien geladen")
         } catch (e: Exception) {
@@ -129,11 +107,7 @@ class TimerRepository {
 
     suspend fun deleteCategory(id: String) {
         try {
-            client.from("categories").delete {
-                filter {
-                    eq("id", id)
-                }
-            }
+            client.from("categories").delete { filter { eq("id", id) } }
             refreshCategories()
         } catch (e: Exception) {
             Log.e("TimerRepository", "❌ Fehler: ${e.message}")
@@ -143,9 +117,7 @@ class TimerRepository {
     // Template Operations
     suspend fun refreshTemplates() {
         try {
-            val response = client.from("timer_templates")
-                .select()
-                .decodeList<TimerTemplate>()
+            val response = client.from("timer_templates").select().decodeList<TimerTemplate>()
             _templates.value = response
             Log.d("TimerRepository", "✅ ${response.size} Templates geladen")
         } catch (e: Exception) {
@@ -164,11 +136,7 @@ class TimerRepository {
 
     suspend fun deleteTemplate(id: String) {
         try {
-            client.from("timer_templates").delete {
-                filter {
-                    eq("id", id)
-                }
-            }
+            client.from("timer_templates").delete { filter { eq("id", id) } }
             refreshTemplates()
         } catch (e: Exception) {
             Log.e("TimerRepository", "❌ Fehler: ${e.message}")
@@ -178,35 +146,36 @@ class TimerRepository {
     // QR Code Operations
     suspend fun refreshQRCodes() {
         try {
-            val response = client.from("qr_codes")
-                .select()
-                .decodeList<QRCodeData>()
+            val response = client.from("qr_codes").select().decodeList<QRCodeData>()
             _qrCodes.value = response
             Log.d("TimerRepository", "✅ ${response.size} QR-Codes geladen")
         } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler: ${e.message}")
+            Log.e("TimerRepository", "❌ Fehler beim Laden der QR-Codes: ${e.message}")
         }
     }
 
-    suspend fun createQRCode(qrCode: QRCodeData) {
-        try {
-            client.from("qr_codes").insert(qrCode)
-            refreshQRCodes()
+    suspend fun createQRCode(qrCode: QRCodeData): QRCodeData? {
+        return try {
+            val response = client.from("qr_codes").insert(qrCode) { select() }.decodeSingle<QRCodeData>()
+            Log.d("TimerRepository", "✅ QR-Code in DB erstellt: ${response.name}")
+            response
         } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler: ${e.message}")
+            Log.e("TimerRepository", "❌ Fehler beim Erstellen des QR-Codes: ${e.message}")
+            null
         }
+    }
+
+    fun addQRCodeToLocalList(qrCode: QRCodeData) {
+        _qrCodes.value = _qrCodes.value + qrCode
+        Log.d("TimerRepository", "✅ QR-Code zur lokalen Liste hinzugefügt.")
     }
 
     suspend fun deleteQRCode(id: String) {
         try {
-            client.from("qr_codes").delete {
-                filter {
-                    eq("id", id)
-                }
-            }
+            client.from("qr_codes").delete { filter { eq("id", id) } }
             refreshQRCodes()
         } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler: ${e.message}")
+            Log.e("TimerRepository", "❌ Fehler beim Löschen des QR-Codes: ${e.message}")
         }
     }
 }

@@ -45,14 +45,9 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     // Timer Operations
     fun createTimer(timer: Timer) {
         viewModelScope.launch {
-            // 1. Warte auf den in der DB erstellten Timer
             val createdTimer = repository.createTimer(timer)
-
-            // 2. Wenn die Erstellung erfolgreich war (nicht null)...
             createdTimer?.let {
-                // ...plane den Alarm mit dem korrekten Timer-Objekt...
                 alarmScheduler.scheduleAlarm(it)
-                // ...und aktualisiere danach die sichtbare Liste.
                 repository.refreshTimers()
             }
         }
@@ -61,7 +56,6 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     fun updateTimer(id: String, timer: Timer) {
         viewModelScope.launch {
             repository.updateTimer(id, timer)
-            // Alarm neu setzen
             alarmScheduler.cancelAlarm(id)
             alarmScheduler.scheduleAlarm(timer.copy(id = id))
         }
@@ -69,7 +63,6 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteTimer(id: String) {
         viewModelScope.launch {
-            // Alarm abbrechen
             alarmScheduler.cancelAlarm(id)
             repository.deleteTimer(id)
         }
@@ -78,7 +71,6 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     fun markTimerCompleted(id: String) {
         viewModelScope.launch {
             repository.markTimerCompleted(id)
-            // Alarm abbrechen
             alarmScheduler.cancelAlarm(id)
         }
     }
@@ -112,7 +104,10 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     // QR Code Operations
     fun createQRCode(qrCode: QRCodeData) {
         viewModelScope.launch {
-            repository.createQRCode(qrCode)
+            val createdQRCode = repository.createQRCode(qrCode)
+            createdQRCode?.let {
+                repository.addQRCodeToLocalList(it)
+            }
         }
     }
 

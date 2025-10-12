@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.timerapp.screens.*
 import com.example.timerapp.ui.theme.TimerAppTheme
@@ -21,22 +22,22 @@ import com.example.timerapp.viewmodel.TimerViewModel
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    
+
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { /* Permission result */ }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         // Notification Channel erstellen
         NotificationHelper.createNotificationChannel(this)
-        
+
         // Request Notification Permission (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        
+
         setContent {
             TimerAppTheme {
                 Surface(
@@ -58,9 +59,11 @@ fun AppNavigation(
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    
-    var currentRoute by remember { mutableStateOf("home") }
-    
+
+    // Hilfsmethode, um die aktuelle Route zu verfolgen und das Menü zu aktualisieren
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route ?: "home"
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -70,19 +73,18 @@ fun AppNavigation(
                     navController.navigate("home") {
                         popUpTo("home") { inclusive = true }
                     }
-                    currentRoute = "home"
                 },
                 onNavigateToSettings = {
                     navController.navigate("settings")
-                    currentRoute = "settings"
                 },
                 onNavigateToQRScanner = {
                     navController.navigate("qr_scanner")
-                    currentRoute = "qr_scanner"
                 },
                 onNavigateToCategories = {
                     navController.navigate("categories")
-                    currentRoute = "categories"
+                },
+                onNavigateToManageQRCodes = {
+                    navController.navigate("manage_qr_codes")
                 },
                 onCloseDrawer = {
                     scope.launch { drawerState.close() }
@@ -105,7 +107,7 @@ fun AppNavigation(
                     }
                 )
             }
-            
+
             composable("create_timer") {
                 CreateTimerScreen(
                     viewModel = viewModel,
@@ -114,7 +116,7 @@ fun AppNavigation(
                     }
                 )
             }
-            
+
             composable("settings") {
                 SettingsScreen(
                     onNavigateBack = {
@@ -122,7 +124,7 @@ fun AppNavigation(
                     }
                 )
             }
-            
+
             composable("qr_scanner") {
                 QRScannerScreen(
                     viewModel = viewModel,
@@ -131,9 +133,18 @@ fun AppNavigation(
                     }
                 )
             }
-            
+
             composable("categories") {
                 ManageCategoriesScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            composable("manage_qr_codes") {
+                ManageQRCodesScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
                         navController.popBackStack()
