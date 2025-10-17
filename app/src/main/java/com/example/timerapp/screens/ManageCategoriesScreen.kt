@@ -25,7 +25,7 @@ fun ManageCategoriesScreen(
 ) {
     val categories by viewModel.categories.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -34,7 +34,11 @@ fun ManageCategoriesScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background
+                )
             )
         },
         floatingActionButton = {
@@ -83,7 +87,7 @@ fun ManageCategoriesScreen(
             }
         }
     }
-    
+
     if (showAddDialog) {
         AddCategoryDialog(
             onDismiss = { showAddDialog = false },
@@ -103,7 +107,7 @@ private fun CategoryItem(
     onDelete: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
-    
+
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -132,7 +136,7 @@ private fun CategoryItem(
                     style = MaterialTheme.typography.titleMedium
                 )
             }
-            
+
             IconButton(onClick = { showDeleteDialog = true }) {
                 Icon(
                     Icons.Default.Delete,
@@ -142,7 +146,7 @@ private fun CategoryItem(
             }
         }
     }
-    
+
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -174,7 +178,7 @@ private fun AddCategoryDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var selectedColor by remember { mutableStateOf("#4CAF50") }
-    
+
     val colorOptions = listOf(
         "#4CAF50" to "Grün",
         "#2196F3" to "Blau",
@@ -185,7 +189,7 @@ private fun AddCategoryDialog(
         "#00BCD4" to "Cyan",
         "#795548" to "Braun"
     )
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Neue Kategorie") },
@@ -197,16 +201,16 @@ private fun AddCategoryDialog(
                     label = { Text("Name") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Text(
                     text = "Farbe wählen",
                     style = MaterialTheme.typography.labelMedium
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -232,9 +236,9 @@ private fun AddCategoryDialog(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)

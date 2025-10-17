@@ -91,6 +91,10 @@ fun HomeScreen(
                         Icon(Icons.Default.Refresh, contentDescription = "Aktualisieren")
                     }
                 },
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background
+                ),
                 scrollBehavior = scrollBehavior
             )
         },

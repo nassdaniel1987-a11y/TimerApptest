@@ -21,13 +21,13 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
-    
+
     var isSoundEnabled by remember { mutableStateOf(settingsManager.isSoundEnabled) }
     var isVibrationEnabled by remember { mutableStateOf(settingsManager.isVibrationEnabled) }
     var isPreReminderEnabled by remember { mutableStateOf(settingsManager.isPreReminderEnabled) }
     var preReminderMinutes by remember { mutableStateOf(settingsManager.preReminderMinutes) }
     var showPreReminderDialog by remember { mutableStateOf(false) }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -36,7 +36,11 @@ fun SettingsScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { padding ->
@@ -48,7 +52,7 @@ fun SettingsScreen(
         ) {
             // Alarm-Einstellungen
             ListItem(
-                headlineContent = { 
+                headlineContent = {
                     Text(
                         "Alarm-Einstellungen",
                         style = MaterialTheme.typography.titleMedium,
@@ -56,9 +60,9 @@ fun SettingsScreen(
                     )
                 }
             )
-            
+
             Divider()
-            
+
             // Sound
             ListItem(
                 headlineContent = { Text("Sound") },
@@ -79,7 +83,7 @@ fun SettingsScreen(
                     )
                 }
             )
-            
+
             // Vibration
             ListItem(
                 headlineContent = { Text("Vibration") },
@@ -100,12 +104,12 @@ fun SettingsScreen(
                     )
                 }
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Erinnerungen
             ListItem(
-                headlineContent = { 
+                headlineContent = {
                     Text(
                         "Erinnerungen",
                         style = MaterialTheme.typography.titleMedium,
@@ -113,17 +117,17 @@ fun SettingsScreen(
                     )
                 }
             )
-            
+
             Divider()
-            
+
             // Vorab-Erinnerung
             ListItem(
                 headlineContent = { Text("Vorab-Erinnerung") },
-                supportingContent = { 
+                supportingContent = {
                     Text(
-                        if (isPreReminderEnabled) 
-                            "$preReminderMinutes Minuten vor dem Timer" 
-                        else 
+                        if (isPreReminderEnabled)
+                            "$preReminderMinutes Minuten vor dem Timer"
+                        else
                             "Keine Vorab-Erinnerung"
                     )
                 },
@@ -140,7 +144,7 @@ fun SettingsScreen(
                     )
                 }
             )
-            
+
             if (isPreReminderEnabled) {
                 ListItem(
                     headlineContent = { Text("Vorab-Erinnerung Zeit") },
@@ -155,12 +159,12 @@ fun SettingsScreen(
                     }
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Info
             ListItem(
-                headlineContent = { 
+                headlineContent = {
                     Text(
                         "Information",
                         style = MaterialTheme.typography.titleMedium,
@@ -168,9 +172,9 @@ fun SettingsScreen(
                     )
                 }
             )
-            
+
             Divider()
-            
+
             ListItem(
                 headlineContent = { Text("Zeitzone") },
                 supportingContent = { Text("Europe/Berlin (Deutschland)") },
@@ -178,7 +182,7 @@ fun SettingsScreen(
                     Icon(Icons.Default.Public, contentDescription = null)
                 }
             )
-            
+
             ListItem(
                 headlineContent = { Text("App-Version") },
                 supportingContent = { Text("1.0.0") },
@@ -186,9 +190,9 @@ fun SettingsScreen(
                     Icon(Icons.Default.Info, contentDescription = null)
                 }
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Hinweis-Card
             Card(
                 modifier = Modifier
@@ -215,9 +219,9 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Für zuverlässige Alarme stelle sicher, dass:\n" +
-                                   "• Benachrichtigungen erlaubt sind\n" +
-                                   "• 'Alarme & Erinnerungen' aktiviert ist\n" +
-                                   "• Batterie-Optimierung deaktiviert ist",
+                                    "• Benachrichtigungen erlaubt sind\n" +
+                                    "• 'Alarme & Erinnerungen' aktiviert ist\n" +
+                                    "• Batterie-Optimierung deaktiviert ist",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -225,11 +229,11 @@ fun SettingsScreen(
             }
         }
     }
-    
+
     // Pre-Reminder Time Picker Dialog
     if (showPreReminderDialog) {
         val options = listOf(5, 10, 15, 20, 30, 45, 60)
-        
+
         AlertDialog(
             onDismissRequest = { showPreReminderDialog = false },
             title = { Text("Vorab-Erinnerung Zeit") },

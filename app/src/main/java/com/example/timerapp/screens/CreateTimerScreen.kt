@@ -9,8 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.timerapp.models.Category
 import com.example.timerapp.models.Timer
 import com.example.timerapp.viewmodel.TimerViewModel
 import java.time.LocalDate
@@ -29,7 +29,6 @@ fun CreateTimerScreen(
 
     var name by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    // HIER IST DIE KORREKTUR: .plusHours(1) wurde entfernt
     var selectedTime by remember { mutableStateOf(LocalTime.now()) }
     var selectedCategory by remember { mutableStateOf(categories.firstOrNull()?.name ?: "Wird abgeholt") }
     var note by remember { mutableStateOf("") }
@@ -42,18 +41,18 @@ fun CreateTimerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Timer erstellen") },
+                title = { Text("Neuer Timer") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
+                    TextButton(onClick = onNavigateBack) {
+                        Text("Abbrechen")
                     }
                 },
                 actions = {
-                    IconButton(
+                    TextButton(
                         onClick = {
                             if (name.isBlank()) {
                                 nameError = true
-                                return@IconButton
+                                return@TextButton
                             }
 
                             val targetDateTime = ZonedDateTime.of(
@@ -71,11 +70,19 @@ fun CreateTimerScreen(
 
                             viewModel.createTimer(timer)
                             onNavigateBack()
-                        }
+                        },
+                        enabled = name.isNotBlank()
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = "Speichern")
+                        Text(
+                            "Erstellen",
+                            style = MaterialTheme.typography.labelLarge
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { padding ->
@@ -84,86 +91,123 @@ fun CreateTimerScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 20.dp)
+                .padding(top = 8.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Name
+            // ✅ Name Input - Minimalistisch
             OutlinedTextField(
                 value = name,
                 onValueChange = {
                     name = it
                     nameError = false
                 },
-                label = { Text("Name") },
+                label = { Text("Wofür?") },
                 placeholder = { Text("z.B. Max abholen") },
                 modifier = Modifier.fillMaxWidth(),
                 isError = nameError,
                 supportingText = if (nameError) {
-                    { Text("Name ist erforderlich") }
+                    { Text("Bitte einen Namen eingeben") }
                 } else null,
-                leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null)
-                }
+                singleLine = true,
+                shape = MaterialTheme.shapes.large
             )
 
-            // Datum
-            OutlinedCard(
+            // ✅ Datum & Zeit - Kompakt nebeneinander
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = { showDatePicker = true }
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // Datum
+                OutlinedCard(
+                    modifier = Modifier.weight(1f),
+                    onClick = { showDatePicker = true },
+                    shape = MaterialTheme.shapes.large
                 ) {
-                    Column {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Text(
                             text = "Datum",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarToday,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
-                    Icon(
-                        imageVector = Icons.Default.CalendarToday,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
                 }
-            }
 
-            // Zeit
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                // Uhrzeit - nur Anzeige
+                OutlinedCard(
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.large
                 ) {
-                    Text(
-                        text = "Uhrzeit",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    WheelTimePicker(
-                        initialTime = selectedTime,
-                        onTimeSelected = { selectedTime = it },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Uhrzeit",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccessTime,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
             }
 
-            // Kategorie
+            // ✅ Zeit-Picker - Kompakter
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                WheelTimePicker(
+                    initialTime = selectedTime,
+                    onTimeSelected = { selectedTime = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                )
+            }
+
+            // ✅ Kategorie - Kompakt
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = { showCategoryDialog = true }
+                onClick = { showCategoryDialog = true },
+                shape = MaterialTheme.shapes.large
             ) {
                 Row(
                     modifier = Modifier
@@ -172,80 +216,47 @@ fun CreateTimerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "Kategorie",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Category,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = selectedCategory,
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Column {
+                            Text(
+                                text = "Kategorie",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = selectedCategory,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                     Icon(
-                        imageVector = Icons.Default.Category,
+                        Icons.Default.ChevronRight,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            // Notiz
+            // ✅ Notiz - Optional & minimalistisch
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
                 label = { Text("Notiz (optional)") },
                 placeholder = { Text("z.B. Sportplatz Eingang Nord") },
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 5,
-                leadingIcon = {
-                    Icon(Icons.Default.Notes, contentDescription = null)
-                }
+                minLines = 2,
+                maxLines = 4,
+                shape = MaterialTheme.shapes.large
             )
-
-            // Zusammenfassung
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Zusammenfassung",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-
-                    Divider()
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Alarm,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "Alarm wird ausgelöst am:",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-
-                    Text(
-                        text = "${selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))} um ${selectedTime.format(DateTimeFormatter.ofPattern("HH:mm"))} Uhr",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-            }
         }
     }
 
@@ -287,26 +298,37 @@ fun CreateTimerScreen(
             onDismissRequest = { showCategoryDialog = false },
             title = { Text("Kategorie wählen") },
             text = {
-                Column {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     categories.forEach { category ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            onClick = {
+                                selectedCategory = category.name
+                                showCategoryDialog = false
+                            },
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            RadioButton(
-                                selected = selectedCategory == category.name,
-                                onClick = {
-                                    selectedCategory = category.name
-                                    showCategoryDialog = false
-                                }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = category.name,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                RadioButton(
+                                    selected = selectedCategory == category.name,
+                                    onClick = {
+                                        selectedCategory = category.name
+                                        showCategoryDialog = false
+                                    }
+                                )
+                                Text(
+                                    text = category.name,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
                         }
                     }
                 }
