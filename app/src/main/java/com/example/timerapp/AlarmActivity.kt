@@ -43,10 +43,10 @@ class AlarmActivity : ComponentActivity() {
         // Die Activity startet jetzt selbst Ton und Vibration.
         val settingsManager = SettingsManager.getInstance(this)
         if (settingsManager.isSoundEnabled) {
-            AlarmReceiver.playAlarmSound(this)
+            AlarmReceiver.playAlarmSound(this, escalate = settingsManager.isEscalatingAlarmEnabled)
         }
         if (settingsManager.isVibrationEnabled) {
-            AlarmReceiver.startVibration(this)
+            AlarmReceiver.startVibration(this, intense = false)
         }
 
         setContent {

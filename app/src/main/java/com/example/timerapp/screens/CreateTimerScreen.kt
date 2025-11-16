@@ -34,7 +34,13 @@ fun CreateTimerScreen(
     var note by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showCategoryDialog by remember { mutableStateOf(false) }
+    var showRecurrenceDialog by remember { mutableStateOf(false) }
+    var showRecurrenceEndDatePicker by remember { mutableStateOf(false) }
     var nameError by remember { mutableStateOf(false) }
+
+    // ✅ Wiederholungs-State
+    var recurrence by remember { mutableStateOf<String?>(null) }
+    var recurrenceEndDate by remember { mutableStateOf<LocalDate?>(null) }
 
     val germanZone = ZoneId.of("Europe/Berlin")
 
@@ -65,7 +71,9 @@ fun CreateTimerScreen(
                                 name = name,
                                 target_time = targetDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                                 category = selectedCategory,
-                                note = note.ifBlank { null }
+                                note = note.ifBlank { null },
+                                recurrence = recurrence,
+                                recurrence_end_date = recurrenceEndDate?.atStartOfDay(germanZone)?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                             )
 
                             viewModel.createTimer(timer)
@@ -246,6 +254,101 @@ fun CreateTimerScreen(
                 }
             }
 
+            // ✅ Wiederholung
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { showRecurrenceDialog = true },
+                shape = MaterialTheme.shapes.large
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Repeat,
+                            contentDescription = null,
+                            tint = if (recurrence != null) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
+                        )
+                        Column {
+                            Text(
+                                text = "Wiederholung",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = when (recurrence) {
+                                    "daily" -> "Täglich"
+                                    "weekly" -> "Wöchentlich"
+                                    "weekdays" -> "Werktags (Mo-Fr)"
+                                    "weekends" -> "Wochenende (Sa-So)"
+                                    else -> "Einmalig"
+                                },
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = if (recurrence != null) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // ✅ Wiederholungs-Enddatum (nur wenn Wiederholung aktiv)
+            if (recurrence != null) {
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { showRecurrenceEndDatePicker = true },
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.EventRepeat,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary
+                            )
+                            Column {
+                                Text(
+                                    text = "Wiederholung endet am",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = recurrenceEndDate?.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")) ?: "Nie",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        Icon(
+                            Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
+            }
+
             // ✅ Notiz - Optional & minimalistisch
             OutlinedTextField(
                 value = note,
@@ -339,5 +442,110 @@ fun CreateTimerScreen(
                 }
             }
         )
+    }
+
+    // ✅ Recurrence Selection Dialog
+    if (showRecurrenceDialog) {
+        val recurrenceOptions = listOf(
+            null to "Einmalig",
+            "daily" to "Täglich",
+            "weekly" to "Wöchentlich",
+            "weekdays" to "Werktags (Mo-Fr)",
+            "weekends" to "Wochenende (Sa-So)"
+        )
+
+        AlertDialog(
+            onDismissRequest = { showRecurrenceDialog = false },
+            icon = { Icon(Icons.Default.Repeat, contentDescription = null) },
+            title = { Text("Wiederholung wählen") },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    recurrenceOptions.forEach { (value, label) ->
+                        Surface(
+                            onClick = {
+                                recurrence = value
+                                if (value == null) {
+                                    recurrenceEndDate = null
+                                }
+                                showRecurrenceDialog = false
+                            },
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                RadioButton(
+                                    selected = recurrence == value,
+                                    onClick = {
+                                        recurrence = value
+                                        if (value == null) {
+                                            recurrenceEndDate = null
+                                        }
+                                        showRecurrenceDialog = false
+                                    }
+                                )
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showRecurrenceDialog = false }) {
+                    Text("Schließen")
+                }
+            }
+        )
+    }
+
+    // ✅ Recurrence End Date Picker
+    if (showRecurrenceEndDatePicker) {
+        val initialDate = recurrenceEndDate ?: selectedDate.plusMonths(1)
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialDate.atStartOfDay(germanZone).toInstant().toEpochMilli()
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showRecurrenceEndDatePicker = false },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = {
+                        recurrenceEndDate = null
+                        showRecurrenceEndDatePicker = false
+                    }) {
+                        Text("Nie")
+                    }
+                    TextButton(
+                        onClick = {
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                recurrenceEndDate = java.time.Instant.ofEpochMilli(millis)
+                                    .atZone(germanZone)
+                                    .toLocalDate()
+                            }
+                            showRecurrenceEndDatePicker = false
+                        }
+                    ) {
+                        Text("OK")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRecurrenceEndDatePicker = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 }

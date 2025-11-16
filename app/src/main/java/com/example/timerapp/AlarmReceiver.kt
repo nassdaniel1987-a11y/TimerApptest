@@ -16,6 +16,8 @@ class AlarmReceiver : BroadcastReceiver() {
     companion object {
         var mediaPlayer: MediaPlayer? = null
         var vibrator: Vibrator? = null
+        private var escalationHandler: android.os.Handler? = null
+        private var escalationRunnable: Runnable? = null
 
         fun stopAlarmSound() {
             mediaPlayer?.let {
@@ -25,6 +27,10 @@ class AlarmReceiver : BroadcastReceiver() {
                 it.release()
                 mediaPlayer = null
             }
+            // Stoppe Eskalation
+            escalationHandler?.removeCallbacksAndMessages(null)
+            escalationHandler = null
+            escalationRunnable = null
             Log.d("AlarmReceiver", "🔇 Sound gestoppt")
         }
 
@@ -34,7 +40,7 @@ class AlarmReceiver : BroadcastReceiver() {
             Log.d("AlarmReceiver", "📴 Vibration gestoppt")
         }
 
-        fun playAlarmSound(context: Context) {
+        fun playAlarmSound(context: Context, escalate: Boolean = false) {
             try {
                 stopAlarmSound() // Falls noch läuft
 
@@ -43,20 +49,40 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 mediaPlayer = MediaPlayer.create(context, alarmUri).apply {
                     isLooping = true
+                    setVolume(if (escalate) 0.5f else 1.0f, if (escalate) 0.5f else 1.0f)
                     start()
                 }
 
-                Log.d("AlarmReceiver", "🔊 Sound gestartet")
+                Log.d("AlarmReceiver", "🔊 Sound gestartet (Lautstärke: ${if (escalate) "50%" else "100%"})")
+
+                // ✅ Eskalierender Alarm: Nach 60 Sekunden lauter
+                if (escalate) {
+                    val settingsManager = SettingsManager.getInstance(context)
+                    if (settingsManager.isEscalatingAlarmEnabled) {
+                        escalationHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                        escalationRunnable = Runnable {
+                            mediaPlayer?.setVolume(1.0f, 1.0f)
+                            // Intensivere Vibration
+                            startVibration(context, intense = true)
+                            Log.d("AlarmReceiver", "📈 Alarm eskaliert (100% Lautstärke)")
+                        }
+                        escalationHandler?.postDelayed(escalationRunnable!!, 60000) // 60 Sekunden
+                    }
+                }
             } catch (e: Exception) {
                 Log.e("AlarmReceiver", "❌ Fehler beim Sound: ${e.message}")
             }
         }
 
-        fun startVibration(context: Context) {
+        fun startVibration(context: Context, intense: Boolean = false) {
             try {
                 vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
-                val pattern = longArrayOf(0, 1000, 1000)
+                val pattern = if (intense) {
+                    longArrayOf(0, 500, 500) // Schnellere Vibration
+                } else {
+                    longArrayOf(0, 1000, 1000) // Normale Vibration
+                }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     vibrator?.vibrate(
@@ -67,7 +93,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     vibrator?.vibrate(pattern, 0)
                 }
 
-                Log.d("AlarmReceiver", "📳 Vibration gestartet")
+                Log.d("AlarmReceiver", "📳 Vibration gestartet (${if (intense) "intensiv" else "normal"})")
             } catch (e: Exception) {
                 Log.e("AlarmReceiver", "❌ Fehler bei Vibration: ${e.message}")
             }
