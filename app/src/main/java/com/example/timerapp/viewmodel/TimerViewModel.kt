@@ -105,7 +105,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
             alarmScheduler.cancelAlarm(id)
 
             // ✅ Wenn Timer wiederholt werden soll, erstelle nächste Instanz
-            if (timer?.recurrence != null) {
+            if (timer != null && timer.recurrence != null) {
                 val nextTimer = alarmScheduler.calculateNextOccurrence(timer)
                 if (nextTimer != null) {
                     val createdTimer = repository.createTimer(nextTimer)
