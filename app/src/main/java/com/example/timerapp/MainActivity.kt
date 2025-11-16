@@ -22,7 +22,13 @@ import com.example.timerapp.screens.*
 import com.example.timerapp.ui.theme.TimerAppTheme
 import com.example.timerapp.utils.NotificationHelper
 import com.example.timerapp.viewmodel.TimerViewModel
+import com.example.timerapp.workers.DailyReminderWorker
+import androidx.work.*
 import kotlinx.coroutines.launch
+import java.time.Duration
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
 
@@ -41,6 +47,9 @@ class MainActivity : ComponentActivity() {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
+        // ✅ Starte tägliche Erinnerungen (WorkManager)
+        scheduleDailyReminder()
+
         setContent {
             val settingsManager = remember { SettingsManager.getInstance(this) }
             var isDarkMode by remember { mutableStateOf(settingsManager.isDarkModeEnabled) }
@@ -58,6 +67,38 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    // ✅ Plant tägliche Erinnerung um 20:00 Uhr
+    private fun scheduleDailyReminder() {
+        val currentTime = LocalDateTime.now()
+        val targetTime = LocalDateTime.of(currentTime.toLocalDate(), LocalTime.of(20, 0))
+
+        // Berechne Verzögerung bis 20:00 Uhr
+        val initialDelay = if (currentTime.isAfter(targetTime)) {
+            // Wenn es nach 20:00 Uhr ist, plane für morgen
+            Duration.between(currentTime, targetTime.plusDays(1))
+        } else {
+            // Sonst für heute
+            Duration.between(currentTime, targetTime)
+        }
+
+        val dailyWorkRequest = PeriodicWorkRequestBuilder<DailyReminderWorker>(
+            1, TimeUnit.DAYS
+        )
+            .setInitialDelay(initialDelay.toMinutes(), TimeUnit.MINUTES)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiresBatteryNotLow(false)
+                    .build()
+            )
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            DailyReminderWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP, // Behalte existierende Arbeit
+            dailyWorkRequest
+        )
     }
 }
 

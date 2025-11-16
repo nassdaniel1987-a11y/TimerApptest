@@ -9,6 +9,7 @@ import android.util.Log
 import com.example.timerapp.AlarmReceiver
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.models.Timer
+import java.time.DayOfWeek
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -180,5 +181,84 @@ class AlarmScheduler(private val context: Context) {
         scheduleAlarmsForTimers(timers)
 
         Log.d("AlarmScheduler", "🔄 Alle Alarme neu geplant für ${timers.size} Timer")
+    }
+
+    // ✅ WIEDERHOLUNGS-LOGIK: Berechnet das nächste Vorkommen eines wiederholenden Timers
+    fun calculateNextOccurrence(timer: Timer): Timer? {
+        if (timer.recurrence == null) return null
+
+        try {
+            val currentTargetTime = ZonedDateTime.parse(
+                timer.target_time,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME
+            )
+
+            // Prüfe ob Enddatum erreicht ist
+            if (timer.recurrence_end_date != null) {
+                val endDate = ZonedDateTime.parse(
+                    timer.recurrence_end_date,
+                    DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                )
+                if (currentTargetTime.isAfter(endDate) || currentTargetTime.isEqual(endDate)) {
+                    Log.d("AlarmScheduler", "🔚 Wiederholung beendet für: ${timer.name}")
+                    return null
+                }
+            }
+
+            val nextTime = when (timer.recurrence) {
+                "daily" -> calculateNextDaily(currentTargetTime)
+                "weekly" -> calculateNextWeekly(currentTargetTime)
+                "weekdays" -> calculateNextWeekday(currentTargetTime)
+                "weekends" -> calculateNextWeekend(currentTargetTime)
+                else -> null
+            }
+
+            if (nextTime == null) return null
+
+            // Erstelle neuen Timer mit gleichem Namen, Kategorie, etc. aber neuem Datum
+            val newTimer = timer.copy(
+                id = "", // Neue ID wird vom Repository vergeben
+                target_time = nextTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                is_completed = false,
+                created_at = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            )
+
+            Log.d("AlarmScheduler", "🔁 Nächste Wiederholung berechnet: ${timer.name} → ${nextTime}")
+            return newTimer
+
+        } catch (e: Exception) {
+            Log.e("AlarmScheduler", "❌ Fehler bei Wiederholungsberechnung: ${e.message}")
+            return null
+        }
+    }
+
+    private fun calculateNextDaily(currentTime: ZonedDateTime): ZonedDateTime {
+        return currentTime.plusDays(1)
+    }
+
+    private fun calculateNextWeekly(currentTime: ZonedDateTime): ZonedDateTime {
+        return currentTime.plusWeeks(1)
+    }
+
+    private fun calculateNextWeekday(currentTime: ZonedDateTime): ZonedDateTime {
+        var nextTime = currentTime.plusDays(1)
+
+        // Überspringe Wochenende
+        while (nextTime.dayOfWeek == DayOfWeek.SATURDAY || nextTime.dayOfWeek == DayOfWeek.SUNDAY) {
+            nextTime = nextTime.plusDays(1)
+        }
+
+        return nextTime
+    }
+
+    private fun calculateNextWeekend(currentTime: ZonedDateTime): ZonedDateTime {
+        var nextTime = currentTime.plusDays(1)
+
+        // Finde nächsten Samstag oder Sonntag
+        while (nextTime.dayOfWeek != DayOfWeek.SATURDAY && nextTime.dayOfWeek != DayOfWeek.SUNDAY) {
+            nextTime = nextTime.plusDays(1)
+        }
+
+        return nextTime
     }
 }
