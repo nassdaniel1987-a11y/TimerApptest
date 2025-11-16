@@ -48,6 +48,9 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import me.saket.swipe.SwipeAction
 import me.saket.swipe.SwipeableActionsBox
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -865,7 +868,7 @@ fun performHaptic(haptic: androidx.compose.ui.hapticfeedback.HapticFeedback, set
 
 // ✅ SnackBar Helper
 fun showSnackbar(snackbarHostState: SnackbarHostState, message: String) {
-    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+    CoroutineScope(Dispatchers.Main).launch {
         snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
     }
 }
