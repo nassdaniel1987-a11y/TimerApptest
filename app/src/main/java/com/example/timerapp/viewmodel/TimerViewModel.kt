@@ -1,6 +1,7 @@
 package com.example.timerapp.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timerapp.models.Category
@@ -97,8 +98,24 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
     fun markTimerCompleted(id: String) {
         viewModelScope.launch {
+            // ✅ Prüfe ob Timer eine Wiederholung hat
+            val timer = timers.value.find { it.id == id }
+
             repository.markTimerCompleted(id)
             alarmScheduler.cancelAlarm(id)
+
+            // ✅ Wenn Timer wiederholt werden soll, erstelle nächste Instanz
+            if (timer?.recurrence != null) {
+                val nextTimer = alarmScheduler.calculateNextOccurrence(timer)
+                if (nextTimer != null) {
+                    val createdTimer = repository.createTimer(nextTimer)
+                    if (createdTimer != null) {
+                        repository.refreshTimers()
+                        Log.d("TimerViewModel", "🔁 Wiederholender Timer erstellt: ${nextTimer.name}")
+                    }
+                }
+            }
+
             // ✅ NEU: Alle Alarme neu gruppieren
             val activeTimers = timers.value.filter { !it.is_completed }
             alarmScheduler.rescheduleAllAlarms(activeTimers)
