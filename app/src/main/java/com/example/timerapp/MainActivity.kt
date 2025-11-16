@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -41,12 +42,19 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            TimerAppTheme {
+            val settingsManager = remember { SettingsManager.getInstance(this) }
+            var isDarkMode by remember { mutableStateOf(settingsManager.isDarkModeEnabled) }
+
+            TimerAppTheme(darkTheme = isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation()
+                    AppNavigation(
+                        onDarkModeChange = { enabled ->
+                            isDarkMode = enabled
+                        }
+                    )
                 }
             }
         }
@@ -56,7 +64,8 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavigation(
-    viewModel: TimerViewModel = viewModel()
+    viewModel: TimerViewModel = viewModel(),
+    onDarkModeChange: (Boolean) -> Unit = {}
 ) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -122,7 +131,8 @@ fun AppNavigation(
                 SettingsScreen(
                     onNavigateBack = {
                         navController.popBackStack()
-                    }
+                    },
+                    onDarkModeChange = onDarkModeChange
                 )
             }
 

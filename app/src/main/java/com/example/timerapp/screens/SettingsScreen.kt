@@ -1,6 +1,5 @@
 package com.example.timerapp.screens
 
-import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,7 +16,8 @@ import com.example.timerapp.SettingsManager
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onDarkModeChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -26,7 +26,13 @@ fun SettingsScreen(
     var isVibrationEnabled by remember { mutableStateOf(settingsManager.isVibrationEnabled) }
     var isPreReminderEnabled by remember { mutableStateOf(settingsManager.isPreReminderEnabled) }
     var preReminderMinutes by remember { mutableStateOf(settingsManager.preReminderMinutes) }
+    var snoozeMinutes by remember { mutableStateOf(settingsManager.snoozeMinutes) }
+    var isDarkModeEnabled by remember { mutableStateOf(settingsManager.isDarkModeEnabled) }
+    var isHapticFeedbackEnabled by remember { mutableStateOf(settingsManager.isHapticFeedbackEnabled) }
+    var isEscalatingAlarmEnabled by remember { mutableStateOf(settingsManager.isEscalatingAlarmEnabled) }
+
     var showPreReminderDialog by remember { mutableStateOf(false) }
+    var showSnoozeDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -50,7 +56,44 @@ fun SettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // Alarm-Einstellungen
+            // ═══════════ DARSTELLUNG ═══════════
+            ListItem(
+                headlineContent = {
+                    Text(
+                        "Darstellung",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            )
+
+            Divider()
+
+            // Dark Mode
+            ListItem(
+                headlineContent = { Text("Dark Mode") },
+                supportingContent = { Text("Dunkles Farbschema aktivieren") },
+                leadingContent = {
+                    Icon(
+                        if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
+                        contentDescription = null
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = isDarkModeEnabled,
+                        onCheckedChange = {
+                            isDarkModeEnabled = it
+                            settingsManager.isDarkModeEnabled = it
+                            onDarkModeChange(it)
+                        }
+                    )
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ═══════════ ALARM-EINSTELLUNGEN ═══════════
             ListItem(
                 headlineContent = {
                     Text(
@@ -105,9 +148,27 @@ fun SettingsScreen(
                 }
             )
 
+            // ✅ Eskalierender Alarm
+            ListItem(
+                headlineContent = { Text("Eskalierender Alarm") },
+                supportingContent = { Text("Alarm wird nach 1 Min lauter") },
+                leadingContent = {
+                    Icon(Icons.Default.TrendingUp, contentDescription = null)
+                },
+                trailingContent = {
+                    Switch(
+                        checked = isEscalatingAlarmEnabled,
+                        onCheckedChange = {
+                            isEscalatingAlarmEnabled = it
+                            settingsManager.isEscalatingAlarmEnabled = it
+                        }
+                    )
+                }
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Erinnerungen
+            // ═══════════ ERINNERUNGEN ═══════════
             ListItem(
                 headlineContent = {
                     Text(
@@ -160,9 +221,56 @@ fun SettingsScreen(
                 )
             }
 
+            // ✅ Snooze-Zeit
+            ListItem(
+                headlineContent = { Text("Snooze-Zeit") },
+                supportingContent = { Text("$snoozeMinutes Minuten beim Schlummern") },
+                leadingContent = {
+                    Icon(Icons.Default.Snooze, contentDescription = null)
+                },
+                trailingContent = {
+                    TextButton(onClick = { showSnoozeDialog = true }) {
+                        Text("Ändern")
+                    }
+                }
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Info
+            // ═══════════ BEDIENUNG ═══════════
+            ListItem(
+                headlineContent = {
+                    Text(
+                        "Bedienung",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            )
+
+            Divider()
+
+            // ✅ Haptisches Feedback
+            ListItem(
+                headlineContent = { Text("Haptisches Feedback") },
+                supportingContent = { Text("Vibration bei Aktionen") },
+                leadingContent = {
+                    Icon(Icons.Default.TouchApp, contentDescription = null)
+                },
+                trailingContent = {
+                    Switch(
+                        checked = isHapticFeedbackEnabled,
+                        onCheckedChange = {
+                            isHapticFeedbackEnabled = it
+                            settingsManager.isHapticFeedbackEnabled = it
+                        }
+                    )
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ═══════════ INFO ═══════════
             ListItem(
                 headlineContent = {
                     Text(
@@ -265,6 +373,47 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showPreReminderDialog = false }) {
+                    Text("Schließen")
+                }
+            }
+        )
+    }
+
+    // ✅ Snooze Time Picker Dialog
+    if (showSnoozeDialog) {
+        val options = listOf(5, 10, 15, 20, 30)
+
+        AlertDialog(
+            onDismissRequest = { showSnoozeDialog = false },
+            title = { Text("Snooze-Zeit") },
+            text = {
+                Column {
+                    options.forEach { minutes ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = snoozeMinutes == minutes,
+                                onClick = {
+                                    snoozeMinutes = minutes
+                                    settingsManager.snoozeMinutes = minutes
+                                    showSnoozeDialog = false
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "$minutes Minuten",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSnoozeDialog = false }) {
                     Text("Schließen")
                 }
             }
