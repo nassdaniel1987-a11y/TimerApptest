@@ -25,12 +25,32 @@ class SettingsManager private constructor(context: Context) {
     var preReminderMinutes: Int
         get() = prefs.getInt(KEY_PRE_REMINDER_MINUTES, 10)
         set(value) = prefs.edit().putInt(KEY_PRE_REMINDER_MINUTES, value).apply()
-    
+
+    var snoozeMinutes: Int
+        get() = prefs.getInt(KEY_SNOOZE_MINUTES, 10)
+        set(value) = prefs.edit().putInt(KEY_SNOOZE_MINUTES, value).apply()
+
+    var isDarkModeEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DARK_MODE_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_DARK_MODE_ENABLED, value).apply()
+
+    var isHapticFeedbackEnabled: Boolean
+        get() = prefs.getBoolean(KEY_HAPTIC_FEEDBACK_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_HAPTIC_FEEDBACK_ENABLED, value).apply()
+
+    var isEscalatingAlarmEnabled: Boolean
+        get() = prefs.getBoolean(KEY_ESCALATING_ALARM_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_ESCALATING_ALARM_ENABLED, value).apply()
+
     companion object {
         private const val KEY_SOUND_ENABLED = "sound_enabled"
         private const val KEY_VIBRATION_ENABLED = "vibration_enabled"
         private const val KEY_PRE_REMINDER_ENABLED = "pre_reminder_enabled"
         private const val KEY_PRE_REMINDER_MINUTES = "pre_reminder_minutes"
+        private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
+        private const val KEY_DARK_MODE_ENABLED = "dark_mode_enabled"
+        private const val KEY_HAPTIC_FEEDBACK_ENABLED = "haptic_feedback_enabled"
+        private const val KEY_ESCALATING_ALARM_ENABLED = "escalating_alarm_enabled"
         
         @Volatile
         private var instance: SettingsManager? = null

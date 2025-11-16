@@ -95,6 +95,9 @@ dependencies {
     // SwipeRefresh
     implementation("com.google.accompanist:accompanist-swiperefresh:0.32.0")
 
+    // Swipe Actions
+    implementation("me.saket.swipe:swipe:1.2.0")
+
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 

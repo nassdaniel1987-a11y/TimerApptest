@@ -10,5 +10,7 @@ data class Timer(
     val category: String,
     val note: String? = null,
     val is_completed: Boolean = false,
-    val created_at: String = ""
+    val created_at: String = "",
+    val recurrence: String? = null, // "daily", "weekly", "weekdays", "weekends", null = einmalig
+    val recurrence_end_date: String? = null // Enddatum für Wiederholungen
 )

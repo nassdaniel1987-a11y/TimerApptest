@@ -4,10 +4,16 @@ import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.Settings
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,20 +23,31 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.example.timerapp.SettingsManager
 import com.example.timerapp.models.Timer
 import com.example.timerapp.viewmodel.TimerViewModel
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import me.saket.swipe.SwipeAction
+import me.saket.swipe.SwipeableActionsBox
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -42,11 +59,38 @@ fun HomeScreen(
     val timers by viewModel.timers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    val activeTimers = timers.filter { !it.is_completed }
-    val completedTimers = timers.filter { it.is_completed }
-
     val context = LocalContext.current
+    val settingsManager = remember { SettingsManager.getInstance(context) }
+    val haptic = LocalHapticFeedback.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
     var hasExactAlarmPermission by remember { mutableStateOf(true) }
+    var filterCategory by remember { mutableStateOf<String?>(null) }
+    var sortBy by remember { mutableStateOf(SortType.DATE) }
+    var showFilterDialog by remember { mutableStateOf(false) }
+
+    // ✅ Filtern und Sortieren
+    val filteredTimers = remember(timers, filterCategory, sortBy) {
+        var filtered = timers.filter { !it.is_completed }
+
+        if (filterCategory != null) {
+            filtered = filtered.filter { it.category == filterCategory }
+        }
+
+        when (sortBy) {
+            SortType.DATE -> filtered.sortedBy {
+                try {
+                    ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                } catch (e: Exception) {
+                    ZonedDateTime.now().plusYears(100)
+                }
+            }
+            SortType.NAME -> filtered.sortedBy { it.name.lowercase() }
+            SortType.CATEGORY -> filtered.sortedBy { it.category }
+        }
+    }
+
+    val completedTimers = timers.filter { it.is_completed }
 
     fun checkPermission() {
         hasExactAlarmPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -87,6 +131,13 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    // Sortier-Button
+                    IconButton(onClick = { showFilterDialog = true }) {
+                        Icon(
+                            if (filterCategory != null) Icons.Default.FilterAltOff else Icons.Default.FilterAlt,
+                            contentDescription = "Filter"
+                        )
+                    }
                     IconButton(onClick = { viewModel.sync() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Aktualisieren")
                     }
@@ -102,7 +153,8 @@ fun HomeScreen(
             FloatingActionButton(onClick = onCreateTimer) {
                 Icon(Icons.Default.Add, contentDescription = "Timer erstellen")
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         SwipeRefresh(
             state = rememberSwipeRefreshState(isLoading),
@@ -117,35 +169,69 @@ fun HomeScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (activeTimers.isNotEmpty()) {
+                    // ✅ Quick-Timer-Buttons
+                    item {
+                        QuickTimerButtons(
+                            viewModel = viewModel,
+                            haptic = haptic,
+                            settingsManager = settingsManager,
+                            snackbarHostState = snackbarHostState
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Aktive Timer
+                    if (filteredTimers.isNotEmpty()) {
                         item {
-                            ListHeader("Aktive Timer")
+                            ListHeader(
+                                title = "Aktive Timer${if (filterCategory != null) " · $filterCategory" else ""}",
+                                count = filteredTimers.size
+                            )
                         }
-                        items(activeTimers, key = { it.id }) { timer ->
+                        items(filteredTimers, key = { it.id }) { timer ->
                             TimerCard(
                                 modifier = Modifier.animateItemPlacement(),
                                 timer = timer,
-                                onComplete = { viewModel.markTimerCompleted(timer.id) },
-                                onDelete = { viewModel.deleteTimer(timer.id) },
+                                onComplete = {
+                                    performHaptic(haptic, settingsManager)
+                                    viewModel.markTimerCompleted(timer.id)
+                                    showSnackbar(snackbarHostState, "Timer abgeschlossen")
+                                },
+                                onDelete = {
+                                    performHaptic(haptic, settingsManager)
+                                    viewModel.deleteTimer(timer.id)
+                                    showSnackbar(snackbarHostState, "Timer gelöscht")
+                                },
                                 onEdit = { editedTimer ->
+                                    performHaptic(haptic, settingsManager)
                                     viewModel.updateTimer(timer.id, editedTimer)
-                                }
+                                    showSnackbar(snackbarHostState, "Timer aktualisiert")
+                                },
+                                settingsManager = settingsManager,
+                                haptic = haptic
                             )
                         }
                     }
 
+                    // Abgeschlossene Timer
                     if (completedTimers.isNotEmpty()) {
                         item {
                             Spacer(modifier = Modifier.height(16.dp))
-                            ListHeader("Abgeschlossen")
+                            ListHeader("Abgeschlossen", completedTimers.size)
                         }
                         items(completedTimers, key = { it.id }) { timer ->
                             TimerCard(
                                 modifier = Modifier.animateItemPlacement(),
                                 timer = timer,
-                                onComplete = { /* Nichts tun */ },
-                                onDelete = { viewModel.deleteTimer(timer.id) },
-                                onEdit = { /* Abgeschlossene Timer nicht bearbeitbar */ }
+                                onComplete = { },
+                                onDelete = {
+                                    performHaptic(haptic, settingsManager)
+                                    viewModel.deleteTimer(timer.id)
+                                    showSnackbar(snackbarHostState, "Timer gelöscht")
+                                },
+                                onEdit = { },
+                                settingsManager = settingsManager,
+                                haptic = haptic
                             )
                         }
                     }
@@ -153,24 +239,145 @@ fun HomeScreen(
             }
         }
     }
+
+    // Filter/Sort Dialog
+    if (showFilterDialog) {
+        FilterSortDialog(
+            currentSort = sortBy,
+            currentFilter = filterCategory,
+            categories = timers.map { it.category }.distinct().sorted(),
+            onSortChange = { sortBy = it },
+            onFilterChange = { filterCategory = it },
+            onDismiss = { showFilterDialog = false }
+        )
+    }
+}
+
+// ✅ Quick-Timer-Buttons
+@Composable
+fun QuickTimerButtons(
+    viewModel: TimerViewModel,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    settingsManager: SettingsManager,
+    snackbarHostState: SnackbarHostState
+) {
+    val context = LocalContext.current
+    val quickTimers = listOf(
+        QuickTimerOption(5, Icons.Default.LunchDining, "5 Min"),
+        QuickTimerOption(15, Icons.Default.Coffee, "15 Min"),
+        QuickTimerOption(30, Icons.Default.LocalPizza, "30 Min"),
+        QuickTimerOption(60, Icons.Default.Restaurant, "1 Std")
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Schnell-Timer",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(quickTimers) { option ->
+                    QuickTimerButton(
+                        option = option,
+                        onClick = {
+                            performHaptic(haptic, settingsManager)
+                            val germanZone = ZoneId.of("Europe/Berlin")
+                            val targetTime = ZonedDateTime.now(germanZone).plusMinutes(option.minutes.toLong())
+                            val timer = Timer(
+                                name = "${option.label} Timer",
+                                target_time = targetTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                                category = "Schnell-Timer"
+                            )
+                            viewModel.createTimer(timer)
+                            showSnackbar(snackbarHostState, "${option.label} Timer erstellt")
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
-fun ListHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(vertical = 8.dp)
-    )
+fun QuickTimerButton(
+    option: QuickTimerOption,
+    onClick: () -> Unit
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = Modifier.width(90.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(option.icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(option.label, style = MaterialTheme.typography.labelSmall)
+        }
+    }
 }
 
+data class QuickTimerOption(val minutes: Int, val icon: ImageVector, val label: String)
+
+@Composable
+fun ListHeader(title: String, count: Int? = null) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+        if (count != null) {
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            ) {
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+// ✅ Farbcodierung nach Zeit
+fun getTimerUrgencyColor(targetTime: ZonedDateTime): Color {
+    val now = ZonedDateTime.now()
+    val minutesUntil = ChronoUnit.MINUTES.between(now, targetTime)
+
+    return when {
+        minutesUntil < 0 -> Color(0xFFB00020) // Rot: Abgelaufen
+        minutesUntil < 60 -> Color(0xFFFF6B35) // Orange: < 1 Stunde
+        targetTime.toLocalDate() == now.toLocalDate() -> Color(0xFFFFA500) // Orange: Heute
+        targetTime.toLocalDate() == now.toLocalDate().plusDays(1) -> Color(0xFF4CAF50) // Grün: Morgen
+        else -> Color.Gray // Grau: Später
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TimerCard(
     timer: Timer,
     onComplete: () -> Unit,
     onDelete: () -> Unit,
     onEdit: (Timer) -> Unit,
+    settingsManager: SettingsManager,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
     modifier: Modifier = Modifier
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -188,55 +395,146 @@ private fun TimerCard(
     val now = ZonedDateTime.now()
     val isPast = targetTime.isBefore(now)
 
-    // ✅ GEÄNDERT: Zeigt nur noch die Uhrzeit an
+    // ✅ Farbcodierung
+    val urgencyColor = getTimerUrgencyColor(targetTime)
+
     val timeText = when {
         timer.is_completed -> "Abgeschlossen"
         isPast -> "Abgelaufen"
-        else -> targetTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " Uhr"
+        else -> {
+            val minutesUntil = ChronoUnit.MINUTES.between(now, targetTime)
+            val hoursUntil = ChronoUnit.HOURS.between(now, targetTime)
+            val daysUntil = ChronoUnit.DAYS.between(now, targetTime)
+
+            when {
+                minutesUntil < 60 -> "Noch $minutesUntil Min"
+                hoursUntil < 24 -> "Noch ${hoursUntil}h ${minutesUntil % 60}min"
+                daysUntil == 0L -> "Heute ${targetTime.format(DateTimeFormatter.ofPattern("HH:mm"))} Uhr"
+                daysUntil == 1L -> "Morgen ${targetTime.format(DateTimeFormatter.ofPattern("HH:mm"))} Uhr"
+                else -> targetTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " Uhr"
+            }
+        }
     }
 
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth()
+    // ✅ Swipe-Aktionen
+    val deleteAction = SwipeAction(
+        icon = {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Löschen",
+                tint = Color.White,
+                modifier = Modifier.padding(16.dp)
+            )
+        },
+        background = Color(0xFFB00020),
+        onSwipe = {
+            performHaptic(haptic, settingsManager)
+            showDeleteDialog = true
+        }
+    )
+
+    val completeAction = SwipeAction(
+        icon = {
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = "Abschließen",
+                tint = Color.White,
+                modifier = Modifier.padding(16.dp)
+            )
+        },
+        background = Color(0xFF4CAF50),
+        onSwipe = {
+            performHaptic(haptic, settingsManager)
+            onComplete()
+        }
+    )
+
+    SwipeableActionsBox(
+        startActions = if (!timer.is_completed) listOf(completeAction) else emptyList(),
+        endActions = listOf(deleteAction),
+        swipeThreshold = 100.dp
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        ElevatedCard(
+            modifier = modifier
+                .fillMaxWidth()
+                .animateContentSize()
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(text = timer.name, style = MaterialTheme.typography.titleMedium)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(imageVector = Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = timeText, style = MaterialTheme.typography.bodyMedium)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(imageVector = Icons.Default.Category, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = timer.category, style = MaterialTheme.typography.bodySmall)
-                }
-                if (timer.note?.isNotBlank() == true) {
-                    Text(
-                        text = timer.note,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                // ✅ NEU: Bearbeiten-Button (nur bei aktiven Timern)
-                if (!timer.is_completed) {
-                    IconButton(onClick = { showEditDialog = true }) {
-                        Icon(imageVector = Icons.Default.Edit, contentDescription = "Bearbeiten")
+            Row(
+                modifier = Modifier.padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // ✅ Farbindikator
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .height(60.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(urgencyColor)
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(text = timer.name, style = MaterialTheme.typography.titleMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = urgencyColor
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = timeText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = urgencyColor,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Category,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = timer.category, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (timer.note?.isNotBlank() == true) {
+                        Text(
+                            text = timer.note,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-                if (!timer.is_completed) {
-                    IconButton(onClick = onComplete) {
-                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Abschließen")
+                Column(horizontalAlignment = Alignment.End) {
+                    if (!timer.is_completed) {
+                        IconButton(onClick = {
+                            performHaptic(haptic, settingsManager)
+                            showEditDialog = true
+                        }) {
+                            Icon(imageVector = Icons.Default.Edit, contentDescription = "Bearbeiten")
+                        }
                     }
-                }
-                IconButton(onClick = { showDeleteDialog = true }) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Löschen")
+                    if (!timer.is_completed) {
+                        IconButton(onClick = {
+                            performHaptic(haptic, settingsManager)
+                            onComplete()
+                        }) {
+                            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Abschließen")
+                        }
+                    }
+                    IconButton(onClick = {
+                        performHaptic(haptic, settingsManager)
+                        showDeleteDialog = true
+                    }) {
+                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Löschen")
+                    }
                 }
             }
         }
@@ -260,7 +558,7 @@ private fun TimerCard(
         )
     }
 
-    // ✅ NEU: Edit Dialog
+    // Edit Dialog
     if (showEditDialog) {
         EditTimerDialog(
             timer = timer,
@@ -273,7 +571,78 @@ private fun TimerCard(
     }
 }
 
-// ✅ NEU: Dialog zum Bearbeiten von Timern
+// ✅ Filter & Sort Dialog
+@Composable
+fun FilterSortDialog(
+    currentSort: SortType,
+    currentFilter: String?,
+    categories: List<String>,
+    onSortChange: (SortType) -> Unit,
+    onFilterChange: (String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Sortieren & Filtern") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Sortieren nach:", style = MaterialTheme.typography.titleSmall)
+                SortType.values().forEach { sortType ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentSort == sortType,
+                            onClick = { onSortChange(sortType) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(sortType.label)
+                    }
+                }
+
+                Divider()
+
+                Text("Filtern nach Kategorie:", style = MaterialTheme.typography.titleSmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = currentFilter == null,
+                        onClick = { onFilterChange(null) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Alle Kategorien")
+                }
+                categories.forEach { category ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentFilter == category,
+                            onClick = { onFilterChange(category) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(category)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Schließen") }
+        }
+    )
+}
+
+enum class SortType(val label: String) {
+    DATE("Datum"),
+    NAME("Name"),
+    CATEGORY("Kategorie")
+}
+
+// Edit Timer Dialog
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditTimerDialog(
@@ -296,7 +665,7 @@ private fun EditTimerDialog(
     var selectedTime by remember { mutableStateOf(targetTime.toLocalTime()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    val germanZone = java.time.ZoneId.of("Europe/Berlin")
+    val germanZone = ZoneId.of("Europe/Berlin")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -308,7 +677,6 @@ private fun EditTimerDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Name
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -317,7 +685,6 @@ private fun EditTimerDialog(
                     singleLine = true
                 )
 
-                // Datum
                 OutlinedCard(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = { showDatePicker = true }
@@ -349,7 +716,6 @@ private fun EditTimerDialog(
                     }
                 }
 
-                // Zeit
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -368,7 +734,6 @@ private fun EditTimerDialog(
                     }
                 }
 
-                // Notiz
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
@@ -407,7 +772,6 @@ private fun EditTimerDialog(
         }
     )
 
-    // Date Picker Dialog
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = selectedDate.atStartOfDay(germanZone).toInstant().toEpochMilli()
@@ -443,7 +807,7 @@ private fun EditTimerDialog(
 @Composable
 private fun ExactAlarmPermissionRationaleDialog(onGoToSettings: () -> Unit) {
     AlertDialog(
-        onDismissRequest = { /* Nicht schließbar */ },
+        onDismissRequest = { },
         icon = { Icon(Icons.Default.Alarm, contentDescription = null) },
         title = { Text("Berechtigung erforderlich") },
         text = {
@@ -489,5 +853,19 @@ private fun EmptyState(onCreateTimer: () -> Unit) {
                 Text("Neuen Timer erstellen")
             }
         }
+    }
+}
+
+// ✅ Haptic Feedback Helper
+fun performHaptic(haptic: androidx.compose.ui.hapticfeedback.HapticFeedback, settingsManager: SettingsManager) {
+    if (settingsManager.isHapticFeedbackEnabled) {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
+}
+
+// ✅ SnackBar Helper
+fun showSnackbar(snackbarHostState: SnackbarHostState, message: String) {
+    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+        snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
     }
 }
