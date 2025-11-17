@@ -25,7 +25,8 @@ jobs:
             -H "apikey: ${SUPABASE_ANON_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
 
-          http_code=$(echo "$response" | tail -n1)
+          # Extract HTTP status code and trim whitespace
+          http_code=$(echo "$response" | tail -n1 | tr -d '[:space:]')
           body=$(echo "$response" | head -n-1)
 
           echo "HTTP Status: $http_code"
@@ -33,11 +34,14 @@ jobs:
 
           # Accept 200 (OK) or 404 (no tables yet) as success
           # Both indicate the database is responding
-          if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 404 ]; then
+          if [[ "$http_code" == "200" ]] || [[ "$http_code" == "404" ]]; then
             echo "✅ Database is alive and responding!"
-            echo "ℹ️  If you see 404, you need to run database/schema.sql in Supabase"
+            if [[ "$http_code" == "404" ]]; then
+              echo "ℹ️  Tables may not exist yet. Run database/schema.sql in Supabase to create them."
+            fi
           else
             echo "⚠️ Warning: Unexpected status code $http_code"
+            echo "This may indicate an authentication or connectivity issue."
             exit 1
           fi
 
