@@ -1,0 +1,42 @@
+name: Keep Supabase Database Alive
+
+on:
+  schedule:
+    # Läuft alle 4 Tage um 3:00 Uhr UTC (verhindert 7-Tage Pause)
+    - cron: '0 3 */4 * *'
+  workflow_dispatch: # Ermöglicht manuelles Ausführen
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Supabase Database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "Pinging Supabase database to keep it active..."
+
+          # Einfache SELECT Query um die Datenbank wach zu halten
+          response=$(curl -s -w "\n%{http_code}" \
+            "${SUPABASE_URL}/rest/v1/timer?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Database is alive and responding!"
+          else
+            echo "⚠️ Warning: Unexpected status code $http_code"
+            exit 1
+          fi
+
+      - name: Notify Success
+        if: success()
+        run: echo "Database keep-alive ping successful at $(date)"
