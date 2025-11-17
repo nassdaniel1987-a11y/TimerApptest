@@ -172,15 +172,35 @@ class AlarmScheduler(private val context: Context) {
 
     // ✅ NEU: Bricht alle Alarme ab und setzt sie neu (für vollständige Synchronisation)
     fun rescheduleAllAlarms(timers: List<Timer>) {
-        // Alte Alarme abbrechen
+        // WICHTIG: Alle möglichen Gruppen-Alarme abbrechen
+        // Gruppiere nach Zeit, um alle Gruppen-IDs zu finden
+        val groupIds = mutableSetOf<String>()
+
         timers.forEach { timer ->
-            cancelAlarm(timer.id)
+            try {
+                val targetTime = ZonedDateTime.parse(
+                    timer.target_time,
+                    DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                )
+                val groupId = "group_${targetTime.toLocalDate()}_${targetTime.hour}_${targetTime.minute}"
+                groupIds.add(groupId)
+
+                // Auch einzelne Timer-ID-basierte Alarme abbrechen (falls noch vorhanden)
+                cancelAlarm(timer.id)
+            } catch (e: Exception) {
+                Log.e("AlarmScheduler", "Fehler beim Parsen von Timer ${timer.id}: ${e.message}")
+            }
+        }
+
+        // Alle Gruppen-Alarme abbrechen
+        groupIds.forEach { groupId ->
+            cancelGroupAlarm(groupId)
         }
 
         // Neue gruppierte Alarme setzen
         scheduleAlarmsForTimers(timers)
 
-        Log.d("AlarmScheduler", "🔄 Alle Alarme neu geplant für ${timers.size} Timer")
+        Log.d("AlarmScheduler", "🔄 Alle Alarme neu geplant für ${timers.size} Timer (${groupIds.size} Gruppen)")
     }
 
     // ✅ WIEDERHOLUNGS-LOGIK: Berechnet das nächste Vorkommen eines wiederholenden Timers
