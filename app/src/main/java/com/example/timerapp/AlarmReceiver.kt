@@ -108,31 +108,79 @@ class AlarmReceiver : BroadcastReceiver() {
         val isPreReminder = intent.getBooleanExtra("IS_PRE_REMINDER", false)
 
         if (timerIds != null && timerNames != null && timerCategories != null) {
-            // Gruppierter Alarm
-            Log.d("AlarmReceiver", "🔔 Gruppen-Alarm ausgelöst für ${timerIds.size} Timer")
+            // ✅ WICHTIG: Prüfe ob Timer noch existieren
+            // Verhindert Alarme von gelöschten Timern
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                try {
+                    // Timer aus Datenbank laden
+                    val repository = com.example.timerapp.repository.TimerRepository()
+                    repository.refreshTimers()
 
-            NotificationHelper.showGroupedTimerNotification(
-                context = context,
-                timerIds = timerIds.toList(),
-                timerNames = timerNames.toList(),
-                timerCategories = timerCategories.toList(),
-                isPreReminder = isPreReminder
-            )
+                    // Hole aktuelle Timer-IDs
+                    val currentTimerIds = repository.timers.value.map { it.id }.toSet()
+
+                    // Filtere nur noch existierende Timer
+                    val validIndices = timerIds.indices.filter { currentTimerIds.contains(timerIds[it]) }
+
+                    if (validIndices.isEmpty()) {
+                        Log.d("AlarmReceiver", "⏭️ Alle Timer wurden gelöscht - Alarm wird ignoriert")
+                        return@launch
+                    }
+
+                    val validTimerIds = validIndices.map { timerIds[it] }
+                    val validTimerNames = validIndices.map { timerNames[it] }
+                    val validTimerCategories = validIndices.map { timerCategories[it] }
+
+                    Log.d("AlarmReceiver", "🔔 Gruppen-Alarm ausgelöst für ${validTimerIds.size} Timer (${timerIds.size - validTimerIds.size} gelöscht)")
+
+                    // Zeige Benachrichtigung nur für existierende Timer
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        NotificationHelper.showGroupedTimerNotification(
+                            context = context,
+                            timerIds = validTimerIds,
+                            timerNames = validTimerNames,
+                            timerCategories = validTimerCategories,
+                            isPreReminder = isPreReminder
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e("AlarmReceiver", "❌ Fehler beim Validieren der Timer: ${e.message}")
+                }
+            }
         } else {
             // Fallback: Einzelner Timer (alte Implementierung)
             val timerId = intent.getStringExtra("TIMER_ID") ?: return
             val timerName = intent.getStringExtra("TIMER_NAME") ?: "Timer"
             val timerCategory = intent.getStringExtra("TIMER_CATEGORY") ?: "Allgemein"
 
-            Log.d("AlarmReceiver", "🔔 Einzelner Alarm ausgelöst: $timerName")
+            // ✅ Prüfe ob Timer noch existiert
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                try {
+                    val repository = com.example.timerapp.repository.TimerRepository()
+                    repository.refreshTimers()
 
-            NotificationHelper.showTimerNotification(
-                context = context,
-                timerId = timerId,
-                timerName = timerName,
-                timerCategory = timerCategory,
-                isPreReminder = isPreReminder
-            )
+                    val timerExists = repository.timers.value.any { it.id == timerId }
+
+                    if (!timerExists) {
+                        Log.d("AlarmReceiver", "⏭️ Timer wurde gelöscht - Alarm wird ignoriert: $timerId")
+                        return@launch
+                    }
+
+                    Log.d("AlarmReceiver", "🔔 Einzelner Alarm ausgelöst: $timerName")
+
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        NotificationHelper.showTimerNotification(
+                            context = context,
+                            timerId = timerId,
+                            timerName = timerName,
+                            timerCategory = timerCategory,
+                            isPreReminder = isPreReminder
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e("AlarmReceiver", "❌ Fehler beim Validieren des Timers: ${e.message}")
+                }
+            }
         }
     }
 }
