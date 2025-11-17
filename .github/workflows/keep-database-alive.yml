@@ -20,7 +20,7 @@ jobs:
 
           # Einfache SELECT Query um die Datenbank wach zu halten
           response=$(curl -s -w "\n%{http_code}" \
-            "${SUPABASE_URL}/rest/v1/timer?select=id&limit=1" \
+            "${SUPABASE_URL}/rest/v1/timers?select=id&limit=1" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
 
