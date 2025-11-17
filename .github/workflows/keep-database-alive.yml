@@ -18,9 +18,10 @@ jobs:
         run: |
           echo "Pinging Supabase database to keep it active..."
 
-          # Einfache SELECT Query um die Datenbank wach zu halten
+          # Ping the Supabase REST API root endpoint to wake up the database
+          # This works even if application tables don't exist yet
           response=$(curl -s -w "\n%{http_code}" \
-            "${SUPABASE_URL}/rest/v1/timers?select=id&limit=1" \
+            "${SUPABASE_URL}/rest/v1/" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
 
@@ -30,8 +31,11 @@ jobs:
           echo "HTTP Status: $http_code"
           echo "Response: $body"
 
-          if [ "$http_code" -eq 200 ]; then
+          # Accept 200 (OK) or 404 (no tables yet) as success
+          # Both indicate the database is responding
+          if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 404 ]; then
             echo "✅ Database is alive and responding!"
+            echo "ℹ️  If you see 404, you need to run database/schema.sql in Supabase"
           else
             echo "⚠️ Warning: Unexpected status code $http_code"
             exit 1
