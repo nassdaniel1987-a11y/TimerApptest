@@ -88,11 +88,43 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteTimer(id: String) {
         viewModelScope.launch {
-            alarmScheduler.cancelAlarm(id)
-            repository.deleteTimer(id)
-            // ✅ NEU: Alle Alarme neu gruppieren
-            val activeTimers = timers.value.filter { !it.is_completed }
-            alarmScheduler.rescheduleAllAlarms(activeTimers)
+            try {
+                // Finde den Timer BEVOR er gelöscht wird, um seine Gruppe zu identifizieren
+                val timerToDelete = timers.value.find { it.id == id }
+
+                // Zuerst alle relevanten Alarme abbrechen
+                alarmScheduler.cancelAlarm(id)
+
+                // Wenn Timer gefunden wurde, breche auch seinen Gruppen-Alarm ab
+                if (timerToDelete != null) {
+                    try {
+                        val targetTime = java.time.ZonedDateTime.parse(
+                            timerToDelete.target_time,
+                            java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                        )
+                        val groupId = "group_${targetTime.toLocalDate()}_${targetTime.hour}_${targetTime.minute}"
+                        alarmScheduler.cancelGroupAlarm(groupId)
+                        Log.d("TimerViewModel", "🔕 Gruppen-Alarm abgebrochen: $groupId")
+                    } catch (e: Exception) {
+                        Log.e("TimerViewModel", "Fehler beim Parsen der Timer-Zeit: ${e.message}")
+                    }
+                }
+
+                // Dann Timer aus der Datenbank löschen
+                repository.deleteTimer(id)
+
+                // WICHTIG: Warte bis refreshTimers() fertig ist, bevor Alarme neu geplant werden
+                // Dies stellt sicher, dass der gelöschte Timer nicht mehr in timers.value ist
+                repository.refreshTimers()
+
+                // Jetzt alle Alarme neu gruppieren und planen (ohne den gelöschten Timer)
+                val activeTimers = timers.value.filter { !it.is_completed }
+                alarmScheduler.rescheduleAllAlarms(activeTimers)
+
+                Log.d("TimerViewModel", "🗑️ Timer gelöscht und Alarme neu geplant: $id")
+            } catch (e: Exception) {
+                Log.e("TimerViewModel", "❌ Fehler beim Löschen des Timers: ${e.message}")
+            }
         }
     }
 
