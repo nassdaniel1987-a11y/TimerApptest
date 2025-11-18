@@ -10,6 +10,10 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
 import com.example.timerapp.utils.NotificationHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class AlarmReceiver : BroadcastReceiver() {
 
@@ -110,7 +114,7 @@ class AlarmReceiver : BroadcastReceiver() {
         if (timerIds != null && timerNames != null && timerCategories != null) {
             // ✅ WICHTIG: Prüfe ob Timer noch existieren
             // Verhindert Alarme von gelöschten Timern
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.IO).launch {
                 try {
                     // Timer aus Datenbank laden
                     val repository = com.example.timerapp.repository.TimerRepository()
@@ -134,7 +138,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     Log.d("AlarmReceiver", "🔔 Gruppen-Alarm ausgelöst für ${validTimerIds.size} Timer (${timerIds.size - validTimerIds.size} gelöscht)")
 
                     // Zeige Benachrichtigung nur für existierende Timer
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    withContext(Dispatchers.Main) {
                         NotificationHelper.showGroupedTimerNotification(
                             context = context,
                             timerIds = validTimerIds,
@@ -154,7 +158,7 @@ class AlarmReceiver : BroadcastReceiver() {
             val timerCategory = intent.getStringExtra("TIMER_CATEGORY") ?: "Allgemein"
 
             // ✅ Prüfe ob Timer noch existiert
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val repository = com.example.timerapp.repository.TimerRepository()
                     repository.refreshTimers()
@@ -168,7 +172,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
                     Log.d("AlarmReceiver", "🔔 Einzelner Alarm ausgelöst: $timerName")
 
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    withContext(Dispatchers.Main) {
                         NotificationHelper.showTimerNotification(
                             context = context,
                             timerId = timerId,
