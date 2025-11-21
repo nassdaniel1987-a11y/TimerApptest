@@ -21,16 +21,20 @@ object NotificationHelper {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_HIGH // HIGH ist korrekt für Fullscreen
             ).apply {
-                description = "Benachrichtigungen für Timer-Alarme"
+                description = "Benachrichtigungen für Timer-Alarme (Fullscreen-Alarme)"
                 enableVibration(true)
                 enableLights(true)
+                setBypassDnd(true) // Bypass "Nicht stören" Modus
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
 
             val notificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
+
+            android.util.Log.d("NotificationHelper", "✅ Notification Channel erstellt (Importance: HIGH, Bypass DND: true)")
         }
     }
 
@@ -113,6 +117,10 @@ object NotificationHelper {
         if (!isPreReminder) {
             // ✅ Vollbild-Intent nur für Haupt-Alarme
             builder.setFullScreenIntent(fullscreenPendingIntent, true)
+            // WICHTIG: Diese Flags sind kritisch für Fullscreen-Funktionalität
+            builder.setCategory(NotificationCompat.CATEGORY_ALARM)
+            builder.setPriority(NotificationCompat.PRIORITY_MAX)
+            builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             // Ton & Vibration werden manuell in AlarmActivity gesteuert
             builder.setSound(null)
             builder.setVibrate(longArrayOf(0L))
@@ -127,9 +135,19 @@ object NotificationHelper {
         // ✅ Prüfe ob Fullscreen-Intent Permission vorhanden ist (Android 14+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             if (!notificationManager.canUseFullScreenIntent()) {
-                Log.e("NotificationHelper", "❌ FEHLER: USE_FULL_SCREEN_INTENT Permission fehlt!")
+                Log.e("NotificationHelper", "❌ KRITISCH: USE_FULL_SCREEN_INTENT Permission fehlt!")
+                Log.e("NotificationHelper", "   → Gehe zu Einstellungen → Apps → Timer App → Fullscreen-Benachrichtigungen und aktiviere sie!")
             } else {
                 Log.d("NotificationHelper", "✅ Fullscreen-Intent Permission vorhanden")
+            }
+        }
+
+        // ✅ Prüfe "Nicht stören" Modus
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val currentInterruptionFilter = notificationManager.currentInterruptionFilter
+            if (currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) {
+                Log.w("NotificationHelper", "⚠️ 'Nicht stören' Modus ist aktiv - Fullscreen könnte blockiert sein")
+                Log.w("NotificationHelper", "   → Interruption Filter: $currentInterruptionFilter")
             }
         }
 

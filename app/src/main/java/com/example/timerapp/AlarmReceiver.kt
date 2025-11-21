@@ -166,7 +166,9 @@ class AlarmReceiver : BroadcastReceiver() {
                         )
                     }
                 } catch (e: Exception) {
-                    Log.e("AlarmReceiver", "❌ Fehler beim Validieren der Timer: ${e.message}")
+                    Log.e("AlarmReceiver", "❌ KRITISCH: Fehler beim Validieren der Timer: ${e.message} - Alarm wird NICHT angezeigt!")
+                    // WICHTIG: Bei Fehler KEINEN Alarm anzeigen!
+                    // Lieber einen Alarm verpassen als einen gelöschten Timer anzeigen
                 }
             }
         } else {
@@ -200,7 +202,9 @@ class AlarmReceiver : BroadcastReceiver() {
                         )
                     }
                 } catch (e: Exception) {
-                    Log.e("AlarmReceiver", "❌ Fehler beim Validieren des Timers: ${e.message}")
+                    Log.e("AlarmReceiver", "❌ KRITISCH: Fehler beim Validieren des Timers: ${e.message} - Alarm wird NICHT angezeigt!")
+                    // WICHTIG: Bei Fehler KEINEN Alarm anzeigen!
+                    // Lieber einen Alarm verpassen als einen gelöschten Timer anzeigen
                 }
             }
         }

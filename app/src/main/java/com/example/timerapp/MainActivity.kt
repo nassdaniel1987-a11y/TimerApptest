@@ -9,6 +9,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -66,6 +67,10 @@ class MainActivity : ComponentActivity() {
 
         // ✅ Starte tägliche Erinnerungen (WorkManager)
         scheduleDailyReminder()
+
+        // ✅ KRITISCH: Synchronisiere alle Alarme beim App-Start
+        // Verhindert dass alte/gelöschte Alarme ausgelöst werden
+        synchronizeAlarmsOnStartup()
 
         setContent {
             val settingsManager = remember { SettingsManager.getInstance(this) }
@@ -176,6 +181,32 @@ class MainActivity : ComponentActivity() {
                 }
             } else {
                 Log.d("MainActivity", "✅ Batterie-Optimierung deaktiviert")
+            }
+        }
+    }
+
+    // ✅ KRITISCH: Synchronisiere alle Alarme beim App-Start
+    // Verhindert dass gelöschte Timer Alarme auslösen
+    private fun synchronizeAlarmsOnStartup() {
+        // Verwende Lifecycle-Scope für asynchrone Operation
+        lifecycleScope.launch {
+            try {
+                Log.d("MainActivity", "🔄 Starte Alarm-Synchronisierung...")
+
+                // Lade aktuelle Timer aus Datenbank
+                val repository = com.example.timerapp.repository.TimerRepository()
+                repository.refreshTimers()
+
+                // Hole alle aktiven Timer
+                val activeTimers = repository.timers.value.filter { !it.is_completed }
+
+                // Plane alle Alarme neu
+                val alarmScheduler = com.example.timerapp.utils.AlarmScheduler(applicationContext)
+                alarmScheduler.rescheduleAllAlarms(activeTimers)
+
+                Log.d("MainActivity", "✅ Alarm-Synchronisierung abgeschlossen: ${activeTimers.size} aktive Timer")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "❌ Fehler bei Alarm-Synchronisierung: ${e.message}")
             }
         }
     }
