@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.timerapp.AlarmActivity
 import com.example.timerapp.MainActivity
@@ -45,9 +46,11 @@ object NotificationHelper {
 
         val groupId = timerIds.joinToString("_")
 
-        // Intent für Vollbild-Alarm mit allen Timer-Daten
+        // ✅ Intent für Vollbild-Alarm mit allen Timer-Daten
         val fullscreenIntent = Intent(context, AlarmActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TASK or
+                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
             putExtra("TIMER_IDS", timerIds.toTypedArray())
             putExtra("TIMER_NAMES", timerNames.toTypedArray())
             putExtra("TIMER_CATEGORIES", timerCategories.toTypedArray())
@@ -56,8 +59,10 @@ object NotificationHelper {
             context,
             groupId.hashCode(),
             fullscreenIntent,
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+
+        Log.d("NotificationHelper", "📱 Erstelle Benachrichtigung für ${timerIds.size} Timer (Pre-Reminder: $isPreReminder)")
 
         // Intent für Tap auf Benachrichtigung
         val contentIntent = Intent(context, MainActivity::class.java).apply {
@@ -106,16 +111,30 @@ object NotificationHelper {
         }
 
         if (!isPreReminder) {
-            // Vollbild-Intent nur für Haupt-Alarme
+            // ✅ Vollbild-Intent nur für Haupt-Alarme
             builder.setFullScreenIntent(fullscreenPendingIntent, true)
             // Ton & Vibration werden manuell in AlarmActivity gesteuert
             builder.setSound(null)
             builder.setVibrate(longArrayOf(0L))
+            Log.d("NotificationHelper", "🚨 Fullscreen-Intent gesetzt für Alarm")
+        } else {
+            Log.d("NotificationHelper", "⏰ Pre-Reminder Benachrichtigung (kein Fullscreen)")
         }
 
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // ✅ Prüfe ob Fullscreen-Intent Permission vorhanden ist (Android 14+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (!notificationManager.canUseFullScreenIntent()) {
+                Log.e("NotificationHelper", "❌ FEHLER: USE_FULL_SCREEN_INTENT Permission fehlt!")
+            } else {
+                Log.d("NotificationHelper", "✅ Fullscreen-Intent Permission vorhanden")
+            }
+        }
+
         notificationManager.notify(groupId.hashCode(), builder.build())
+        Log.d("NotificationHelper", "✅ Benachrichtigung angezeigt (ID: ${groupId.hashCode()})")
     }
 
     // ✅ ALTE METHODE: Für Rückwärtskompatibilität

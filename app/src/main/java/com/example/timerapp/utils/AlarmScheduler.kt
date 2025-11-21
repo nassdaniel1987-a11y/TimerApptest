@@ -118,6 +118,11 @@ class AlarmScheduler(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // ✅ Berechne Zeit bis Alarm
+        val timeUntilAlarm = triggerTime - System.currentTimeMillis()
+        val minutesUntilAlarm = timeUntilAlarm / 1000 / 60
+        val alarmType = if (isPreReminder) "Pre-Reminder" else "Haupt-Alarm"
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (alarmManager.canScheduleExactAlarms()) {
                 alarmManager.setExactAndAllowWhileIdle(
@@ -125,8 +130,9 @@ class AlarmScheduler(private val context: Context) {
                     triggerTime,
                     pendingIntent
                 )
+                Log.d("AlarmScheduler", "⏰ $alarmType geplant für $groupId in $minutesUntilAlarm Minuten (${timerNames.joinToString(", ")})")
             } else {
-                Log.w("AlarmScheduler", "⚠️ Keine Berechtigung für exakte Alarme")
+                Log.e("AlarmScheduler", "❌ Keine Berechtigung für exakte Alarme! Alarm wird NICHT gesetzt!")
             }
         } else {
             alarmManager.setExactAndAllowWhileIdle(
@@ -134,6 +140,7 @@ class AlarmScheduler(private val context: Context) {
                 triggerTime,
                 pendingIntent
             )
+            Log.d("AlarmScheduler", "⏰ $alarmType geplant für $groupId in $minutesUntilAlarm Minuten (${timerNames.joinToString(", ")})")
         }
     }
 

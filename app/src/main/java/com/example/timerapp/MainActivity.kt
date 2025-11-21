@@ -1,8 +1,11 @@
 package com.example.timerapp
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,6 +32,11 @@ import java.time.Duration
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.concurrent.TimeUnit
+import android.app.AlarmManager
+import android.app.NotificationManager
+import android.content.Context
+import android.os.PowerManager
+import android.util.Log
 
 class MainActivity : ComponentActivity() {
 
@@ -42,10 +50,19 @@ class MainActivity : ComponentActivity() {
         // Notification Channel erstellen
         NotificationHelper.createNotificationChannel(this)
 
-        // Request Notification Permission (Android 13+)
+        // ✅ Request Notification Permission (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+
+        // ✅ KRITISCH: Request Exact Alarm Permission (Android 12+)
+        requestExactAlarmPermission()
+
+        // ✅ KRITISCH: Request Fullscreen Intent Permission (Android 14+)
+        requestFullscreenIntentPermission()
+
+        // ✅ WICHTIG: Prüfe und deaktiviere Batterie-Optimierung
+        checkBatteryOptimization()
 
         // ✅ Starte tägliche Erinnerungen (WorkManager)
         scheduleDailyReminder()
@@ -99,6 +116,68 @@ class MainActivity : ComponentActivity() {
             ExistingPeriodicWorkPolicy.KEEP, // Behalte existierende Arbeit
             dailyWorkRequest
         )
+    }
+
+    // ✅ KRITISCH: Fordere Exact Alarm Permission an (Android 12+)
+    private fun requestExactAlarmPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.w("MainActivity", "⚠️ Exact Alarm Permission fehlt - fordere an")
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "❌ Fehler beim Anfordern der Exact Alarm Permission: ${e.message}")
+                }
+            } else {
+                Log.d("MainActivity", "✅ Exact Alarm Permission vorhanden")
+            }
+        }
+    }
+
+    // ✅ KRITISCH: Fordere Fullscreen Intent Permission an (Android 14+)
+    private fun requestFullscreenIntentPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34 (Android 14)
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (!notificationManager.canUseFullScreenIntent()) {
+                Log.w("MainActivity", "⚠️ Fullscreen Intent Permission fehlt - fordere an")
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "❌ Fehler beim Anfordern der Fullscreen Intent Permission: ${e.message}")
+                }
+            } else {
+                Log.d("MainActivity", "✅ Fullscreen Intent Permission vorhanden")
+            }
+        }
+    }
+
+    // ✅ WICHTIG: Prüfe Batterie-Optimierung und bitte Benutzer sie zu deaktivieren
+    private fun checkBatteryOptimization() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            val packageName = packageName
+
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                Log.w("MainActivity", "⚠️ Batterie-Optimierung ist aktiv - kann Alarme blockieren")
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "❌ Fehler beim Anfordern der Batterie-Optimierungs-Ausnahme: ${e.message}")
+                }
+            } else {
+                Log.d("MainActivity", "✅ Batterie-Optimierung deaktiviert")
+            }
+        }
     }
 }
 
