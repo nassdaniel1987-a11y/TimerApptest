@@ -3,6 +3,8 @@ package com.example.timerapp
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.Build
@@ -51,13 +53,29 @@ class AlarmReceiver : BroadcastReceiver() {
                 val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
-                mediaPlayer = MediaPlayer.create(context, alarmUri).apply {
+                mediaPlayer = MediaPlayer().apply {
+                    // ✅ KRITISCH: Verwende ALARM-Stream statt MUSIC-Stream
+                    // Dadurch funktioniert der Alarm auch wenn das Handy auf Stumm/Vibration ist!
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_ALARM)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .build()
+                        )
+                    } else {
+                        @Suppress("DEPRECATION")
+                        setAudioStreamType(AudioManager.STREAM_ALARM)
+                    }
+
+                    setDataSource(context, alarmUri)
                     isLooping = true
                     setVolume(if (escalate) 0.5f else 1.0f, if (escalate) 0.5f else 1.0f)
+                    prepare()
                     start()
                 }
 
-                Log.d("AlarmReceiver", "🔊 Sound gestartet (Lautstärke: ${if (escalate) "50%" else "100%"})")
+                Log.d("AlarmReceiver", "🔊 Sound gestartet mit ALARM-Stream (Lautstärke: ${if (escalate) "50%" else "100%"})")
 
                 // ✅ Eskalierender Alarm: Nach 60 Sekunden lauter
                 if (escalate) {
