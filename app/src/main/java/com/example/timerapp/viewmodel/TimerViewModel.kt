@@ -14,11 +14,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = TimerRepository()
     private val alarmScheduler = AlarmScheduler(application.applicationContext)
+
+    // ✅ Mutex verhindert Race Conditions bei Timer-Operationen
+    private val alarmMutex = Mutex()
 
     val timers: StateFlow<List<Timer>> = repository.timers
     val categories: StateFlow<List<Category>> = repository.categories
@@ -28,8 +33,23 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // ✅ Error-StateFlow für User-Feedback
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
     init {
         sync()
+    }
+
+    // Hilfsfunktion zum Setzen von Fehlern
+    private fun setError(message: String) {
+        _error.value = message
+        Log.e("TimerViewModel", "❌ Error: $message")
+    }
+
+    // Hilfsfunktion zum Löschen von Fehlern
+    fun clearError() {
+        _error.value = null
     }
 
     fun sync() {
@@ -67,9 +87,28 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     // Timer Operations
     fun createTimer(timer: Timer) {
         viewModelScope.launch {
-            val createdTimer = repository.createTimer(timer)
-            if (createdTimer != null) {
-                repository.refreshTimers()
+            alarmMutex.withLock {
+                try {
+                    val createdTimer = repository.createTimer(timer)
+                    if (createdTimer != null) {
+                        repository.refreshTimers()
+                        // ✅ NEU: Alle Alarme neu gruppieren
+                        val activeTimers = timers.value.filter { !it.is_completed }
+                        alarmScheduler.rescheduleAllAlarms(activeTimers)
+                    } else {
+                        setError("Timer konnte nicht erstellt werden. Bitte Internetverbindung prüfen.")
+                    }
+                } catch (e: Exception) {
+                    setError("Fehler beim Erstellen des Timers: ${e.message}")
+                }
+            }
+        }
+    }
+
+    fun updateTimer(id: String, timer: Timer) {
+        viewModelScope.launch {
+            alarmMutex.withLock {
+                repository.updateTimer(id, timer)
                 // ✅ NEU: Alle Alarme neu gruppieren
                 val activeTimers = timers.value.filter { !it.is_completed }
                 alarmScheduler.rescheduleAllAlarms(activeTimers)
@@ -77,91 +116,86 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateTimer(id: String, timer: Timer) {
-        viewModelScope.launch {
-            repository.updateTimer(id, timer)
-            // ✅ NEU: Alle Alarme neu gruppieren
-            val activeTimers = timers.value.filter { !it.is_completed }
-            alarmScheduler.rescheduleAllAlarms(activeTimers)
-        }
-    }
-
     fun deleteTimer(id: String) {
         viewModelScope.launch {
-            try {
-                Log.d("TimerViewModel", "🗑️ Starte Löschen von Timer: $id")
+            alarmMutex.withLock {
+                try {
+                    Log.d("TimerViewModel", "🗑️ Starte Löschen von Timer: $id")
 
-                // Finde den Timer BEVOR er gelöscht wird, um seine Gruppe zu identifizieren
-                val timerToDelete = timers.value.find { it.id == id }
+                    // Finde den Timer BEVOR er gelöscht wird, um seine Gruppe zu identifizieren
+                    val timerToDelete = timers.value.find { it.id == id }
 
-                if (timerToDelete != null) {
-                    try {
-                        val targetTime = java.time.ZonedDateTime.parse(
-                            timerToDelete.target_time,
-                            java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
-                        )
-                        val groupId = "group_${targetTime.toLocalDate()}_${targetTime.hour}_${targetTime.minute}"
+                    if (timerToDelete != null) {
+                        try {
+                            val targetTime = java.time.ZonedDateTime.parse(
+                                timerToDelete.target_time,
+                                java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                            )
+                            val groupId = "group_${targetTime.toLocalDate()}_${targetTime.hour}_${targetTime.minute}"
 
-                        // Breche ALLE Alarm-Varianten ab
-                        alarmScheduler.cancelAlarm(id)  // Timer-ID basiert
-                        alarmScheduler.cancelAlarm("${id}_pre")  // Timer-ID Pre-Reminder
-                        alarmScheduler.cancelGroupAlarm(groupId)  // Gruppen-Alarm
+                            // Breche ALLE Alarm-Varianten ab
+                            alarmScheduler.cancelAlarm(id)  // Timer-ID basiert
+                            alarmScheduler.cancelAlarm("${id}_pre")  // Timer-ID Pre-Reminder
+                            alarmScheduler.cancelGroupAlarm(groupId)  // Gruppen-Alarm
 
-                        Log.d("TimerViewModel", "🔕 Alle Alarme abgebrochen für Timer $id (Gruppe: $groupId)")
-                    } catch (e: Exception) {
-                        Log.e("TimerViewModel", "⚠️ Fehler beim Parsen der Timer-Zeit: ${e.message}")
-                        // Versuche trotzdem Timer-basierte Alarme zu löschen
+                            Log.d("TimerViewModel", "🔕 Alle Alarme abgebrochen für Timer $id (Gruppe: $groupId)")
+                        } catch (e: Exception) {
+                            Log.e("TimerViewModel", "⚠️ Fehler beim Parsen der Timer-Zeit: ${e.message}")
+                            // Versuche trotzdem Timer-basierte Alarme zu löschen
+                            alarmScheduler.cancelAlarm(id)
+                            alarmScheduler.cancelAlarm("${id}_pre")
+                        }
+                    } else {
+                        // Timer nicht gefunden, versuche trotzdem ID-basierte Alarme zu löschen
+                        Log.w("TimerViewModel", "⚠️ Timer nicht gefunden, lösche trotzdem Alarme: $id")
                         alarmScheduler.cancelAlarm(id)
                         alarmScheduler.cancelAlarm("${id}_pre")
                     }
-                } else {
-                    // Timer nicht gefunden, versuche trotzdem ID-basierte Alarme zu löschen
-                    Log.w("TimerViewModel", "⚠️ Timer nicht gefunden, lösche trotzdem Alarme: $id")
-                    alarmScheduler.cancelAlarm(id)
-                    alarmScheduler.cancelAlarm("${id}_pre")
+
+                    // Dann Timer aus der Datenbank löschen
+                    repository.deleteTimer(id)
+
+                    // WICHTIG: Warte bis refreshTimers() fertig ist
+                    // Dies stellt sicher, dass der gelöschte Timer nicht mehr in timers.value ist
+                    repository.refreshTimers()
+
+                    // Jetzt alle Alarme komplett neu planen (ohne den gelöschten Timer)
+                    val activeTimers = timers.value.filter { !it.is_completed }
+                    alarmScheduler.rescheduleAllAlarms(activeTimers)
+
+                    Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht und alle Alarme neu geplant: $id")
+                } catch (e: Exception) {
+                    Log.e("TimerViewModel", "❌ Fehler beim Löschen des Timers: ${e.message}", e)
                 }
-
-                // Dann Timer aus der Datenbank löschen
-                repository.deleteTimer(id)
-
-                // WICHTIG: Warte bis refreshTimers() fertig ist
-                // Dies stellt sicher, dass der gelöschte Timer nicht mehr in timers.value ist
-                repository.refreshTimers()
-
-                // Jetzt alle Alarme komplett neu planen (ohne den gelöschten Timer)
-                val activeTimers = timers.value.filter { !it.is_completed }
-                alarmScheduler.rescheduleAllAlarms(activeTimers)
-
-                Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht und alle Alarme neu geplant: $id")
-            } catch (e: Exception) {
-                Log.e("TimerViewModel", "❌ Fehler beim Löschen des Timers: ${e.message}", e)
             }
         }
     }
 
     fun markTimerCompleted(id: String) {
         viewModelScope.launch {
-            // ✅ Prüfe ob Timer eine Wiederholung hat
-            val timer = timers.value.find { it.id == id }
+            alarmMutex.withLock {
+                // ✅ Prüfe ob Timer eine Wiederholung hat
+                val timer = timers.value.find { it.id == id }
 
-            repository.markTimerCompleted(id)
-            alarmScheduler.cancelAlarm(id)
+                repository.markTimerCompleted(id)
+                alarmScheduler.cancelAlarm(id)
 
-            // ✅ Wenn Timer wiederholt werden soll, erstelle nächste Instanz
-            if (timer != null && timer.recurrence != null) {
-                val nextTimer = alarmScheduler.calculateNextOccurrence(timer)
-                if (nextTimer != null) {
-                    val createdTimer = repository.createTimer(nextTimer)
-                    if (createdTimer != null) {
-                        repository.refreshTimers()
-                        Log.d("TimerViewModel", "🔁 Wiederholender Timer erstellt: ${nextTimer.name}")
+                // ✅ Wenn Timer wiederholt werden soll, erstelle nächste Instanz
+                if (timer != null && timer.recurrence != null) {
+                    val nextTimer = alarmScheduler.calculateNextOccurrence(timer)
+                    if (nextTimer != null) {
+                        val createdTimer = repository.createTimer(nextTimer)
+                        if (createdTimer != null) {
+                            repository.refreshTimers()
+                            Log.d("TimerViewModel", "🔁 Wiederholender Timer erstellt: ${nextTimer.name}")
+                        }
                     }
                 }
-            }
 
-            // ✅ NEU: Alle Alarme neu gruppieren
-            val activeTimers = timers.value.filter { !it.is_completed }
-            alarmScheduler.rescheduleAllAlarms(activeTimers)
+                // ✅ NEU: Alle Alarme neu gruppieren
+                val activeTimers = timers.value.filter { !it.is_completed }
+                alarmScheduler.rescheduleAllAlarms(activeTimers)
+            }
         }
     }
 

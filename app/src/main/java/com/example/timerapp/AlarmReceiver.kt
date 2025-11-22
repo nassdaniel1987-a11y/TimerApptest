@@ -33,7 +33,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 it.release()
                 mediaPlayer = null
             }
-            // Stoppe Eskalation
+            // ✅ WICHTIG: Stoppe Eskalation und räume Handler auf
             escalationHandler?.removeCallbacksAndMessages(null)
             escalationHandler = null
             escalationRunnable = null
