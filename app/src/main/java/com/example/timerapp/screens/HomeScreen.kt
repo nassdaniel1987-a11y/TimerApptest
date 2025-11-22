@@ -61,6 +61,7 @@ fun HomeScreen(
 ) {
     val timers by viewModel.timers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
 
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -71,6 +72,17 @@ fun HomeScreen(
     var filterCategory by remember { mutableStateOf<String?>(null) }
     var sortBy by remember { mutableStateOf(SortType.DATE) }
     var showFilterDialog by remember { mutableStateOf(false) }
+
+    // ✅ Zeige Error als Snackbar
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(
+                message = it,
+                duration = SnackbarDuration.Long
+            )
+            viewModel.clearError()
+        }
+    }
 
     // ✅ Filtern und Sortieren
     val filteredTimers = remember(timers, filterCategory, sortBy) {
