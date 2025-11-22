@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 
 class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -24,6 +26,9 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
     // ✅ Mutex verhindert Race Conditions bei Timer-Operationen
     private val alarmMutex = Mutex()
+
+    // ✅ Debouncing für rescheduleAllAlarms (Performance-Optimierung)
+    private var rescheduleJob: Job? = null
 
     val timers: StateFlow<List<Timer>> = repository.timers
     val categories: StateFlow<List<Category>> = repository.categories
@@ -50,6 +55,22 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     // Hilfsfunktion zum Löschen von Fehlern
     fun clearError() {
         _error.value = null
+    }
+
+    // ✅ Debounced Reschedule - verhindert zu häufige Reschedule-Operationen
+    // Wartet 500ms und bündelt mehrere Operationen
+    private fun debouncedRescheduleAlarms() {
+        rescheduleJob?.cancel()
+        rescheduleJob = viewModelScope.launch {
+            delay(500) // Warte 500ms
+            try {
+                val activeTimers = timers.value.filter { !it.is_completed }
+                alarmScheduler.rescheduleAllAlarms(activeTimers)
+                Log.d("TimerViewModel", "✅ Alarme neu geplant (debounced): ${activeTimers.size} Timer")
+            } catch (e: Exception) {
+                Log.e("TimerViewModel", "❌ Fehler beim Reschedule: ${e.message}")
+            }
+        }
     }
 
     fun sync() {
@@ -92,9 +113,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                     val createdTimer = repository.createTimer(timer)
                     if (createdTimer != null) {
                         repository.refreshTimers()
-                        // ✅ NEU: Alle Alarme neu gruppieren
-                        val activeTimers = timers.value.filter { !it.is_completed }
-                        alarmScheduler.rescheduleAllAlarms(activeTimers)
+                        // ✅ Performance: Debounced Reschedule
+                        debouncedRescheduleAlarms()
                     } else {
                         setError("Timer konnte nicht erstellt werden. Bitte Internetverbindung prüfen.")
                     }
@@ -109,9 +129,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             alarmMutex.withLock {
                 repository.updateTimer(id, timer)
-                // ✅ NEU: Alle Alarme neu gruppieren
-                val activeTimers = timers.value.filter { !it.is_completed }
-                alarmScheduler.rescheduleAllAlarms(activeTimers)
+                // ✅ Performance: Debounced Reschedule
+                debouncedRescheduleAlarms()
             }
         }
     }
@@ -159,11 +178,10 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                     // Dies stellt sicher, dass der gelöschte Timer nicht mehr in timers.value ist
                     repository.refreshTimers()
 
-                    // Jetzt alle Alarme komplett neu planen (ohne den gelöschten Timer)
-                    val activeTimers = timers.value.filter { !it.is_completed }
-                    alarmScheduler.rescheduleAllAlarms(activeTimers)
+                    // ✅ Performance: Debounced Reschedule
+                    debouncedRescheduleAlarms()
 
-                    Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht und alle Alarme neu geplant: $id")
+                    Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht: $id")
                 } catch (e: Exception) {
                     Log.e("TimerViewModel", "❌ Fehler beim Löschen des Timers: ${e.message}", e)
                 }
@@ -192,9 +210,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-                // ✅ NEU: Alle Alarme neu gruppieren
-                val activeTimers = timers.value.filter { !it.is_completed }
-                alarmScheduler.rescheduleAllAlarms(activeTimers)
+                // ✅ Performance: Debounced Reschedule
+                debouncedRescheduleAlarms()
             }
         }
     }
