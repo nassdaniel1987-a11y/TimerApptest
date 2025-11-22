@@ -265,6 +265,7 @@ class AlarmScheduler(private val context: Context) {
                 "weekly" -> calculateNextWeekly(currentTargetTime)
                 "weekdays" -> calculateNextWeekday(currentTargetTime)
                 "weekends" -> calculateNextWeekend(currentTargetTime)
+                "custom" -> calculateNextCustomWeekday(currentTargetTime, timer.recurrence_weekdays)
                 else -> null
             }
 
@@ -315,5 +316,34 @@ class AlarmScheduler(private val context: Context) {
         }
 
         return nextTime
+    }
+
+    private fun calculateNextCustomWeekday(currentTime: ZonedDateTime, weekdaysString: String?): ZonedDateTime? {
+        if (weekdaysString.isNullOrBlank()) return null
+
+        try {
+            // Parse "1,3,5" zu [1, 3, 5]
+            val selectedWeekdays = weekdaysString.split(",").map { it.trim().toInt() }.toSet()
+
+            if (selectedWeekdays.isEmpty()) return null
+
+            var nextTime = currentTime.plusDays(1)
+
+            // Finde nächsten Tag der in selectedWeekdays enthalten ist
+            // ISO 8601: 1=Montag, 7=Sonntag
+            // Maximal 7 Tage durchsuchen
+            for (i in 0..6) {
+                if (selectedWeekdays.contains(nextTime.dayOfWeek.value)) {
+                    return nextTime
+                }
+                nextTime = nextTime.plusDays(1)
+            }
+
+            Log.w("AlarmScheduler", "⚠️ Kein passender Wochentag gefunden für: $weekdaysString")
+            return null
+        } catch (e: Exception) {
+            Log.e("AlarmScheduler", "❌ Fehler beim Parsen von recurrence_weekdays: $weekdaysString - ${e.message}")
+            return null
+        }
     }
 }

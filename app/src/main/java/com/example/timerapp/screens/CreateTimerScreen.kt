@@ -41,6 +41,7 @@ fun CreateTimerScreen(
     // ✅ Wiederholungs-State
     var recurrence by remember { mutableStateOf<String?>(null) }
     var recurrenceEndDate by remember { mutableStateOf<LocalDate?>(null) }
+    var selectedWeekdays by remember { mutableStateOf(setOf<Int>()) } // ISO 8601: 1=Mo, 7=So
 
     val germanZone = ZoneId.of("Europe/Berlin")
 
@@ -73,7 +74,10 @@ fun CreateTimerScreen(
                                 category = selectedCategory,
                                 note = note.ifBlank { null },
                                 recurrence = recurrence,
-                                recurrence_end_date = recurrenceEndDate?.atStartOfDay(germanZone)?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                                recurrence_end_date = recurrenceEndDate?.atStartOfDay(germanZone)?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                                recurrence_weekdays = if (recurrence == "custom" && selectedWeekdays.isNotEmpty()) {
+                                    selectedWeekdays.sorted().joinToString(",")
+                                } else null
                             )
 
                             viewModel.createTimer(timer)
@@ -288,6 +292,17 @@ fun CreateTimerScreen(
                                     "weekly" -> "Wöchentlich"
                                     "weekdays" -> "Werktags (Mo-Fr)"
                                     "weekends" -> "Wochenende (Sa-So)"
+                                    "custom" -> {
+                                        if (selectedWeekdays.isEmpty()) {
+                                            "Benutzerdefiniert"
+                                        } else {
+                                            val weekdayNames = mapOf(
+                                                1 to "Mo", 2 to "Di", 3 to "Mi", 4 to "Do",
+                                                5 to "Fr", 6 to "Sa", 7 to "So"
+                                            )
+                                            selectedWeekdays.sorted().joinToString(", ") { weekdayNames[it] ?: "" }
+                                        }
+                                    }
                                     else -> "Einmalig"
                                 },
                                 style = MaterialTheme.typography.bodyLarge,
@@ -301,6 +316,75 @@ fun CreateTimerScreen(
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+
+            // ✅ Wochentags-Auswahl (nur bei custom recurrence)
+            if (recurrence == "custom") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Wochentage auswählen",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        // Wochentags-Buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            val weekdays = listOf(
+                                1 to "Mo",
+                                2 to "Di",
+                                3 to "Mi",
+                                4 to "Do",
+                                5 to "Fr",
+                                6 to "Sa",
+                                7 to "So"
+                            )
+
+                            weekdays.forEach { (dayNumber, dayName) ->
+                                val isSelected = selectedWeekdays.contains(dayNumber)
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        selectedWeekdays = if (isSelected) {
+                                            selectedWeekdays - dayNumber
+                                        } else {
+                                            selectedWeekdays + dayNumber
+                                        }
+                                    },
+                                    label = { Text(dayName) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onTertiary
+                                    )
+                                )
+                            }
+                        }
+
+                        if (selectedWeekdays.isEmpty()) {
+                            Text(
+                                text = "Bitte mindestens einen Wochentag auswählen",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
                 }
             }
 
@@ -451,7 +535,8 @@ fun CreateTimerScreen(
             "daily" to "Täglich",
             "weekly" to "Wöchentlich",
             "weekdays" to "Werktags (Mo-Fr)",
-            "weekends" to "Wochenende (Sa-So)"
+            "weekends" to "Wochenende (Sa-So)",
+            "custom" to "Benutzerdefiniert..."
         )
 
         AlertDialog(
