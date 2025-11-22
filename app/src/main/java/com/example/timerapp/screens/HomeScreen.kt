@@ -136,7 +136,9 @@ fun HomeScreen(
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
                 title = { Text("Timer") },
@@ -297,11 +299,14 @@ fun QuickTimerButtons(
                 color = MaterialTheme.colorScheme.onSecondaryContainer
             )
             Spacer(modifier = Modifier.height(12.dp))
-            LazyRow(
+            // ✅ Verbessert: Row statt LazyRow für bessere Performance & Flexibilität
+            Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(quickTimers) { option ->
+                quickTimers.forEach { option ->
                     QuickTimerButton(
+                        modifier = Modifier.weight(1f), // Gleichmäßige Verteilung
                         option = option,
                         onClick = {
                             performHaptic(haptic, settingsManager)
@@ -324,12 +329,13 @@ fun QuickTimerButtons(
 
 @Composable
 fun QuickTimerButton(
+    modifier: Modifier = Modifier,
     option: QuickTimerOption,
     onClick: () -> Unit
 ) {
     FilledTonalButton(
         onClick = onClick,
-        modifier = Modifier.width(90.dp)
+        modifier = modifier
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -371,16 +377,17 @@ fun ListHeader(title: String, count: Int? = null) {
 }
 
 // ✅ Farbcodierung nach Zeit
+// ✅ Verbesserte Farbkontraste für bessere Lesbarkeit
 fun getTimerUrgencyColor(targetTime: ZonedDateTime): Color {
     val now = ZonedDateTime.now()
     val minutesUntil = ChronoUnit.MINUTES.between(now, targetTime)
 
     return when {
-        minutesUntil < 0 -> Color(0xFFB00020) // Rot: Abgelaufen
-        minutesUntil < 60 -> Color(0xFFFF6B35) // Orange: < 1 Stunde
-        targetTime.toLocalDate() == now.toLocalDate() -> Color(0xFFFFA500) // Orange: Heute
-        targetTime.toLocalDate() == now.toLocalDate().plusDays(1) -> Color(0xFF4CAF50) // Grün: Morgen
-        else -> Color.Gray // Grau: Später
+        minutesUntil < 0 -> Color(0xFFD32F2F) // Dunkleres Rot: Abgelaufen (war #B00020)
+        minutesUntil < 60 -> Color(0xFFE65100) // Dunkleres Orange: < 1 Stunde (war #FF6B35)
+        targetTime.toLocalDate() == now.toLocalDate() -> Color(0xFFF57C00) // Dunkles Orange: Heute (war #FFA500)
+        targetTime.toLocalDate() == now.toLocalDate().plusDays(1) -> Color(0xFF388E3C) // Dunkleres Grün: Morgen (war #4CAF50)
+        else -> Color(0xFF757575) // Dunkleres Grau: Später (war Gray)
     }
 }
 
