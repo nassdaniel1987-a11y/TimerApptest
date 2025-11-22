@@ -482,7 +482,65 @@ private fun TimerCard(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(text = timer.name, style = MaterialTheme.typography.titleMedium)
+                    // ✅ Timer-Name mit Wiederholungs-Badge
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(text = timer.name, style = MaterialTheme.typography.titleMedium)
+
+                        // ✅ Wiederholungs-Badge
+                        if (timer.recurrence != null) {
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                modifier = Modifier
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Repeat,
+                                        contentDescription = "Wiederholend",
+                                        modifier = Modifier.size(12.dp),
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                    Text(
+                                        text = when (timer.recurrence) {
+                                            "daily" -> "Tägl."
+                                            "weekly" -> "Wöch."
+                                            "weekdays" -> "Werkt."
+                                            "weekends" -> "WE"
+                                            "custom" -> {
+                                                // Parse weekdays and show abbreviated form
+                                                if (!timer.recurrence_weekdays.isNullOrBlank()) {
+                                                    val weekdayNames = mapOf(
+                                                        1 to "Mo", 2 to "Di", 3 to "Mi", 4 to "Do",
+                                                        5 to "Fr", 6 to "Sa", 7 to "So"
+                                                    )
+                                                    val days = timer.recurrence_weekdays.split(",")
+                                                        .mapNotNull { it.trim().toIntOrNull() }
+                                                        .sorted()
+                                                        .mapNotNull { weekdayNames[it] }
+                                                        .joinToString(",")
+                                                    days
+                                                } else {
+                                                    "Custom"
+                                                }
+                                            }
+                                            else -> ""
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.AccessTime,
@@ -545,15 +603,107 @@ private fun TimerCard(
 
     // Delete Dialog
     if (showDeleteDialog) {
+        val isRecurring = timer.recurrence != null
+        val recurrenceDescription = when (timer.recurrence) {
+            "daily" -> "täglich"
+            "weekly" -> "wöchentlich"
+            "weekdays" -> "werktags (Mo-Fr)"
+            "weekends" -> "an Wochenenden (Sa-So)"
+            "custom" -> {
+                if (!timer.recurrence_weekdays.isNullOrBlank()) {
+                    val weekdayNames = mapOf(
+                        1 to "Montag", 2 to "Dienstag", 3 to "Mittwoch", 4 to "Donnerstag",
+                        5 to "Freitag", 6 to "Samstag", 7 to "Sonntag"
+                    )
+                    val days = timer.recurrence_weekdays.split(",")
+                        .mapNotNull { it.trim().toIntOrNull() }
+                        .sorted()
+                        .mapNotNull { weekdayNames[it] }
+                    "jeden ${days.joinToString(", ")}"
+                } else {
+                    "benutzerdefiniert"
+                }
+            }
+            else -> null
+        }
+
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Timer löschen?") },
-            text = { Text("Möchtest du '${timer.name}' wirklich löschen?") },
+            icon = if (isRecurring) {
+                { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+            } else null,
+            title = { Text(if (isRecurring) "Wiederholenden Timer löschen?" else "Timer löschen?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Möchtest du '${timer.name}' wirklich löschen?")
+
+                    if (isRecurring) {
+                        HorizontalDivider()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                                    shape = MaterialTheme.shapes.medium
+                                )
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Repeat,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "⚠️ Dies ist ein wiederholender Timer",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Wiederholt sich: $recurrenceDescription",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                if (timer.recurrence_end_date != null) {
+                                    try {
+                                        val endDate = ZonedDateTime.parse(
+                                            timer.recurrence_end_date,
+                                            DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                                        )
+                                        Text(
+                                            text = "Endet am: ${endDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    } catch (e: Exception) {
+                                        // Ignore
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             confirmButton = {
-                TextButton(onClick = {
-                    onDelete()
-                    showDeleteDialog = false
-                }) { Text("Löschen") }
+                TextButton(
+                    onClick = {
+                        onDelete()
+                        showDeleteDialog = false
+                    },
+                    colors = if (isRecurring) {
+                        ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    } else {
+                        ButtonDefaults.textButtonColors()
+                    }
+                ) {
+                    Text(if (isRecurring) "Trotzdem löschen" else "Löschen")
+                }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) { Text("Abbrechen") }

@@ -31,8 +31,9 @@ CREATE TABLE IF NOT EXISTS timers (
     note TEXT,
     is_completed BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    recurrence TEXT, -- "daily", "weekly", "weekdays", "weekends", null = one-time
-    recurrence_end_date TIMESTAMPTZ -- End date for recurring timers
+    recurrence TEXT, -- "daily", "weekly", "weekdays", "weekends", "custom", null = one-time
+    recurrence_end_date TIMESTAMPTZ, -- End date for recurring timers
+    recurrence_weekdays TEXT -- Comma-separated weekdays (ISO 8601: 1=Mon, 7=Sun), e.g., "1,3,5" for Mon,Wed,Fri
 );
 
 -- QR Codes Table
