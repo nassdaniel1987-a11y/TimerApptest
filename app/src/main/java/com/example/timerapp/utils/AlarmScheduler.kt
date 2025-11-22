@@ -20,8 +20,34 @@ class AlarmScheduler(private val context: Context) {
 
     // ✅ NEU: Gruppiert Timer nach ihrer Zielzeit (auf die Minute genau)
     fun scheduleAlarmsForTimers(timers: List<Timer>) {
+        // ✅ WICHTIG: Filtere Timer die bereits abgelaufen sind
+        val now = System.currentTimeMillis()
+        val validTimers = timers.filter { timer ->
+            try {
+                val targetTime = ZonedDateTime.parse(
+                    timer.target_time,
+                    DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                )
+                val isInFuture = targetTime.toInstant().toEpochMilli() > now
+
+                if (!isInFuture) {
+                    Log.w("AlarmScheduler", "⏭️ Timer übersprungen (bereits abgelaufen): ${timer.name} (${timer.target_time})")
+                }
+
+                isInFuture
+            } catch (e: Exception) {
+                Log.e("AlarmScheduler", "❌ Fehler beim Parsen von Timer ${timer.id}: ${e.message}")
+                false
+            }
+        }
+
+        if (validTimers.isEmpty()) {
+            Log.d("AlarmScheduler", "ℹ️ Keine zukünftigen Timer zum Planen")
+            return
+        }
+
         // Gruppiere Timer nach ihrer Zielzeit (HH:mm)
-        val timersByTime = timers.groupBy { timer ->
+        val timersByTime = validTimers.groupBy { timer ->
             try {
                 val targetTime = ZonedDateTime.parse(
                     timer.target_time,
@@ -40,6 +66,8 @@ class AlarmScheduler(private val context: Context) {
                 scheduleGroupedAlarm(groupedTimers)
             }
         }
+
+        Log.d("AlarmScheduler", "✅ ${validTimers.size} zukünftige Timer geplant (${timers.size - validTimers.size} abgelaufen übersprungen)")
     }
 
     // ✅ NEU: Setzt einen Alarm für eine Gruppe von Timern
