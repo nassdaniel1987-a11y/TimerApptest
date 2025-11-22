@@ -627,6 +627,15 @@ private fun TimerCard(
             else -> null
         }
 
+        val recurrenceEndDateText = timer.recurrence_end_date?.let {
+            try {
+                val endDate = ZonedDateTime.parse(it, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                "Endet am: ${endDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}"
+            } catch (e: Exception) {
+                null
+            }
+        }
+
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             icon = if (isRecurring) {
@@ -638,7 +647,7 @@ private fun TimerCard(
                     Text("Möchtest du '${timer.name}' wirklich löschen?")
 
                     if (isRecurring) {
-                        HorizontalDivider()
+                        Divider()
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -668,20 +677,12 @@ private fun TimerCard(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                if (timer.recurrence_end_date != null) {
-                                    try {
-                                        val endDate = ZonedDateTime.parse(
-                                            timer.recurrence_end_date,
-                                            DateTimeFormatter.ISO_OFFSET_DATE_TIME
-                                        )
-                                        Text(
-                                            text = "Endet am: ${endDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    } catch (e: Exception) {
-                                        // Ignore
-                                    }
+                                if (recurrenceEndDateText != null) {
+                                    Text(
+                                        text = recurrenceEndDateText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
                             }
                         }
