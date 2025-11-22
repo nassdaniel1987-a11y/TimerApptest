@@ -144,7 +144,7 @@ fun HomeScreen(
                 title = { Text("Timer") },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        Icon(Icons.Default.Menu, contentDescription = "Menü öffnen")
                     }
                 },
                 actions = {
@@ -152,11 +152,11 @@ fun HomeScreen(
                     IconButton(onClick = { showFilterDialog = true }) {
                         Icon(
                             if (filterCategory != null) Icons.Default.FilterAltOff else Icons.Default.FilterAlt,
-                            contentDescription = "Filter"
+                            contentDescription = if (filterCategory != null) "Filter entfernen" else "Filter und Sortierung"
                         )
                     }
                     IconButton(onClick = { viewModel.sync() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Aktualisieren")
+                        Icon(Icons.Default.Refresh, contentDescription = "Timer aktualisieren")
                     }
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
@@ -207,7 +207,14 @@ fun HomeScreen(
                         }
                         items(filteredTimers, key = { it.id }) { timer ->
                             TimerCard(
-                                modifier = Modifier.animateItemPlacement(),
+                                modifier = Modifier
+                                    .animateItemPlacement(
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessLow
+                                        )
+                                    )
+                                    .animateContentSize(),
                                 timer = timer,
                                 onComplete = {
                                     performHaptic(haptic, settingsManager)
@@ -575,14 +582,29 @@ private fun TimerCard(
                             fontWeight = FontWeight.Medium
                         )
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Category,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = timer.category, style = MaterialTheme.typography.bodySmall)
+                    // ✅ Farbiges Kategorie-Badge
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = com.example.timerapp.utils.CategoryColors.getColor(timer.category).copy(alpha = 0.15f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Category,
+                                contentDescription = "Kategorie",
+                                modifier = Modifier.size(14.dp),
+                                tint = com.example.timerapp.utils.CategoryColors.getColor(timer.category)
+                            )
+                            Text(
+                                text = timer.category,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = com.example.timerapp.utils.CategoryColors.getColor(timer.category),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                     if (timer.note?.isNotBlank() == true) {
                         Text(

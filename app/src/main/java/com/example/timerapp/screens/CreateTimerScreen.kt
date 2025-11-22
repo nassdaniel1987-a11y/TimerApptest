@@ -36,7 +36,11 @@ fun CreateTimerScreen(
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showRecurrenceDialog by remember { mutableStateOf(false) }
     var showRecurrenceEndDatePicker by remember { mutableStateOf(false) }
-    var nameError by remember { mutableStateOf(false) }
+
+    // ✅ Validierungs-State
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var dateError by remember { mutableStateOf<String?>(null) }
+    var weekdayError by remember { mutableStateOf<String?>(null) }
 
     // ✅ Wiederholungs-State
     var recurrence by remember { mutableStateOf<String?>(null) }
@@ -44,6 +48,10 @@ fun CreateTimerScreen(
     var selectedWeekdays by remember { mutableStateOf(setOf<Int>()) } // ISO 8601: 1=Mo, 7=So
 
     val germanZone = ZoneId.of("Europe/Berlin")
+
+    // ✅ Konstanten für Validierung
+    val MAX_NAME_LENGTH = 50
+    val MAX_NOTE_LENGTH = 200
 
     Scaffold(
         topBar = {
@@ -57,9 +65,11 @@ fun CreateTimerScreen(
                 actions = {
                     TextButton(
                         onClick = {
-                            if (name.isBlank()) {
-                                nameError = true
-                                return@TextButton
+                            // ✅ Validierung: Name
+                            nameError = when {
+                                name.isBlank() -> "Name darf nicht leer sein"
+                                name.length > MAX_NAME_LENGTH -> "Max. $MAX_NAME_LENGTH Zeichen"
+                                else -> null
                             }
 
                             val targetDateTime = ZonedDateTime.of(
@@ -68,11 +78,26 @@ fun CreateTimerScreen(
                                 germanZone
                             )
 
+                            // ✅ Validierung: Datum in Vergangenheit
+                            dateError = if (targetDateTime.isBefore(ZonedDateTime.now(germanZone))) {
+                                "Datum muss in der Zukunft liegen"
+                            } else null
+
+                            // ✅ Validierung: Custom Weekdays
+                            weekdayError = if (recurrence == "custom" && selectedWeekdays.isEmpty()) {
+                                "Bitte mindestens einen Wochentag auswählen"
+                            } else null
+
+                            // Wenn Fehler existieren, nicht erstellen
+                            if (nameError != null || dateError != null || weekdayError != null) {
+                                return@TextButton
+                            }
+
                             val timer = Timer(
-                                name = name,
+                                name = name.trim(),
                                 target_time = targetDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                                 category = selectedCategory,
-                                note = note.ifBlank { null },
+                                note = note.trim().ifBlank { null },
                                 recurrence = recurrence,
                                 recurrence_end_date = recurrenceEndDate?.atStartOfDay(germanZone)?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                                 recurrence_weekdays = if (recurrence == "custom" && selectedWeekdays.isNotEmpty()) {
@@ -83,7 +108,7 @@ fun CreateTimerScreen(
                             viewModel.createTimer(timer)
                             onNavigateBack()
                         },
-                        enabled = name.isNotBlank()
+                        enabled = name.isNotBlank() && name.length <= MAX_NAME_LENGTH
                     ) {
                         Text(
                             "Erstellen",
@@ -111,16 +136,22 @@ fun CreateTimerScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = {
-                    name = it
-                    nameError = false
+                    if (it.length <= MAX_NAME_LENGTH) {
+                        name = it
+                        nameError = null
+                    }
                 },
                 label = { Text("Wofür?") },
                 placeholder = { Text("z.B. Max abholen") },
                 modifier = Modifier.fillMaxWidth(),
-                isError = nameError,
-                supportingText = if (nameError) {
-                    { Text("Bitte einen Namen eingeben") }
-                } else null,
+                isError = nameError != null,
+                supportingText = {
+                    if (nameError != null) {
+                        Text(nameError!!, color = MaterialTheme.colorScheme.error)
+                    } else {
+                        Text("${name.length}/$MAX_NAME_LENGTH Zeichen")
+                    }
+                },
                 singleLine = true,
                 shape = MaterialTheme.shapes.large
             )
@@ -436,10 +467,17 @@ fun CreateTimerScreen(
             // ✅ Notiz - Optional & minimalistisch
             OutlinedTextField(
                 value = note,
-                onValueChange = { note = it },
+                onValueChange = {
+                    if (it.length <= MAX_NOTE_LENGTH) {
+                        note = it
+                    }
+                },
                 label = { Text("Notiz (optional)") },
                 placeholder = { Text("z.B. Sportplatz Eingang Nord") },
                 modifier = Modifier.fillMaxWidth(),
+                supportingText = {
+                    Text("${note.length}/$MAX_NOTE_LENGTH Zeichen")
+                },
                 minLines = 2,
                 maxLines = 4,
                 shape = MaterialTheme.shapes.large
