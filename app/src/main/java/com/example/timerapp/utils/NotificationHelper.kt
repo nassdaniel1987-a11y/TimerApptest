@@ -10,6 +10,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.timerapp.AlarmActivity
 import com.example.timerapp.MainActivity
+import com.example.timerapp.SettingsManager
 
 object NotificationHelper {
 
