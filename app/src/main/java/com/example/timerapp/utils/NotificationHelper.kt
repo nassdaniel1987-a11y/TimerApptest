@@ -150,6 +150,9 @@ object NotificationHelper {
                 dismissPendingIntent
             )
 
+            // ✅ KRITISCH: Stoppe Alarm auch beim Weg-Swipen der Notification
+            builder.setDeleteIntent(dismissPendingIntent)
+
             Log.d("NotificationHelper", "🚨 Fullscreen-Intent gesetzt + Notification Sound/Vibration als Fallback")
         } else {
             // Pre-Reminder: Nur sanfte Benachrichtigung
