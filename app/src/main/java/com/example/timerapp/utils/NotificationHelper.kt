@@ -134,6 +134,22 @@ object NotificationHelper {
                 builder.setVibrate(longArrayOf(0, 1000, 1000))
             }
 
+            // ✅ KRITISCH: Dismiss-Action zum Stoppen des Alarms
+            val dismissIntent = Intent(context, com.example.timerapp.AlarmReceiver::class.java).apply {
+                action = "DISMISS_ALARM"
+            }
+            val dismissPendingIntent = PendingIntent.getBroadcast(
+                context,
+                groupId.hashCode() + 2,
+                dismissIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            builder.addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "Beenden",
+                dismissPendingIntent
+            )
+
             Log.d("NotificationHelper", "🚨 Fullscreen-Intent gesetzt + Notification Sound/Vibration als Fallback")
         } else {
             // Pre-Reminder: Nur sanfte Benachrichtigung
