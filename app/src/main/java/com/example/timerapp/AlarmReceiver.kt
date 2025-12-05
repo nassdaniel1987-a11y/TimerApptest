@@ -123,6 +123,18 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        // ✅ KRITISCH: Behandle DISMISS_ALARM Action
+        if (intent.action == "DISMISS_ALARM") {
+            Log.d("AlarmReceiver", "🔇 Dismiss-Action empfangen - stoppe Alarm")
+            stopAlarmSound()
+            stopVibration()
+
+            // Entferne Notification
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            notificationManager.cancelAll()
+            return
+        }
+
         // ✅ NEU: Unterstützt gruppierte Timer
         val timerIds = intent.getStringArrayExtra("TIMER_IDS")
         val timerNames = intent.getStringArrayExtra("TIMER_NAMES")
