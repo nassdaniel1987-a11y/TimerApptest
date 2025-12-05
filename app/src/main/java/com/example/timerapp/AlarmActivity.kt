@@ -44,12 +44,14 @@ class AlarmActivity : ComponentActivity() {
         val names = timerNames?.toList() ?: listOf(intent.getStringExtra("TIMER_NAME") ?: "Timer")
         val categories = timerCategories?.toList() ?: listOf(intent.getStringExtra("TIMER_CATEGORY") ?: "")
 
-        // Die Activity startet jetzt selbst Ton und Vibration.
+        // ✅ INFO: Sound & Vibration laufen bereits (gestartet im AlarmReceiver)
+        // Diese Activity zeigt nur den Fullscreen-UI
+        // ABER: Falls Activity manuell gestartet wurde (z.B. vom User), starte Sound/Vibration
         val settingsManager = SettingsManager.getInstance(this)
-        if (settingsManager.isSoundEnabled) {
+        if (AlarmReceiver.mediaPlayer == null && settingsManager.isSoundEnabled) {
             AlarmReceiver.playAlarmSound(this, escalate = settingsManager.isEscalatingAlarmEnabled)
         }
-        if (settingsManager.isVibrationEnabled) {
+        if (AlarmReceiver.vibrator == null && settingsManager.isVibrationEnabled) {
             AlarmReceiver.startVibration(this, intense = false)
         }
 

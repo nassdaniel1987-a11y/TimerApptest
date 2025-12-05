@@ -155,8 +155,27 @@ class AlarmReceiver : BroadcastReceiver() {
 
                     Log.d("AlarmReceiver", "🔔 Gruppen-Alarm ausgelöst für ${validTimerIds.size} Timer (${timerIds.size - validTimerIds.size} gelöscht)")
 
-                    // Zeige Benachrichtigung nur für existierende Timer
+                    // ✅ KRITISCH: Starte Sound & Vibration SOFORT (nicht erst in Activity!)
+                    // Dadurch funktioniert der Alarm IMMER, auch wenn Fullscreen blockiert wird
                     withContext(Dispatchers.Main) {
+                        if (!isPreReminder) {
+                            // Hole Settings
+                            val settingsManager = SettingsManager.getInstance(context)
+
+                            // Starte Sound wenn aktiviert
+                            if (settingsManager.isSoundEnabled) {
+                                playAlarmSound(context, escalate = settingsManager.isEscalatingAlarmEnabled)
+                                Log.d("AlarmReceiver", "🔊 Alarm-Sound gestartet")
+                            }
+
+                            // Starte Vibration wenn aktiviert
+                            if (settingsManager.isVibrationEnabled) {
+                                startVibration(context, intense = false)
+                                Log.d("AlarmReceiver", "📳 Vibration gestartet")
+                            }
+                        }
+
+                        // Zeige Benachrichtigung (mit Fullscreen-Intent als Bonus)
                         NotificationHelper.showGroupedTimerNotification(
                             context = context,
                             timerIds = validTimerIds,
@@ -192,7 +211,26 @@ class AlarmReceiver : BroadcastReceiver() {
 
                     Log.d("AlarmReceiver", "🔔 Einzelner Alarm ausgelöst: $timerName")
 
+                    // ✅ KRITISCH: Starte Sound & Vibration SOFORT (nicht erst in Activity!)
                     withContext(Dispatchers.Main) {
+                        if (!isPreReminder) {
+                            // Hole Settings
+                            val settingsManager = SettingsManager.getInstance(context)
+
+                            // Starte Sound wenn aktiviert
+                            if (settingsManager.isSoundEnabled) {
+                                playAlarmSound(context, escalate = settingsManager.isEscalatingAlarmEnabled)
+                                Log.d("AlarmReceiver", "🔊 Alarm-Sound gestartet")
+                            }
+
+                            // Starte Vibration wenn aktiviert
+                            if (settingsManager.isVibrationEnabled) {
+                                startVibration(context, intense = false)
+                                Log.d("AlarmReceiver", "📳 Vibration gestartet")
+                            }
+                        }
+
+                        // Zeige Benachrichtigung (mit Fullscreen-Intent als Bonus)
                         NotificationHelper.showTimerNotification(
                             context = context,
                             timerId = timerId,

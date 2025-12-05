@@ -121,11 +121,23 @@ object NotificationHelper {
             builder.setCategory(NotificationCompat.CATEGORY_ALARM)
             builder.setPriority(NotificationCompat.PRIORITY_MAX)
             builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            // Ton & Vibration werden manuell in AlarmActivity gesteuert
+
+            // ✅ FALLBACK: Aktiviere auch Sound/Vibration in der Notification selbst
+            // Dies ist ein ZWEITER Layer - AlarmReceiver startet bereits Sound/Vibration
+            // Aber falls der AlarmReceiver blockiert wird, greift dieser Fallback
+            val settingsManager = SettingsManager.getInstance(context)
+            if (settingsManager.isSoundEnabled) {
+                builder.setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM))
+            }
+            if (settingsManager.isVibrationEnabled) {
+                builder.setVibrate(longArrayOf(0, 1000, 1000))
+            }
+
+            Log.d("NotificationHelper", "🚨 Fullscreen-Intent gesetzt + Notification Sound/Vibration als Fallback")
+        } else {
+            // Pre-Reminder: Nur sanfte Benachrichtigung
             builder.setSound(null)
             builder.setVibrate(longArrayOf(0L))
-            Log.d("NotificationHelper", "🚨 Fullscreen-Intent gesetzt für Alarm")
-        } else {
             Log.d("NotificationHelper", "⏰ Pre-Reminder Benachrichtigung (kein Fullscreen)")
         }
 
