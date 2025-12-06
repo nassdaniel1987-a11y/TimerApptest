@@ -1,5 +1,7 @@
 package com.example.timerapp.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -9,9 +11,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.timerapp.SettingsManager
+import com.example.timerapp.ui.theme.GradientColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,306 +40,383 @@ fun SettingsScreen(
     var showPreReminderDialog by remember { mutableStateOf(false) }
     var showSnoozeDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Einstellungen") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background
-                )
-            )
+    // 🎨 Gradient Background
+    val backgroundGradient = Brush.verticalGradient(
+        colors = if (isSystemInDarkTheme()) {
+            GradientColors.BackgroundDark
+        } else {
+            GradientColors.BackgroundLight
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-        ) {
-            // ═══════════ DARSTELLUNG ═══════════
-            ListItem(
-                headlineContent = {
-                    Text(
-                        "Darstellung",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            )
+    )
 
-            Divider()
-
-            // Dark Mode
-            ListItem(
-                headlineContent = { Text("Dark Mode") },
-                supportingContent = { Text("Dunkles Farbschema aktivieren") },
-                leadingContent = {
-                    Icon(
-                        if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
-                        contentDescription = null
-                    )
-                },
-                trailingContent = {
-                    Switch(
-                        checked = isDarkModeEnabled,
-                        onCheckedChange = {
-                            isDarkModeEnabled = it
-                            settingsManager.isDarkModeEnabled = it
-                            onDarkModeChange(it)
-                        }
-                    )
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ═══════════ ALARM-EINSTELLUNGEN ═══════════
-            ListItem(
-                headlineContent = {
-                    Text(
-                        "Alarm-Einstellungen",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            )
-
-            Divider()
-
-            // Sound
-            ListItem(
-                headlineContent = { Text("Sound") },
-                supportingContent = { Text("Alarm-Ton abspielen") },
-                leadingContent = {
-                    Icon(
-                        if (isSoundEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
-                        contentDescription = null
-                    )
-                },
-                trailingContent = {
-                    Switch(
-                        checked = isSoundEnabled,
-                        onCheckedChange = {
-                            isSoundEnabled = it
-                            settingsManager.isSoundEnabled = it
-                        }
-                    )
-                }
-            )
-
-            // Vibration
-            ListItem(
-                headlineContent = { Text("Vibration") },
-                supportingContent = { Text("Gerät vibrieren lassen") },
-                leadingContent = {
-                    Icon(
-                        if (isVibrationEnabled) Icons.Default.Vibration else Icons.Default.PhoneDisabled,
-                        contentDescription = null
-                    )
-                },
-                trailingContent = {
-                    Switch(
-                        checked = isVibrationEnabled,
-                        onCheckedChange = {
-                            isVibrationEnabled = it
-                            settingsManager.isVibrationEnabled = it
-                        }
-                    )
-                }
-            )
-
-            // ✅ Eskalierender Alarm
-            ListItem(
-                headlineContent = { Text("Eskalierender Alarm") },
-                supportingContent = { Text("Alarm wird nach 1 Min lauter") },
-                leadingContent = {
-                    Icon(Icons.Default.TrendingUp, contentDescription = null)
-                },
-                trailingContent = {
-                    Switch(
-                        checked = isEscalatingAlarmEnabled,
-                        onCheckedChange = {
-                            isEscalatingAlarmEnabled = it
-                            settingsManager.isEscalatingAlarmEnabled = it
-                        }
-                    )
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ═══════════ ERINNERUNGEN ═══════════
-            ListItem(
-                headlineContent = {
-                    Text(
-                        "Erinnerungen",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            )
-
-            Divider()
-
-            // Vorab-Erinnerung
-            ListItem(
-                headlineContent = { Text("Vorab-Erinnerung") },
-                supportingContent = {
-                    Text(
-                        if (isPreReminderEnabled)
-                            "$preReminderMinutes Minuten vor dem Timer"
-                        else
-                            "Keine Vorab-Erinnerung"
-                    )
-                },
-                leadingContent = {
-                    Icon(Icons.Default.NotificationsActive, contentDescription = null)
-                },
-                trailingContent = {
-                    Switch(
-                        checked = isPreReminderEnabled,
-                        onCheckedChange = {
-                            isPreReminderEnabled = it
-                            settingsManager.isPreReminderEnabled = it
-                        }
-                    )
-                }
-            )
-
-            if (isPreReminderEnabled) {
-                ListItem(
-                    headlineContent = { Text("Vorab-Erinnerung Zeit") },
-                    supportingContent = { Text("$preReminderMinutes Minuten vorher") },
-                    leadingContent = {
-                        Icon(Icons.Default.Schedule, contentDescription = null)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundGradient)
+    ) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "Einstellungen",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
                     },
-                    trailingContent = {
-                        TextButton(onClick = { showPreReminderDialog = true }) {
-                            Text("Ändern")
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                    )
                 )
             }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // ✅ Snooze-Zeit
-            ListItem(
-                headlineContent = { Text("Snooze-Zeit") },
-                supportingContent = { Text("$snoozeMinutes Minuten beim Schlummern") },
-                leadingContent = {
-                    Icon(Icons.Default.Snooze, contentDescription = null)
-                },
-                trailingContent = {
-                    TextButton(onClick = { showSnoozeDialog = true }) {
-                        Text("Ändern")
-                    }
-                }
-            )
+                // ═══════════ DARSTELLUNG ═══════════
+                Text(
+                    "Darstellung",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ═══════════ BEDIENUNG ═══════════
-            ListItem(
-                headlineContent = {
-                    Text(
-                        "Bedienung",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            )
-
-            Divider()
-
-            // ✅ Haptisches Feedback
-            ListItem(
-                headlineContent = { Text("Haptisches Feedback") },
-                supportingContent = { Text("Vibration bei Aktionen") },
-                leadingContent = {
-                    Icon(Icons.Default.TouchApp, contentDescription = null)
-                },
-                trailingContent = {
-                    Switch(
-                        checked = isHapticFeedbackEnabled,
-                        onCheckedChange = {
-                            isHapticFeedbackEnabled = it
-                            settingsManager.isHapticFeedbackEnabled = it
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    ListItem(
+                        headlineContent = { Text("Dark Mode", fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text("Dunkles Farbschema aktivieren") },
+                        leadingContent = {
+                            Icon(
+                                if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isDarkModeEnabled,
+                                onCheckedChange = {
+                                    isDarkModeEnabled = it
+                                    settingsManager.isDarkModeEnabled = it
+                                    onDarkModeChange(it)
+                                }
+                            )
                         }
                     )
                 }
-            )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ═══════════ INFO ═══════════
-            ListItem(
-                headlineContent = {
-                    Text(
-                        "Information",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            )
-
-            Divider()
-
-            ListItem(
-                headlineContent = { Text("Zeitzone") },
-                supportingContent = { Text("${java.time.ZoneId.systemDefault().id} (Automatisch erkannt)") },
-                leadingContent = {
-                    Icon(Icons.Default.Public, contentDescription = null)
-                }
-            )
-
-            ListItem(
-                headlineContent = { Text("App-Version") },
-                supportingContent = { Text("1.0.0") },
-                leadingContent = {
-                    Icon(Icons.Default.Info, contentDescription = null)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Hinweis-Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                // ═══════════ ALARM-EINSTELLUNGEN ═══════════
+                Text(
+                    "Alarm-Einstellungen",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
                 )
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.Top
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                    shape = MaterialTheme.shapes.extraLarge
                 ) {
-                    Icon(
-                        Icons.Default.Info,
-                        contentDescription = null,
-                        modifier = Modifier.padding(end = 12.dp)
+                    ListItem(
+                        headlineContent = { Text("Sound", fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text("Alarm-Ton abspielen") },
+                        leadingContent = {
+                            Icon(
+                                if (isSoundEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isSoundEnabled,
+                                onCheckedChange = {
+                                    isSoundEnabled = it
+                                    settingsManager.isSoundEnabled = it
+                                }
+                            )
+                        }
                     )
-                    Column {
-                        Text(
-                            text = "Wichtiger Hinweis",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Für zuverlässige Alarme stelle sicher, dass:\n" +
-                                    "• Benachrichtigungen erlaubt sind\n" +
-                                    "• 'Alarme & Erinnerungen' aktiviert ist\n" +
-                                    "• Batterie-Optimierung deaktiviert ist",
-                            style = MaterialTheme.typography.bodySmall
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    ListItem(
+                        headlineContent = { Text("Vibration", fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text("Gerät vibrieren lassen") },
+                        leadingContent = {
+                            Icon(
+                                if (isVibrationEnabled) Icons.Default.Vibration else Icons.Default.PhoneDisabled,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isVibrationEnabled,
+                                onCheckedChange = {
+                                    isVibrationEnabled = it
+                                    settingsManager.isVibrationEnabled = it
+                                }
+                            )
+                        }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    ListItem(
+                        headlineContent = { Text("Eskalierender Alarm", fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text("Alarm wird nach 1 Min lauter") },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.TrendingUp,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isEscalatingAlarmEnabled,
+                                onCheckedChange = {
+                                    isEscalatingAlarmEnabled = it
+                                    settingsManager.isEscalatingAlarmEnabled = it
+                                }
+                            )
+                        }
+                    )
+                }
+
+                // ═══════════ ERINNERUNGEN ═══════════
+                Text(
+                    "Erinnerungen",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    ListItem(
+                        headlineContent = { Text("Vorab-Erinnerung", fontWeight = FontWeight.Medium) },
+                        supportingContent = {
+                            Text(
+                                if (isPreReminderEnabled)
+                                    "$preReminderMinutes Minuten vor dem Timer"
+                                else
+                                    "Keine Vorab-Erinnerung"
+                            )
+                        },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.NotificationsActive,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isPreReminderEnabled,
+                                onCheckedChange = {
+                                    isPreReminderEnabled = it
+                                    settingsManager.isPreReminderEnabled = it
+                                }
+                            )
+                        }
+                    )
+
+                    if (isPreReminderEnabled) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                        ListItem(
+                            headlineContent = { Text("Vorab-Erinnerung Zeit", fontWeight = FontWeight.Medium) },
+                            supportingContent = { Text("$preReminderMinutes Minuten vorher") },
+                            leadingContent = {
+                                Icon(
+                                    Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                            },
+                            trailingContent = {
+                                TextButton(onClick = { showPreReminderDialog = true }) {
+                                    Text("Ändern")
+                                }
+                            }
                         )
                     }
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    ListItem(
+                        headlineContent = { Text("Snooze-Zeit", fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text("$snoozeMinutes Minuten beim Schlummern") },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.Snooze,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailingContent = {
+                            TextButton(onClick = { showSnoozeDialog = true }) {
+                                Text("Ändern")
+                            }
+                        }
+                    )
                 }
+
+                // ═══════════ BEDIENUNG ═══════════
+                Text(
+                    "Bedienung",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    ListItem(
+                        headlineContent = { Text("Haptisches Feedback", fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text("Vibration bei Aktionen") },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.TouchApp,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isHapticFeedbackEnabled,
+                                onCheckedChange = {
+                                    isHapticFeedbackEnabled = it
+                                    settingsManager.isHapticFeedbackEnabled = it
+                                }
+                            )
+                        }
+                    )
+                }
+
+                // ═══════════ INFO ═══════════
+                Text(
+                    "Information",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    ListItem(
+                        headlineContent = { Text("Zeitzone", fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text("${java.time.ZoneId.systemDefault().id} (Automatisch erkannt)") },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.Public,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    ListItem(
+                        headlineContent = { Text("App-Version", fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text("1.0.0") },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    )
+                }
+
+                // 🎨 Hinweis-Card mit Glasmorphism
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                    ),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    Row(
+                        modifier = Modifier.padding(20.dp),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Wichtiger Hinweis",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                text = "Für zuverlässige Alarme stelle sicher, dass:\n" +
+                                        "• Benachrichtigungen erlaubt sind\n" +
+                                        "• 'Alarme & Erinnerungen' aktiviert ist\n" +
+                                        "• Batterie-Optimierung deaktiviert ist",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -346,13 +429,12 @@ fun SettingsScreen(
             onDismissRequest = { showPreReminderDialog = false },
             title = { Text("Vorab-Erinnerung Zeit") },
             text = {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     options.forEach { minutes ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             RadioButton(
                                 selected = preReminderMinutes == minutes,
@@ -362,7 +444,6 @@ fun SettingsScreen(
                                     showPreReminderDialog = false
                                 }
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "$minutes Minuten",
                                 style = MaterialTheme.typography.bodyLarge
@@ -379,7 +460,7 @@ fun SettingsScreen(
         )
     }
 
-    // ✅ Snooze Time Picker Dialog
+    // Snooze Time Picker Dialog
     if (showSnoozeDialog) {
         val options = listOf(5, 10, 15, 20, 30)
 
@@ -387,13 +468,12 @@ fun SettingsScreen(
             onDismissRequest = { showSnoozeDialog = false },
             title = { Text("Snooze-Zeit") },
             text = {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     options.forEach { minutes ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             RadioButton(
                                 selected = snoozeMinutes == minutes,
@@ -403,7 +483,6 @@ fun SettingsScreen(
                                     showSnoozeDialog = false
                                 }
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "$minutes Minuten",
                                 style = MaterialTheme.typography.bodyLarge
