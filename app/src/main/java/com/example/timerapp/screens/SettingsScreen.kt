@@ -285,7 +285,7 @@ fun SettingsScreen(
 
             ListItem(
                 headlineContent = { Text("Zeitzone") },
-                supportingContent = { Text("Europe/Berlin (Deutschland)") },
+                supportingContent = { Text("${java.time.ZoneId.systemDefault().id} (Automatisch erkannt)") },
                 leadingContent = {
                     Icon(Icons.Default.Public, contentDescription = null)
                 }
