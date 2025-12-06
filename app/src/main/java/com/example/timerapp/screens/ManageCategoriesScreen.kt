@@ -24,9 +24,24 @@ fun ManageCategoriesScreen(
     onNavigateBack: () -> Unit
 ) {
     val categories by viewModel.categories.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
     var showAddDialog by remember { mutableStateOf(false) }
 
+    // ✅ Error Handling - zeige Fehler als Snackbar
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(
+                message = it,
+                duration = SnackbarDuration.Long
+            )
+            viewModel.clearError()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Kategorien") },

@@ -24,8 +24,23 @@ fun ManageQRCodesScreen(
     onNavigateToCreate: () -> Unit // Neuer Parameter für die Navigation
 ) {
     val qrCodes by viewModel.qrCodes.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // ✅ Error Handling - zeige Fehler als Snackbar
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(
+                message = it,
+                duration = SnackbarDuration.Long
+            )
+            viewModel.clearError()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("QR-Codes verwalten") },
