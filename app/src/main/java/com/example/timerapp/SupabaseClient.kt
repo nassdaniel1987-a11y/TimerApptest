@@ -2,8 +2,6 @@ package com.example.timerapp
 
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
-import io.ktor.client.engine.android.Android
-import io.ktor.client.plugins.HttpTimeout
 
 object SupabaseClient {
 
@@ -17,12 +15,7 @@ object SupabaseClient {
     ) {
         install(Postgrest)
 
-        // ✅ HTTP Timeouts: Verhindert App-Hangs bei langsamer Verbindung
-        httpEngine {
-            engine = Android.create {
-                connectTimeout = 5_000  // 5 Sekunden für Connection-Aufbau
-                socketTimeout = 15_000  // 15 Sekunden für Socket-Read
-            }
-        }
+        // ℹ️ Note: Timeout-Handling erfolgt über RetryUtils mit Exponential Backoff
+        // Supabase-Client nutzt eigene Default-Timeouts, Retry-Logik fängt Timeouts ab
     }
 }
