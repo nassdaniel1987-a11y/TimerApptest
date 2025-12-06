@@ -656,7 +656,7 @@ private fun TimerCard(
                             contentAlignment = Alignment.Center
                         ) {
                             CircularProgressIndicator(
-                                progress = { progress.coerceIn(0f, 1f) },
+                                progress = progress.coerceIn(0f, 1f),
                                 modifier = Modifier.size(60.dp),
                                 color = urgencyColor,
                                 strokeWidth = 4.dp,
@@ -849,7 +849,7 @@ private fun TimerCard(
                                 .padding(bottom = 8.dp)
                         ) {
                             LinearProgressIndicator(
-                                progress = { linearProgress },
+                                progress = linearProgress,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(4.dp)
