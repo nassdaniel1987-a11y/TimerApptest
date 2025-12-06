@@ -36,6 +36,10 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
+import com.example.timerapp.ui.theme.GradientColors
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -145,11 +149,26 @@ fun HomeScreen(
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
 
-    Scaffold(
+    // ✨ Gradient Background
+    val backgroundGradient = Brush.verticalGradient(
+        colors = if (isSystemInDarkTheme()) {
+            GradientColors.BackgroundDark
+        } else {
+            GradientColors.BackgroundLight
+        }
+    )
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
+            .background(backgroundGradient)
+    ) {
+        Scaffold(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            containerColor = Color.Transparent, // Transparent für Gradient
+            topBar = {
             LargeTopAppBar(
                 title = { Text("Timer") },
                 navigationIcon = {
@@ -170,15 +189,37 @@ fun HomeScreen(
                     }
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
                 ),
                 scrollBehavior = scrollBehavior
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onCreateTimer) {
-                Icon(Icons.Default.Add, contentDescription = "Timer erstellen")
+            // ✨ Animierte FAB mit Gradient
+            val fabScale by animateFloatAsState(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "fabScale"
+            )
+
+            FloatingActionButton(
+                onClick = onCreateTimer,
+                modifier = Modifier.scale(fabScale),
+                containerColor = MaterialTheme.colorScheme.primary,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 8.dp,
+                    pressedElevation = 12.dp
+                )
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Timer erstellen",
+                    modifier = Modifier.size(28.dp)
+                )
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -323,6 +364,7 @@ fun HomeScreen(
                 }
             }
         }
+        }
     }
 
     // Filter/Sort Dialog
@@ -355,17 +397,39 @@ fun QuickTimerButtons(
     )
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+                    )
+                ),
+                shape = MaterialTheme.shapes.medium
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+            containerColor = Color.Transparent
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                "Schnell-Timer",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Timer,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Schnell-Timer",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
             // ✅ Verbessert: Row statt LazyRow für bessere Performance & Flexibilität
             Row(
@@ -401,16 +465,43 @@ fun QuickTimerButton(
     option: QuickTimerOption,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "quickTimerScale"
+    )
+
     FilledTonalButton(
         onClick = onClick,
         modifier = modifier
+            .scale(scale)
+            .height(72.dp),
+        interactionSource = interactionSource,
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+        )
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Icon(option.icon, contentDescription = null, modifier = Modifier.size(20.dp))
-            Text(option.label, style = MaterialTheme.typography.labelSmall)
+            Icon(
+                option.icon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                option.label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
@@ -420,27 +511,46 @@ data class QuickTimerOption(val minutes: Int, val icon: ImageVector, val label: 
 @Composable
 fun ListHeader(title: String, count: Int? = null) {
     Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
         )
         if (count != null) {
             Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
             ) {
                 Text(
                     text = count.toString(),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             }
         }
+        // Dekorative Linie
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
     }
 }
 
@@ -596,32 +706,58 @@ private fun TimerCard(
         endActions = listOf(deleteAction),
         swipeThreshold = 100.dp
     ) {
-        // ✅ Box mit animierter Border
+        // ✅ Glasmorphism Box mit animierter Border + Glow
         Box(
             modifier = modifier
                 .fillMaxWidth()
-                .then(
-                    if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) {
-                        Modifier
-                            .scale(if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) pulseScale else 1f)
-                            .border(
-                                width = borderWidth,
-                                color = borderColor.copy(alpha = pulseAlpha),
-                                shape = MaterialTheme.shapes.medium
-                            )
-                    } else {
-                        Modifier.border(
-                            width = borderWidth,
-                            color = borderColor,
+        ) {
+            // Glow Effect Layer (hinter der Card)
+            if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .scale(pulseScale * 1.05f)
+                        .blur(24.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    borderColor.copy(alpha = 0.4f * pulseAlpha),
+                                    Color.Transparent
+                                )
+                            ),
                             shape = MaterialTheme.shapes.medium
                         )
-                    }
                 )
-        ) {
+            }
+
+            // Card mit Glasmorphism
             ElevatedCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateContentSize()
+                    .then(
+                        if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) {
+                            Modifier
+                                .scale(pulseScale)
+                                .border(
+                                    width = borderWidth,
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            borderColor.copy(alpha = pulseAlpha),
+                                            borderColor.copy(alpha = pulseAlpha * 0.5f)
+                                        )
+                                    ),
+                                    shape = MaterialTheme.shapes.medium
+                                )
+                        } else {
+                            Modifier.border(
+                                width = borderWidth,
+                                color = borderColor.copy(alpha = 0.3f),
+                                shape = MaterialTheme.shapes.medium
+                            )
+                        }
+                    )
                     .clickable(
                         interactionSource = cardInteractionSource,
                         indication = rememberRipple(),
@@ -630,7 +766,10 @@ private fun TimerCard(
                         }
                     ),
                 shape = MaterialTheme.shapes.medium,
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation)
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f) // Glasmorphism!
+                )
             ) {
             Column {
                 Row(
