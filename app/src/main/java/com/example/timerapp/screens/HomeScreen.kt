@@ -11,7 +11,11 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -24,8 +28,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -198,6 +208,13 @@ fun HomeScreen(
                     }
 
                     // Aktive Timer
+                    if (filteredTimers.isEmpty() && completedTimers.isEmpty()) {
+                        // ✅ Empty State anzeigen
+                        item {
+                            AnimatedEmptyState()
+                        }
+                    }
+
                     if (filteredTimers.isNotEmpty()) {
                         item {
                             ListHeader(
@@ -206,16 +223,37 @@ fun HomeScreen(
                             )
                         }
                         items(filteredTimers, key = { it.id }) { timer ->
-                            TimerCard(
-                                modifier = Modifier
-                                    .animateItemPlacement(
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                                            stiffness = Spring.StiffnessLow
-                                        )
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = slideInVertically(
+                                    initialOffsetY = { it / 2 },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
                                     )
-                                    .animateContentSize(),
-                                timer = timer,
+                                ) + fadeIn(
+                                    animationSpec = tween(300)
+                                ),
+                                exit = slideOutVertically(
+                                    targetOffsetY = { -it / 2 },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                ) + fadeOut(
+                                    animationSpec = tween(200)
+                                )
+                            ) {
+                                TimerCard(
+                                    modifier = Modifier
+                                        .animateItemPlacement(
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessLow
+                                            )
+                                        )
+                                        .animateContentSize(),
+                                    timer = timer,
                                 onComplete = {
                                     performHaptic(haptic, settingsManager)
                                     viewModel.markTimerCompleted(timer.id)
@@ -234,6 +272,7 @@ fun HomeScreen(
                                 settingsManager = settingsManager,
                                 haptic = haptic
                             )
+                            }
                         }
                     }
 
@@ -244,19 +283,41 @@ fun HomeScreen(
                             ListHeader("Abgeschlossen", completedTimers.size)
                         }
                         items(completedTimers, key = { it.id }) { timer ->
-                            TimerCard(
-                                modifier = Modifier.animateItemPlacement(),
-                                timer = timer,
-                                onComplete = { },
-                                onDelete = {
-                                    performHaptic(haptic, settingsManager)
-                                    viewModel.deleteTimer(timer.id)
-                                    showSnackbar(snackbarHostState, "Timer gelöscht")
-                                },
-                                onEdit = { },
-                                settingsManager = settingsManager,
-                                haptic = haptic
-                            )
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = slideInVertically(
+                                    initialOffsetY = { it / 2 },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                ) + fadeIn(
+                                    animationSpec = tween(300)
+                                ),
+                                exit = slideOutVertically(
+                                    targetOffsetY = { -it / 2 },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                ) + fadeOut(
+                                    animationSpec = tween(200)
+                                )
+                            ) {
+                                TimerCard(
+                                    modifier = Modifier.animateItemPlacement(),
+                                    timer = timer,
+                                    onComplete = { },
+                                    onDelete = {
+                                        performHaptic(haptic, settingsManager)
+                                        viewModel.deleteTimer(timer.id)
+                                        showSnackbar(snackbarHostState, "Timer gelöscht")
+                                    },
+                                    onEdit = { },
+                                    settingsManager = settingsManager,
+                                    haptic = haptic
+                                )
+                            }
                         }
                     }
                 }
@@ -423,6 +484,45 @@ private fun TimerCard(
 
     val now = ZonedDateTime.now()
     val isPast = targetTime.isBefore(now)
+    val minutesUntil = ChronoUnit.MINUTES.between(now, targetTime)
+
+    // ✅ Timer Status bestimmen
+    val timerState = when {
+        timer.is_completed -> TimerState.COMPLETED
+        isPast -> TimerState.ALARM
+        minutesUntil <= 60 -> TimerState.RUNNING
+        else -> TimerState.PENDING
+    }
+
+    // ✅ Pulsing Animation für RUNNING und ALARM States
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+
+    // ✅ State-basierte Farben
+    val (borderColor, borderWidth) = when (timerState) {
+        TimerState.PENDING -> Color(0xFF2196F3) to 2.dp // Blau
+        TimerState.RUNNING -> Color(0xFFFF9800) to 3.dp // Orange
+        TimerState.COMPLETED -> Color(0xFF4CAF50) to 2.dp // Grün
+        TimerState.ALARM -> Color(0xFFF44336) to 3.dp // Rot
+    }
 
     // ✅ Farbcodierung
     val urgencyColor = getTimerUrgencyColor(targetTime)
@@ -478,31 +578,110 @@ private fun TimerCard(
         }
     )
 
+    // ✅ Card Tap Interaction
+    val cardInteractionSource = remember { MutableInteractionSource() }
+    val isCardPressed by cardInteractionSource.collectIsPressedAsState()
+
+    val cardElevation by animateDpAsState(
+        targetValue = if (isCardPressed) 2.dp else 6.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "cardElevation"
+    )
+
     SwipeableActionsBox(
         startActions = if (!timer.is_completed) listOf(completeAction) else emptyList(),
         endActions = listOf(deleteAction),
         swipeThreshold = 100.dp
     ) {
-        ElevatedCard(
+        // ✅ Box mit animierter Border
+        Box(
             modifier = modifier
                 .fillMaxWidth()
-                .animateContentSize()
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // ✅ Farbindikator
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .height(60.dp)
-                        .clip(MaterialTheme.shapes.small)
-                        .background(urgencyColor)
+                .then(
+                    if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) {
+                        Modifier
+                            .scale(if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) pulseScale else 1f)
+                            .border(
+                                width = borderWidth,
+                                color = borderColor.copy(alpha = pulseAlpha),
+                                shape = MaterialTheme.shapes.medium
+                            )
+                    } else {
+                        Modifier.border(
+                            width = borderWidth,
+                            color = borderColor,
+                            shape = MaterialTheme.shapes.medium
+                        )
+                    }
                 )
+        ) {
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize()
+                    .clickable(
+                        interactionSource = cardInteractionSource,
+                        indication = rememberRipple(),
+                        onClick = {
+                            performHaptic(haptic, settingsManager)
+                        }
+                    ),
+                shape = MaterialTheme.shapes.medium,
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation)
+            ) {
+            Column {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // ✅ Circular Progress Indicator - Countdown bis Timer-Start
+                    if (!timer.is_completed && !isPast) {
+                        val totalMinutes = ChronoUnit.MINUTES.between(
+                            ZonedDateTime.parse(timer.created_at, DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                            targetTime
+                        ).toFloat()
+                        val remainingMinutes = minutesUntil.toFloat()
+                        val progress = if (totalMinutes > 0) {
+                            1f - (remainingMinutes / totalMinutes)
+                        } else {
+                            1f
+                        }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                        Box(
+                            modifier = Modifier.size(60.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                progress = { progress.coerceIn(0f, 1f) },
+                                modifier = Modifier.size(60.dp),
+                                color = urgencyColor,
+                                strokeWidth = 4.dp,
+                                trackColor = urgencyColor.copy(alpha = 0.2f)
+                            )
+                            // Icon in der Mitte
+                            Icon(
+                                imageVector = Icons.Default.Timer,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                tint = urgencyColor
+                            )
+                        }
+                    } else {
+                        // Farbindikator für abgeschlossene/abgelaufene Timer
+                        Box(
+                            modifier = Modifier
+                                .width(4.dp)
+                                .height(60.dp)
+                                .clip(MaterialTheme.shapes.small)
+                                .background(urgencyColor)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
 
                 Column(
                     modifier = Modifier.weight(1f),
@@ -616,28 +795,72 @@ private fun TimerCard(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     if (!timer.is_completed) {
-                        IconButton(onClick = {
-                            performHaptic(haptic, settingsManager)
-                            showEditDialog = true
-                        }) {
-                            Icon(imageVector = Icons.Default.Edit, contentDescription = "Bearbeiten")
-                        }
+                        AnimatedIconButton(
+                            onClick = {
+                                performHaptic(haptic, settingsManager)
+                                showEditDialog = true
+                            },
+                            icon = Icons.Default.Edit,
+                            contentDescription = "Bearbeiten"
+                        )
                     }
                     if (!timer.is_completed) {
-                        IconButton(onClick = {
+                        AnimatedIconButton(
+                            onClick = {
+                                performHaptic(haptic, settingsManager)
+                                onComplete()
+                            },
+                            icon = Icons.Default.CheckCircle,
+                            contentDescription = "Abschließen"
+                        )
+                    }
+                    AnimatedIconButton(
+                        onClick = {
                             performHaptic(haptic, settingsManager)
-                            onComplete()
-                        }) {
-                            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Abschließen")
+                            showDeleteDialog = true
+                        },
+                        icon = Icons.Default.Delete,
+                        contentDescription = "Löschen"
+                    )
+                }
+                }
+
+                // ✅ Linear Progress Indicator - Zeit seit Timer erstellt
+                if (!timer.is_completed) {
+                    val createdAt = try {
+                        ZonedDateTime.parse(timer.created_at, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    } catch (e: Exception) {
+                        null
+                    }
+
+                    if (createdAt != null) {
+                        val totalDuration = ChronoUnit.MINUTES.between(createdAt, targetTime).toFloat()
+                        val elapsed = ChronoUnit.MINUTES.between(createdAt, now).toFloat()
+                        val linearProgress = if (totalDuration > 0) {
+                            (elapsed / totalDuration).coerceIn(0f, 1f)
+                        } else {
+                            0f
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 8.dp)
+                        ) {
+                            LinearProgressIndicator(
+                                progress = { linearProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(MaterialTheme.shapes.small),
+                                color = urgencyColor,
+                                trackColor = urgencyColor.copy(alpha = 0.2f)
+                            )
                         }
                     }
-                    IconButton(onClick = {
-                        performHaptic(haptic, settingsManager)
-                        showDeleteDialog = true
-                    }) {
-                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Löschen")
-                    }
                 }
+            }
             }
         }
     }
@@ -762,6 +985,156 @@ private fun TimerCard(
                 onEdit(editedTimer)
                 showEditDialog = false
             }
+        )
+    }
+}
+
+// ✅ Timer State Enum
+private enum class TimerState {
+    PENDING,    // ⏰ Ausstehend
+    RUNNING,    // ⏳ Läuft
+    COMPLETED,  // ✅ Abgeschlossen
+    ALARM       // 🔔 Alarm
+}
+
+// ✅ Animated Icon Button with Scale Effect
+@Composable
+private fun AnimatedIconButton(
+    onClick: () -> Unit,
+    icon: ImageVector,
+    contentDescription: String?,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.85f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "buttonScale"
+    )
+
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.scale(scale),
+        interactionSource = interactionSource
+    ) {
+        Icon(imageVector = icon, contentDescription = contentDescription)
+    }
+}
+
+// ✅ Timer Complete Animation
+@Composable
+private fun TimerCompleteAnimation(
+    visible: Boolean,
+    onAnimationEnd: () -> Unit = {}
+) {
+    LaunchedEffect(visible) {
+        if (visible) {
+            kotlinx.coroutines.delay(1500)
+            onAnimationEnd()
+        }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = scaleIn(
+            initialScale = 0f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            )
+        ) + fadeIn(animationSpec = tween(300)),
+        exit = scaleOut(
+            targetScale = 1.2f,
+            animationSpec = tween(300)
+        ) + fadeOut(animationSpec = tween(300))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            // Grüner Kreis mit Checkmark
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .background(
+                        color = Color(0xFF4CAF50),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Abgeschlossen",
+                    tint = Color.White,
+                    modifier = Modifier.size(80.dp)
+                )
+            }
+        }
+    }
+}
+
+// ✅ Animated Empty State
+@Composable
+private fun AnimatedEmptyState() {
+    val infiniteTransition = rememberInfiniteTransition(label = "emptyState")
+
+    val floatingOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 20f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "floating"
+    )
+
+    val iconRotation by infiniteTransition.animateFloat(
+        initialValue = -10f,
+        targetValue = 10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "rotation"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Animiertes Icon
+        Icon(
+            imageVector = Icons.Default.Timer,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+            modifier = Modifier
+                .size(120.dp)
+                .offset(y = floatingOffset.dp)
+                .rotate(iconRotation)
+        )
+
+        Text(
+            text = "Keine Timer vorhanden",
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+
+        Text(
+            text = "Erstelle deinen ersten Timer mit dem + Button",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
 }
