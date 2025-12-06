@@ -1,7 +1,12 @@
 package com.example.timerapp.screens
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -9,15 +14,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.timerapp.models.Timer
+import com.example.timerapp.ui.theme.GradientColors
 import com.example.timerapp.viewmodel.TimerViewModel
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,17 +77,40 @@ fun CreateTimerScreen(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Neuer Timer") },
-                navigationIcon = {
-                    TextButton(onClick = onNavigateBack) {
-                        Text("Abbrechen")
-                    }
-                },
-                actions = {
+    // ✨ Gradient Background
+    val backgroundGradient = Brush.verticalGradient(
+        colors = if (isSystemInDarkTheme()) {
+            GradientColors.BackgroundDark
+        } else {
+            GradientColors.BackgroundLight
+        }
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundGradient)
+    ) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "Neuer Timer",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    navigationIcon = {
+                        TextButton(onClick = onNavigateBack) {
+                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Abbrechen")
+                        }
+                    },
+                    actions = {
                     TextButton(
                         onClick = {
                             // ✅ Validierung: Name
@@ -132,12 +165,12 @@ fun CreateTimerScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
                 )
             )
         }
-    ) { padding ->
+        ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -147,7 +180,92 @@ fun CreateTimerScreen(
                 .padding(top = 8.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // ✅ Name Input - Minimalistisch
+            // 🎨 Hero Section - Timer Preview
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                ),
+                shape = MaterialTheme.shapes.extraLarge
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Großes Timer Icon
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                                        )
+                                    ),
+                                    shape = CircleShape
+                                )
+                                .border(
+                                    width = 3.dp,
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.tertiary
+                                        )
+                                    ),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Timer,
+                                contentDescription = null,
+                                modifier = Modifier.size(60.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        // Preview Text
+                        val targetDateTime = ZonedDateTime.of(selectedDate, selectedTime, userZone)
+                        val minutesUntil = ChronoUnit.MINUTES.between(ZonedDateTime.now(userZone), targetDateTime)
+
+                        Text(
+                            text = if (name.isBlank()) "Timer Preview" else name,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        if (minutesUntil > 0) {
+                            Text(
+                                text = when {
+                                    minutesUntil < 60 -> "in $minutesUntil Minuten"
+                                    minutesUntil < 1440 -> "in ${minutesUntil / 60}h ${minutesUntil % 60}min"
+                                    else -> "in ${minutesUntil / 1440} Tagen"
+                                },
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ✅ Name Input - Modernisiert mit Icon
             OutlinedTextField(
                 value = name,
                 onValueChange = {
@@ -156,19 +274,33 @@ fun CreateTimerScreen(
                         nameError = null
                     }
                 },
-                label = { Text("Wofür?") },
+                label = { Text("Wofür?", style = MaterialTheme.typography.titleSmall) },
                 placeholder = { Text("z.B. Max abholen") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 isError = nameError != null,
                 supportingText = {
                     if (nameError != null) {
                         Text(nameError!!, color = MaterialTheme.colorScheme.error)
                     } else {
-                        Text("${name.length}/$MAX_NAME_LENGTH Zeichen")
+                        Text(
+                            "${name.length}/$MAX_NAME_LENGTH Zeichen",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 },
                 singleLine = true,
-                shape = MaterialTheme.shapes.large
+                shape = MaterialTheme.shapes.large,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                )
             )
 
             // ✅ Datum & Zeit - Kompakt nebeneinander
@@ -497,6 +629,7 @@ fun CreateTimerScreen(
                 maxLines = 4,
                 shape = MaterialTheme.shapes.large
             )
+        }
         }
     }
 
