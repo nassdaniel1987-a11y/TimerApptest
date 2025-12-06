@@ -46,14 +46,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.models.Timer
 import com.example.timerapp.viewmodel.TimerViewModel
-import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -279,27 +280,10 @@ fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        // ✨ Material 3 Native PullToRefresh
-        val pullToRefreshState = rememberPullToRefreshState()
-
-        LaunchedEffect(isLoading) {
-            if (isLoading) {
-                pullToRefreshState.startRefresh()
-            } else {
-                pullToRefreshState.endRefresh()
-            }
-        }
-
-        LaunchedEffect(pullToRefreshState.isRefreshing) {
-            if (pullToRefreshState.isRefreshing) {
-                viewModel.sync()
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .padding(padding)
-                .nestedScroll(pullToRefreshState.nestedScrollConnection)
+        SwipeRefresh(
+            state = rememberSwipeRefreshState(isLoading),
+            onRefresh = { viewModel.sync() },
+            modifier = Modifier.padding(padding)
         ) {
             if (timers.isEmpty()) {
                 EmptyState(onCreateTimer = onCreateTimer)
@@ -379,19 +363,19 @@ fun HomeScreen(
 
                     // ✨ SegmentedButton für Zeitfilter
                     item {
-                        androidx.compose.material3.SingleChoiceSegmentedButtonRow(
+                        SingleChoiceSegmentedButtonRow(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             TimeFilter.entries.forEachIndexed { index, filter ->
-                                androidx.compose.material3.SegmentedButton(
+                                SegmentedButton(
                                     selected = timeFilter == filter,
                                     onClick = { timeFilter = filter },
-                                    shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(
+                                    shape = SegmentedButtonDefaults.itemShape(
                                         index = index,
                                         count = TimeFilter.entries.size
                                     ),
                                     icon = {
-                                        androidx.compose.material3.SegmentedButtonDefaults.Icon(active = timeFilter == filter)
+                                        SegmentedButtonDefaults.Icon(active = timeFilter == filter)
                                     }
                                 ) {
                                     Text(filter.label)
@@ -403,6 +387,12 @@ fun HomeScreen(
 
                     // ✨ Carousel mit Timer-Vorlagen
                     item {
+                        // Hole Farben im @Composable Kontext
+                        val colorPrimary = MaterialTheme.colorScheme.primary
+                        val colorSecondary = MaterialTheme.colorScheme.secondary
+                        val colorTertiary = MaterialTheme.colorScheme.tertiary
+                        val colorError = MaterialTheme.colorScheme.error
+
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 text = "Schnell-Timer",
@@ -417,13 +407,13 @@ fun HomeScreen(
                             ) {
                                 // Timer-Vorlagen
                                 val templates = listOf(
-                                    TemplateData("5 Min", 5, Icons.Default.Coffee, MaterialTheme.colorScheme.tertiary),
-                                    TemplateData("10 Min", 10, Icons.Default.Accessibility, MaterialTheme.colorScheme.primary),
-                                    TemplateData("15 Min", 15, Icons.Default.DirectionsWalk, MaterialTheme.colorScheme.secondary),
-                                    TemplateData("25 Min\nPomodoro", 25, Icons.Default.Psychology, MaterialTheme.colorScheme.error),
-                                    TemplateData("30 Min", 30, Icons.Default.FitnessCenter, MaterialTheme.colorScheme.tertiary),
-                                    TemplateData("1 Std", 60, Icons.Default.Schedule, MaterialTheme.colorScheme.primary),
-                                    TemplateData("2 Std", 120, Icons.Default.Timelapse, MaterialTheme.colorScheme.secondary)
+                                    TemplateData("5 Min", 5, Icons.Default.Coffee, colorTertiary),
+                                    TemplateData("10 Min", 10, Icons.Default.Accessibility, colorPrimary),
+                                    TemplateData("15 Min", 15, Icons.Default.DirectionsWalk, colorSecondary),
+                                    TemplateData("25 Min\nPomodoro", 25, Icons.Default.Psychology, colorError),
+                                    TemplateData("30 Min", 30, Icons.Default.FitnessCenter, colorTertiary),
+                                    TemplateData("1 Std", 60, Icons.Default.Schedule, colorPrimary),
+                                    TemplateData("2 Std", 120, Icons.Default.Timelapse, colorSecondary)
                                 )
 
                                 items(templates.size) { index ->
@@ -566,12 +556,6 @@ fun HomeScreen(
                     }
                 }
             }
-
-            // ✨ PullToRefresh Indicator
-            PullToRefreshContainer(
-                state = pullToRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter)
-            )
         }
     }
 }
