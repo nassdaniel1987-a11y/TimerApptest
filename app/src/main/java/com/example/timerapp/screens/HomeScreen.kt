@@ -52,8 +52,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.models.Timer
 import com.example.timerapp.viewmodel.TimerViewModel
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -87,6 +87,13 @@ fun HomeScreen(
     var sortBy by remember { mutableStateOf(SortType.DATE) }
     var showFilterDialog by remember { mutableStateOf(false) }
 
+    // ✨ SearchBar State
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearchActive by remember { mutableStateOf(false) }
+
+    // ✨ SegmentedButton State für Zeitfilter
+    var timeFilter by remember { mutableStateOf(TimeFilter.ALL) }
+
     // ✅ Zeige Error als Snackbar
     LaunchedEffect(error) {
         error?.let {
@@ -98,9 +105,57 @@ fun HomeScreen(
         }
     }
 
-    // ✅ Filtern und Sortieren
-    val filteredTimers = remember(timers, filterCategory, sortBy) {
+    // ✅ Filtern, Suchen und Sortieren
+    val filteredTimers = remember(timers, filterCategory, sortBy, searchQuery, timeFilter) {
         var filtered = timers.filter { !it.is_completed }
+
+        // ✨ Suchfilter
+        if (searchQuery.isNotBlank()) {
+            filtered = filtered.filter {
+                it.name.contains(searchQuery, ignoreCase = true) ||
+                it.category.contains(searchQuery, ignoreCase = true) ||
+                (it.note?.contains(searchQuery, ignoreCase = true) == true)
+            }
+        }
+
+        // ✨ Zeitfilter
+        when (timeFilter) {
+            TimeFilter.TODAY -> {
+                val today = LocalDate.now()
+                filtered = filtered.filter {
+                    try {
+                        val targetDate = ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDate()
+                        targetDate == today
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+            }
+            TimeFilter.TOMORROW -> {
+                val tomorrow = LocalDate.now().plusDays(1)
+                filtered = filtered.filter {
+                    try {
+                        val targetDate = ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDate()
+                        targetDate == tomorrow
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+            }
+            TimeFilter.THIS_WEEK -> {
+                val today = LocalDate.now()
+                val endOfWeek = today.plusDays(7)
+                filtered = filtered.filter {
+                    try {
+                        val targetDate = ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDate()
+                        targetDate >= today && targetDate <= endOfWeek
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+            }
+            TimeFilter.ALL -> { /* Keine Filterung */ }
+        }
 
         if (filterCategory != null) {
             filtered = filtered.filter { it.category == filterCategory }
@@ -224,10 +279,27 @@ fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        SwipeRefresh(
-            state = rememberSwipeRefreshState(isLoading),
-            onRefresh = { viewModel.sync() },
-            modifier = Modifier.padding(padding)
+        // ✨ Material 3 Native PullToRefresh
+        val pullToRefreshState = rememberPullToRefreshState()
+
+        LaunchedEffect(isLoading) {
+            if (isLoading) {
+                pullToRefreshState.startRefresh()
+            } else {
+                pullToRefreshState.endRefresh()
+            }
+        }
+
+        LaunchedEffect(pullToRefreshState.isRefreshing) {
+            if (pullToRefreshState.isRefreshing) {
+                viewModel.sync()
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
             if (timers.isEmpty()) {
                 EmptyState(onCreateTimer = onCreateTimer)
@@ -237,14 +309,145 @@ fun HomeScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // ✅ Quick-Timer-Buttons
+                    // ✨ SearchBar
                     item {
-                        QuickTimerButtons(
-                            viewModel = viewModel,
-                            haptic = haptic,
-                            settingsManager = settingsManager,
-                            snackbarHostState = snackbarHostState
-                        )
+                        androidx.compose.material3.SearchBar(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            onSearch = { isSearchActive = false },
+                            active = isSearchActive,
+                            onActiveChange = { isSearchActive = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Timer durchsuchen...") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Search,
+                                    contentDescription = "Suchen"
+                                )
+                            },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Löschen"
+                                        )
+                                    }
+                                }
+                            }
+                        ) {
+                            // Suchvorschläge
+                            if (searchQuery.isNotBlank()) {
+                                val suggestions = timers
+                                    .filter { !it.is_completed }
+                                    .filter {
+                                        it.name.contains(searchQuery, ignoreCase = true) ||
+                                        it.category.contains(searchQuery, ignoreCase = true)
+                                    }
+                                    .take(5)
+
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    if (suggestions.isEmpty()) {
+                                        Text(
+                                            "Keine Timer gefunden",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
+                                        suggestions.forEach { timer ->
+                                            androidx.compose.material3.ListItem(
+                                                headlineContent = { Text(timer.name) },
+                                                supportingContent = { Text(timer.category) },
+                                                leadingContent = {
+                                                    Icon(
+                                                        Icons.Default.Timer,
+                                                        contentDescription = null
+                                                    )
+                                                },
+                                                modifier = Modifier.clickable {
+                                                    searchQuery = timer.name
+                                                    isSearchActive = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // ✨ SegmentedButton für Zeitfilter
+                    item {
+                        androidx.compose.material3.SingleChoiceSegmentedButtonRow(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            TimeFilter.entries.forEachIndexed { index, filter ->
+                                androidx.compose.material3.SegmentedButton(
+                                    selected = timeFilter == filter,
+                                    onClick = { timeFilter = filter },
+                                    shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(
+                                        index = index,
+                                        count = TimeFilter.entries.size
+                                    ),
+                                    icon = {
+                                        androidx.compose.material3.SegmentedButtonDefaults.Icon(active = timeFilter == filter)
+                                    }
+                                ) {
+                                    Text(filter.label)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // ✨ Carousel mit Timer-Vorlagen
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Schnell-Timer",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) {
+                                // Timer-Vorlagen
+                                val templates = listOf(
+                                    TemplateData("5 Min", 5, Icons.Default.Coffee, MaterialTheme.colorScheme.tertiary),
+                                    TemplateData("10 Min", 10, Icons.Default.Accessibility, MaterialTheme.colorScheme.primary),
+                                    TemplateData("15 Min", 15, Icons.Default.DirectionsWalk, MaterialTheme.colorScheme.secondary),
+                                    TemplateData("25 Min\nPomodoro", 25, Icons.Default.Psychology, MaterialTheme.colorScheme.error),
+                                    TemplateData("30 Min", 30, Icons.Default.FitnessCenter, MaterialTheme.colorScheme.tertiary),
+                                    TemplateData("1 Std", 60, Icons.Default.Schedule, MaterialTheme.colorScheme.primary),
+                                    TemplateData("2 Std", 120, Icons.Default.Timelapse, MaterialTheme.colorScheme.secondary)
+                                )
+
+                                items(templates.size) { index ->
+                                    val template = templates[index]
+                                    QuickTimerCard(
+                                        title = template.title,
+                                        minutes = template.minutes,
+                                        icon = template.icon,
+                                        color = template.color,
+                                        onClick = {
+                                            performHaptic(haptic, settingsManager)
+                                            val targetTime = ZonedDateTime.now().plusMinutes(template.minutes.toLong())
+                                            val timer = Timer(
+                                                name = "${template.minutes} Min Timer",
+                                                target_time = targetTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                                                category = "Schnell-Timer"
+                                            )
+                                            viewModel.createTimer(timer)
+                                            showSnackbar(snackbarHostState, "Timer für ${template.minutes} Min erstellt")
+                                        }
+                                    )
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
@@ -363,9 +566,15 @@ fun HomeScreen(
                     }
                 }
             }
-        }
+
+            // ✨ PullToRefresh Indicator
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
+}
 
     // Filter/Sort Dialog
     if (showFilterDialog) {
@@ -1347,6 +1556,113 @@ enum class SortType(val label: String) {
     DATE("Datum"),
     NAME("Name"),
     CATEGORY("Kategorie")
+}
+
+enum class TimeFilter(val label: String) {
+    ALL("Alle"),
+    TODAY("Heute"),
+    TOMORROW("Morgen"),
+    THIS_WEEK("Diese Woche")
+}
+
+// ✨ Template Data für Carousel
+data class TemplateData(
+    val title: String,
+    val minutes: Int,
+    val icon: ImageVector,
+    val color: Color
+)
+
+// ✨ Quick Timer Card für Carousel
+@Composable
+private fun QuickTimerCard(
+    title: String,
+    minutes: Int,
+    icon: ImageVector,
+    color: Color,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "cardScale"
+    )
+
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .width(120.dp)
+            .height(140.dp)
+            .scale(scale),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+        ),
+        interactionSource = interactionSource
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            color.copy(alpha = 0.15f),
+                            Color.Transparent
+                        )
+                    )
+                )
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Icon
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    color.copy(alpha = 0.3f),
+                                    color.copy(alpha = 0.1f)
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 2.dp,
+                            color = color.copy(alpha = 0.5f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = color
+                    )
+                }
+
+                // Text
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
 }
 
 // Edit Timer Dialog

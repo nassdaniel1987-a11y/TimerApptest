@@ -194,6 +194,7 @@ fun CreateTimerScreen(
     var selectedCategory by remember { mutableStateOf(categories.firstOrNull()?.name ?: "Wird abgeholt") }
     var note by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showRecurrenceDialog by remember { mutableStateOf(false) }
     var showRecurrenceEndDatePicker by remember { mutableStateOf(false) }
@@ -509,6 +510,7 @@ fun CreateTimerScreen(
                 // Uhrzeit
                 Card(
                     modifier = Modifier.weight(1f),
+                    onClick = { showTimePicker = true },
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
@@ -1012,5 +1014,39 @@ fun CreateTimerScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    // ⏰ Material 3 TimePicker Dialog
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = selectedTime.hour,
+            initialMinute = selectedTime.minute,
+            is24Hour = true
+        )
+
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectedTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
+                        showTimePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) {
+                    Text("Abbrechen")
+                }
+            },
+            text = {
+                TimePicker(
+                    state = timePickerState,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        )
     }
 }

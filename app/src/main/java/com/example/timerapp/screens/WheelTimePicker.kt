@@ -7,7 +7,7 @@ import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -95,9 +95,9 @@ private fun PickerOverlay(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.Center
         ) {
             val itemHeight = 50.dp
-            Divider(color = MaterialTheme.colorScheme.primary, thickness = 2.dp)
+            HorizontalDivider(color = MaterialTheme.colorScheme.primary, thickness = 2.dp)
             Spacer(modifier = Modifier.height(itemHeight))
-            Divider(color = MaterialTheme.colorScheme.primary, thickness = 2.dp)
+            HorizontalDivider(color = MaterialTheme.colorScheme.primary, thickness = 2.dp)
         }
         Box(
             modifier = Modifier
