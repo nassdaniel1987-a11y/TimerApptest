@@ -26,6 +26,9 @@ fun CreateTimerScreen(
     onNavigateBack: () -> Unit
 ) {
     val categories by viewModel.categories.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var name by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
@@ -53,7 +56,19 @@ fun CreateTimerScreen(
     val MAX_NAME_LENGTH = 50
     val MAX_NOTE_LENGTH = 200
 
+    // ✅ Error Handling - zeige Fehler als Snackbar
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(
+                message = it,
+                duration = SnackbarDuration.Long
+            )
+            viewModel.clearError()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Neuer Timer") },
