@@ -182,7 +182,7 @@ fun AlarmFullscreenScreen(
 
                             if (index < timerNames.size - 1) {
                                 Spacer(modifier = Modifier.height(8.dp))
-                                HorizontalDivider(
+                                Divider(
                                     color = Color.White.copy(alpha = 0.2f),
                                     thickness = 1.dp
                                 )

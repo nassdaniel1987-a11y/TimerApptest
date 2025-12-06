@@ -163,7 +163,7 @@ fun SettingsScreen(
                         }
                     )
 
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
 
                     ListItem(
                         headlineContent = { Text("Vibration", fontWeight = FontWeight.Medium) },
@@ -186,7 +186,7 @@ fun SettingsScreen(
                         }
                     )
 
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
 
                     ListItem(
                         headlineContent = { Text("Eskalierender Alarm", fontWeight = FontWeight.Medium) },
@@ -255,7 +255,7 @@ fun SettingsScreen(
                     )
 
                     if (isPreReminderEnabled) {
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        Divider(modifier = Modifier.padding(horizontal = 16.dp))
 
                         ListItem(
                             headlineContent = { Text("Vorab-Erinnerung Zeit", fontWeight = FontWeight.Medium) },
@@ -275,7 +275,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
 
                     ListItem(
                         headlineContent = { Text("Snooze-Zeit", fontWeight = FontWeight.Medium) },
@@ -361,7 +361,7 @@ fun SettingsScreen(
                         }
                     )
 
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
 
                     ListItem(
                         headlineContent = { Text("App-Version", fontWeight = FontWeight.Medium) },
