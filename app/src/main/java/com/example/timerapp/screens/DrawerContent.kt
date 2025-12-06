@@ -134,7 +134,7 @@ fun DrawerContent(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                     Text(
-                        text = "Zeitzone: Europe/Berlin",
+                        text = "Zeitzone: ${java.time.ZoneId.systemDefault().id}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )

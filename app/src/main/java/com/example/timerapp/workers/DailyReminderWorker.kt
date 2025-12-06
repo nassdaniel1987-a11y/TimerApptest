@@ -44,9 +44,9 @@ class DailyReminderWorker(
             repository.refreshTimers()
             val allTimers = repository.timers.value.filter { !it.is_completed }
 
-            // Filtere Timer für morgen
-            val germanZone = ZoneId.of("Europe/Berlin")
-            val tomorrow = LocalDate.now(germanZone).plusDays(1)
+            // Filtere Timer für morgen (nutzt System-Timezone)
+            val userZone = ZoneId.systemDefault()
+            val tomorrow = LocalDate.now(userZone).plusDays(1)
 
             val tomorrowTimers = allTimers.filter { timer ->
                 try {

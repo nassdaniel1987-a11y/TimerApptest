@@ -70,7 +70,7 @@ fun QRScannerScreen(
                     onQRCodeScanned = { qrString ->
                         val qrData = parseQRString(qrString)
                         if (qrData != null) {
-                            val germanZone = ZoneId.of("Europe/Berlin")
+                            val userZone = ZoneId.systemDefault()
                             val timeParts = qrData.time.split(":")
                             val hour = timeParts[0].toInt()
                             val minute = timeParts[1].toInt()
@@ -78,7 +78,7 @@ fun QRScannerScreen(
                             val targetDateTime = ZonedDateTime.of(
                                 LocalDate.now(),
                                 LocalTime.of(hour, minute),
-                                germanZone
+                                userZone
                             )
 
                             val timer = com.example.timerapp.models.Timer(

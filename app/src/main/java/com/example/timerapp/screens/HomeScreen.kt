@@ -317,8 +317,8 @@ fun QuickTimerButtons(
                         option = option,
                         onClick = {
                             performHaptic(haptic, settingsManager)
-                            val germanZone = ZoneId.of("Europe/Berlin")
-                            val targetTime = ZonedDateTime.now(germanZone).plusMinutes(option.minutes.toLong())
+                            val userZone = ZoneId.systemDefault()
+                            val targetTime = ZonedDateTime.now(userZone).plusMinutes(option.minutes.toLong())
                             val timer = Timer(
                                 name = "${option.label} Timer",
                                 target_time = targetTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
@@ -860,7 +860,7 @@ private fun EditTimerDialog(
     var selectedTime by remember { mutableStateOf(targetTime.toLocalTime()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    val germanZone = ZoneId.of("Europe/Berlin")
+    val userZone = ZoneId.systemDefault()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -945,7 +945,7 @@ private fun EditTimerDialog(
                     val newTargetDateTime = ZonedDateTime.of(
                         selectedDate,
                         selectedTime,
-                        germanZone
+                        userZone
                     )
 
                     val editedTimer = timer.copy(
@@ -969,7 +969,7 @@ private fun EditTimerDialog(
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.atStartOfDay(germanZone).toInstant().toEpochMilli()
+            initialSelectedDateMillis = selectedDate.atStartOfDay(userZone).toInstant().toEpochMilli()
         )
 
         DatePickerDialog(
@@ -979,7 +979,7 @@ private fun EditTimerDialog(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
                             selectedDate = java.time.Instant.ofEpochMilli(millis)
-                                .atZone(germanZone)
+                                .atZone(userZone)
                                 .toLocalDate()
                         }
                         showDatePicker = false

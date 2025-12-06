@@ -47,7 +47,7 @@ fun CreateTimerScreen(
     var recurrenceEndDate by remember { mutableStateOf<LocalDate?>(null) }
     var selectedWeekdays by remember { mutableStateOf(setOf<Int>()) } // ISO 8601: 1=Mo, 7=So
 
-    val germanZone = ZoneId.of("Europe/Berlin")
+    val userZone = ZoneId.systemDefault() // Nutzt Handy-Timezone
 
     // ✅ Konstanten für Validierung
     val MAX_NAME_LENGTH = 50
@@ -75,11 +75,11 @@ fun CreateTimerScreen(
                             val targetDateTime = ZonedDateTime.of(
                                 selectedDate,
                                 selectedTime,
-                                germanZone
+                                userZone
                             )
 
                             // ✅ Validierung: Datum in Vergangenheit
-                            dateError = if (targetDateTime.isBefore(ZonedDateTime.now(germanZone))) {
+                            dateError = if (targetDateTime.isBefore(ZonedDateTime.now(userZone))) {
                                 "Datum muss in der Zukunft liegen"
                             } else null
 
@@ -99,7 +99,7 @@ fun CreateTimerScreen(
                                 category = selectedCategory,
                                 note = note.trim().ifBlank { null },
                                 recurrence = recurrence,
-                                recurrence_end_date = recurrenceEndDate?.atStartOfDay(germanZone)?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                                recurrence_end_date = recurrenceEndDate?.atStartOfDay(userZone)?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                                 recurrence_weekdays = if (recurrence == "custom" && selectedWeekdays.isNotEmpty()) {
                                     selectedWeekdays.sorted().joinToString(",")
                                 } else null
@@ -488,7 +488,7 @@ fun CreateTimerScreen(
     // Date Picker Dialog
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.atStartOfDay(germanZone).toInstant().toEpochMilli()
+            initialSelectedDateMillis = selectedDate.atStartOfDay(userZone).toInstant().toEpochMilli()
         )
 
         DatePickerDialog(
@@ -498,7 +498,7 @@ fun CreateTimerScreen(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
                             selectedDate = java.time.Instant.ofEpochMilli(millis)
-                                .atZone(germanZone)
+                                .atZone(userZone)
                                 .toLocalDate()
                         }
                         showDatePicker = false
@@ -635,7 +635,7 @@ fun CreateTimerScreen(
     if (showRecurrenceEndDatePicker) {
         val initialDate = recurrenceEndDate ?: selectedDate.plusMonths(1)
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = initialDate.atStartOfDay(germanZone).toInstant().toEpochMilli()
+            initialSelectedDateMillis = initialDate.atStartOfDay(userZone).toInstant().toEpochMilli()
         )
 
         DatePickerDialog(
@@ -652,7 +652,7 @@ fun CreateTimerScreen(
                         onClick = {
                             datePickerState.selectedDateMillis?.let { millis ->
                                 recurrenceEndDate = java.time.Instant.ofEpochMilli(millis)
-                                    .atZone(germanZone)
+                                    .atZone(userZone)
                                     .toLocalDate()
                             }
                             showRecurrenceEndDatePicker = false
