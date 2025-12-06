@@ -4,8 +4,10 @@ import android.util.Log
 import com.example.timerapp.SupabaseClient
 import com.example.timerapp.models.Category
 import com.example.timerapp.models.QRCodeData
+import com.example.timerapp.models.Result
 import com.example.timerapp.models.Timer
 import com.example.timerapp.models.TimerTemplate
+import com.example.timerapp.utils.retry
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,139 +32,91 @@ class TimerRepository {
     val qrCodes: StateFlow<List<QRCodeData>> = _qrCodes.asStateFlow()
 
     // Timer Operations
-    suspend fun refreshTimers() {
-        try {
-            val response = client.from("timers")
-                .select()
-                .decodeList<Timer>()
-            _timers.value = response.sortedBy {
-                ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                    .toInstant()
-                    .toEpochMilli()
-            }
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler beim Laden der Timer: ${e.message}")
+    suspend fun refreshTimers(): Result<Unit> = retry {
+        val response = client.from("timers")
+            .select()
+            .decodeList<Timer>()
+        _timers.value = response.sortedBy {
+            ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .toInstant()
+                .toEpochMilli()
         }
+        Log.d("TimerRepository", "✅ ${response.size} Timer geladen")
     }
 
-    suspend fun createTimer(timer: Timer): Timer? {
-        return try {
-            val response = client.from("timers").insert(timer) { select() }.decodeSingle<Timer>()
-            Log.d("TimerRepository", "✅ Timer erstellt: ${response.name}")
-            response
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler beim Erstellen des Timers: ${e.message}")
-            null
-        }
+    suspend fun createTimer(timer: Timer): Result<Timer> = retry {
+        val response = client.from("timers").insert(timer) { select() }.decodeSingle<Timer>()
+        Log.d("TimerRepository", "✅ Timer erstellt: ${response.name}")
+        response
     }
 
-    suspend fun deleteTimer(id: String) {
-        try {
-            client.from("timers").delete { filter { eq("id", id) } }
-            refreshTimers()
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler beim Löschen des Timers: ${e.message}")
-        }
+    suspend fun deleteTimer(id: String): Result<Unit> = retry {
+        client.from("timers").delete { filter { eq("id", id) } }
+        refreshTimers()
+        Log.d("TimerRepository", "✅ Timer gelöscht: $id")
     }
 
-    suspend fun updateTimer(id: String, timer: Timer) {
-        try {
-            client.from("timers").update(timer) { filter { eq("id", id) } }
-            refreshTimers()
-            Log.d("TimerRepository", "✅ Timer aktualisiert: $id")
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler beim Aktualisieren: ${e.message}")
-        }
+    suspend fun updateTimer(id: String, timer: Timer): Result<Unit> = retry {
+        client.from("timers").update(timer) { filter { eq("id", id) } }
+        refreshTimers()
+        Log.d("TimerRepository", "✅ Timer aktualisiert: $id")
     }
 
-    suspend fun markTimerCompleted(id: String) {
-        try {
-            client.from("timers").update(mapOf("is_completed" to true)) { filter { eq("id", id) } }
-            refreshTimers()
-            Log.d("TimerRepository", "✅ Timer abgeschlossen: $id")
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler: ${e.message}")
-        }
+    suspend fun markTimerCompleted(id: String): Result<Unit> = retry {
+        client.from("timers").update(mapOf("is_completed" to true)) { filter { eq("id", id) } }
+        refreshTimers()
+        Log.d("TimerRepository", "✅ Timer abgeschlossen: $id")
     }
 
     // Category Operations
-    suspend fun refreshCategories() {
-        try {
-            val response = client.from("categories").select().decodeList<Category>()
-            _categories.value = response
-            Log.d("TimerRepository", "✅ ${response.size} Kategorien geladen")
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler: ${e.message}")
-        }
+    suspend fun refreshCategories(): Result<Unit> = retry {
+        val response = client.from("categories").select().decodeList<Category>()
+        _categories.value = response
+        Log.d("TimerRepository", "✅ ${response.size} Kategorien geladen")
     }
 
-    suspend fun createCategory(category: Category) {
-        try {
-            client.from("categories").insert(category)
-            refreshCategories()
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler: ${e.message}")
-        }
+    suspend fun createCategory(category: Category): Result<Unit> = retry {
+        client.from("categories").insert(category)
+        refreshCategories()
+        Log.d("TimerRepository", "✅ Kategorie erstellt: ${category.name}")
     }
 
-    suspend fun deleteCategory(id: String) {
-        try {
-            client.from("categories").delete { filter { eq("id", id) } }
-            refreshCategories()
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler: ${e.message}")
-        }
+    suspend fun deleteCategory(id: String): Result<Unit> = retry {
+        client.from("categories").delete { filter { eq("id", id) } }
+        refreshCategories()
+        Log.d("TimerRepository", "✅ Kategorie gelöscht: $id")
     }
 
     // Template Operations
-    suspend fun refreshTemplates() {
-        try {
-            val response = client.from("timer_templates").select().decodeList<TimerTemplate>()
-            _templates.value = response
-            Log.d("TimerRepository", "✅ ${response.size} Templates geladen")
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler: ${e.message}")
-        }
+    suspend fun refreshTemplates(): Result<Unit> = retry {
+        val response = client.from("timer_templates").select().decodeList<TimerTemplate>()
+        _templates.value = response
+        Log.d("TimerRepository", "✅ ${response.size} Templates geladen")
     }
 
-    suspend fun createTemplate(template: TimerTemplate) {
-        try {
-            client.from("timer_templates").insert(template)
-            refreshTemplates()
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler: ${e.message}")
-        }
+    suspend fun createTemplate(template: TimerTemplate): Result<Unit> = retry {
+        client.from("timer_templates").insert(template)
+        refreshTemplates()
+        Log.d("TimerRepository", "✅ Template erstellt: ${template.name}")
     }
 
-    suspend fun deleteTemplate(id: String) {
-        try {
-            client.from("timer_templates").delete { filter { eq("id", id) } }
-            refreshTemplates()
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler: ${e.message}")
-        }
+    suspend fun deleteTemplate(id: String): Result<Unit> = retry {
+        client.from("timer_templates").delete { filter { eq("id", id) } }
+        refreshTemplates()
+        Log.d("TimerRepository", "✅ Template gelöscht: $id")
     }
 
     // QR Code Operations
-    suspend fun refreshQRCodes() {
-        try {
-            val response = client.from("qr_codes").select().decodeList<QRCodeData>()
-            _qrCodes.value = response
-            Log.d("TimerRepository", "✅ ${response.size} QR-Codes geladen")
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler beim Laden der QR-Codes: ${e.message}")
-        }
+    suspend fun refreshQRCodes(): Result<Unit> = retry {
+        val response = client.from("qr_codes").select().decodeList<QRCodeData>()
+        _qrCodes.value = response
+        Log.d("TimerRepository", "✅ ${response.size} QR-Codes geladen")
     }
 
-    suspend fun createQRCode(qrCode: QRCodeData): QRCodeData? {
-        return try {
-            val response = client.from("qr_codes").insert(qrCode) { select() }.decodeSingle<QRCodeData>()
-            Log.d("TimerRepository", "✅ QR-Code in DB erstellt: ${response.name}")
-            response
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler beim Erstellen des QR-Codes: ${e.message}")
-            null
-        }
+    suspend fun createQRCode(qrCode: QRCodeData): Result<QRCodeData> = retry {
+        val response = client.from("qr_codes").insert(qrCode) { select() }.decodeSingle<QRCodeData>()
+        Log.d("TimerRepository", "✅ QR-Code in DB erstellt: ${response.name}")
+        response
     }
 
     fun addQRCodeToLocalList(qrCode: QRCodeData) {
@@ -170,12 +124,9 @@ class TimerRepository {
         Log.d("TimerRepository", "✅ QR-Code zur lokalen Liste hinzugefügt.")
     }
 
-    suspend fun deleteQRCode(id: String) {
-        try {
-            client.from("qr_codes").delete { filter { eq("id", id) } }
-            refreshQRCodes()
-        } catch (e: Exception) {
-            Log.e("TimerRepository", "❌ Fehler beim Löschen des QR-Codes: ${e.message}")
-        }
+    suspend fun deleteQRCode(id: String): Result<Unit> = retry {
+        client.from("qr_codes").delete { filter { eq("id", id) } }
+        refreshQRCodes()
+        Log.d("TimerRepository", "✅ QR-Code gelöscht: $id")
     }
 }
