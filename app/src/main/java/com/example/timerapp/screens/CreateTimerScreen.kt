@@ -3,11 +3,18 @@ package com.example.timerapp.screens
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -303,74 +310,106 @@ fun CreateTimerScreen(
                 )
             )
 
-            // ✅ Datum & Zeit - Kompakt nebeneinander
+            // ✅ Datum & Zeit - Glasmorphism Cards
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Datum
-                OutlinedCard(
+                Card(
                     modifier = Modifier.weight(1f),
                     onClick = { showDatePicker = true },
-                    shape = MaterialTheme.shapes.large
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    )
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
                     ) {
-                        Text(
-                            text = "Datum",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.CalendarToday,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
                             Text(
-                                text = selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
+                                text = "Datum",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
                             )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CalendarToday,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
 
-                // Uhrzeit - nur Anzeige
-                OutlinedCard(
+                // Uhrzeit
+                Card(
                     modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.large
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    )
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
                     ) {
-                        Text(
-                            text = "Uhrzeit",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.AccessTime,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
                             Text(
-                                text = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
+                                text = "Uhrzeit",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.Bold
                             )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccessTime,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                                Text(
+                                    text = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -393,46 +432,52 @@ fun CreateTimerScreen(
                 )
             }
 
-            // ✅ Kategorie - Kompakt
-            OutlinedCard(
+            // 🎨 Kategorie - Visual Icon Grid
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = { showCategoryDialog = true },
-                shape = MaterialTheme.shapes.large
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                ),
+                shape = MaterialTheme.shapes.extraLarge
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Text(
+                        text = "Kategorie",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    // Visual Category Grid
+                    val categoryIcons = mapOf(
+                        "Wird abgeholt" to Icons.Default.DirectionsCar,
+                        "Arzt" to Icons.Default.LocalHospital,
+                        "Einkaufen" to Icons.Default.ShoppingCart,
+                        "Meeting" to Icons.Default.Groups,
+                        "Sport" to Icons.Default.FitnessCenter,
+                        "Kochen" to Icons.Default.Restaurant
+                    )
+
+                    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.height(180.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Category,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column {
-                            Text(
-                                text = "Kategorie",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = selectedCategory,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
+                        categories.forEach { category ->
+                            item {
+                                CategoryButton(
+                                    category = category.name,
+                                    icon = categoryIcons[category.name] ?: Icons.Default.Category,
+                                    isSelected = selectedCategory == category.name,
+                                    onClick = { selectedCategory = category.name }
+                                )
+                            }
                         }
                     }
-                    Icon(
-                        Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 
@@ -519,10 +564,10 @@ fun CreateTimerScreen(
                             fontWeight = FontWeight.SemiBold
                         )
 
-                        // Wochentags-Buttons
+                        // Wochentags-Buttons - Circular Design
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
                             val weekdays = listOf(
                                 1 to "Mo",
@@ -535,22 +580,16 @@ fun CreateTimerScreen(
                             )
 
                             weekdays.forEach { (dayNumber, dayName) ->
-                                val isSelected = selectedWeekdays.contains(dayNumber)
-                                FilterChip(
-                                    selected = isSelected,
+                                WeekdayButton(
+                                    dayName = dayName,
+                                    isSelected = selectedWeekdays.contains(dayNumber),
                                     onClick = {
-                                        selectedWeekdays = if (isSelected) {
+                                        selectedWeekdays = if (selectedWeekdays.contains(dayNumber)) {
                                             selectedWeekdays - dayNumber
                                         } else {
                                             selectedWeekdays + dayNumber
                                         }
-                                    },
-                                    label = { Text(dayName) },
-                                    modifier = Modifier.weight(1f),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.tertiary,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onTertiary
-                                    )
+                                    }
                                 )
                             }
                         }
@@ -611,7 +650,7 @@ fun CreateTimerScreen(
                 }
             }
 
-            // ✅ Notiz - Optional & minimalistisch
+            // ✅ Notiz - Mit Icon und modernem Styling
             OutlinedTextField(
                 value = note,
                 onValueChange = {
@@ -619,17 +658,172 @@ fun CreateTimerScreen(
                         note = it
                     }
                 },
-                label = { Text("Notiz (optional)") },
+                label = { Text("Notiz (optional)", style = MaterialTheme.typography.titleSmall) },
                 placeholder = { Text("z.B. Sportplatz Eingang Nord") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.StickyNote2,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 supportingText = {
-                    Text("${note.length}/$MAX_NOTE_LENGTH Zeichen")
+                    Text(
+                        "${note.length}/$MAX_NOTE_LENGTH Zeichen",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 },
                 minLines = 2,
                 maxLines = 4,
-                shape = MaterialTheme.shapes.large
+                shape = MaterialTheme.shapes.large,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                )
             )
         }
+        }
+    }
+
+    // 🎨 Weekday Button Composable
+    @Composable
+    fun WeekdayButton(
+        dayName: String,
+        isSelected: Boolean,
+        onClick: () -> Unit
+    ) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val isPressed by interactionSource.collectIsPressedAsState()
+
+        val scale by animateFloatAsState(
+            targetValue = if (isPressed) 0.85f else 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessHigh
+            ),
+            label = "weekdayScale"
+        )
+
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .scale(scale)
+                .clip(CircleShape)
+                .background(
+                    brush = if (isSelected) {
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.tertiary,
+                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f)
+                            )
+                        )
+                    } else {
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+                )
+                .border(
+                    width = if (isSelected) 2.dp else 1.dp,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.tertiary
+                    } else {
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    },
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            TextButton(
+                onClick = onClick,
+                modifier = Modifier.fillMaxSize(),
+                interactionSource = interactionSource,
+                shape = CircleShape,
+                contentPadding = PaddingValues(0.dp),
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = if (isSelected) {
+                        MaterialTheme.colorScheme.onTertiary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            ) {
+                Text(
+                    text = dayName,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                )
+            }
+        }
+    }
+
+    // 🎨 Category Button Composable
+    @Composable
+    fun CategoryButton(
+        category: String,
+        icon: androidx.compose.ui.graphics.vector.ImageVector,
+        isSelected: Boolean,
+        onClick: () -> Unit
+    ) {
+        val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+        val isPressed by interactionSource.collectIsPressedAsState()
+
+        val scale by animateFloatAsState(
+            targetValue = if (isPressed) 0.9f else 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessHigh
+            ),
+            label = "categoryScale"
+        )
+
+        Button(
+            onClick = onClick,
+            modifier = Modifier
+                .aspectRatio(1f)
+                .scale(scale),
+            interactionSource = interactionSource,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                }
+            ),
+            shape = MaterialTheme.shapes.large,
+            contentPadding = PaddingValues(12.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                    tint = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+                Text(
+                    text = category,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 2,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
         }
     }
 
