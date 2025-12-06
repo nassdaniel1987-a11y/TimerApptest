@@ -6,8 +6,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timerapp.models.Category
 import com.example.timerapp.models.QRCodeData
+import com.example.timerapp.models.Result
 import com.example.timerapp.models.Timer
 import com.example.timerapp.models.TimerTemplate
+import com.example.timerapp.models.onError
+import com.example.timerapp.models.onSuccess
 import com.example.timerapp.repository.TimerRepository
 import com.example.timerapp.utils.AlarmScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -82,9 +85,24 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
             // Daten aus Supabase laden
             repository.refreshTimers()
+                .onError { exception, retryable ->
+                    setError(exception.message ?: "Fehler beim Laden der Timer")
+                }
+
             repository.refreshCategories()
+                .onError { exception, _ ->
+                    Log.w("TimerViewModel", "Kategorien konnten nicht geladen werden: ${exception.message}")
+                }
+
             repository.refreshTemplates()
+                .onError { exception, _ ->
+                    Log.w("TimerViewModel", "Templates konnten nicht geladen werden: ${exception.message}")
+                }
+
             repository.refreshQRCodes()
+                .onError { exception, _ ->
+                    Log.w("TimerViewModel", "QR-Codes konnten nicht geladen werden: ${exception.message}")
+                }
 
             // Neue Timer-IDs nach dem Refresh
             val newTimerIds = timers.value.map { it.id }.toSet()
@@ -109,18 +127,20 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     fun createTimer(timer: Timer) {
         viewModelScope.launch {
             alarmMutex.withLock {
-                try {
-                    val createdTimer = repository.createTimer(timer)
-                    if (createdTimer != null) {
+                repository.createTimer(timer)
+                    .onSuccess { createdTimer ->
                         repository.refreshTimers()
-                        // ✅ Performance: Debounced Reschedule
                         debouncedRescheduleAlarms()
-                    } else {
-                        setError("Timer konnte nicht erstellt werden. Bitte Internetverbindung prüfen.")
+                        Log.d("TimerViewModel", "✅ Timer erfolgreich erstellt: ${createdTimer.name}")
                     }
-                } catch (e: Exception) {
-                    setError("Fehler beim Erstellen des Timers: ${e.message}")
-                }
+                    .onError { exception, retryable ->
+                        val message = if (retryable) {
+                            "Timer konnte nicht erstellt werden. Bitte Internetverbindung prüfen."
+                        } else {
+                            "Fehler beim Erstellen des Timers: ${exception.message}"
+                        }
+                        setError(message)
+                    }
             }
         }
     }
@@ -129,8 +149,13 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             alarmMutex.withLock {
                 repository.updateTimer(id, timer)
-                // ✅ Performance: Debounced Reschedule
-                debouncedRescheduleAlarms()
+                    .onSuccess {
+                        debouncedRescheduleAlarms()
+                        Log.d("TimerViewModel", "✅ Timer aktualisiert: $id")
+                    }
+                    .onError { exception, _ ->
+                        setError("Fehler beim Aktualisieren: ${exception.message}")
+                    }
             }
         }
     }
@@ -138,53 +163,46 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteTimer(id: String) {
         viewModelScope.launch {
             alarmMutex.withLock {
-                try {
-                    Log.d("TimerViewModel", "🗑️ Starte Löschen von Timer: $id")
+                Log.d("TimerViewModel", "🗑️ Starte Löschen von Timer: $id")
 
-                    // Finde den Timer BEVOR er gelöscht wird, um seine Gruppe zu identifizieren
-                    val timerToDelete = timers.value.find { it.id == id }
+                // Finde den Timer BEVOR er gelöscht wird, um seine Gruppe zu identifizieren
+                val timerToDelete = timers.value.find { it.id == id }
 
-                    if (timerToDelete != null) {
-                        try {
-                            val targetTime = java.time.ZonedDateTime.parse(
-                                timerToDelete.target_time,
-                                java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
-                            )
-                            val groupId = "group_${targetTime.toLocalDate()}_${targetTime.hour}_${targetTime.minute}"
+                if (timerToDelete != null) {
+                    try {
+                        val targetTime = java.time.ZonedDateTime.parse(
+                            timerToDelete.target_time,
+                            java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                        )
+                        val groupId = "group_${targetTime.toLocalDate()}_${targetTime.hour}_${targetTime.minute}"
 
-                            // Breche ALLE Alarm-Varianten ab
-                            alarmScheduler.cancelAlarm(id)  // Timer-ID basiert
-                            alarmScheduler.cancelAlarm("${id}_pre")  // Timer-ID Pre-Reminder
-                            alarmScheduler.cancelGroupAlarm(groupId)  // Gruppen-Alarm
+                        // Breche ALLE Alarm-Varianten ab
+                        alarmScheduler.cancelAlarm(id)
+                        alarmScheduler.cancelAlarm("${id}_pre")
+                        alarmScheduler.cancelGroupAlarm(groupId)
 
-                            Log.d("TimerViewModel", "🔕 Alle Alarme abgebrochen für Timer $id (Gruppe: $groupId)")
-                        } catch (e: Exception) {
-                            Log.e("TimerViewModel", "⚠️ Fehler beim Parsen der Timer-Zeit: ${e.message}")
-                            // Versuche trotzdem Timer-basierte Alarme zu löschen
-                            alarmScheduler.cancelAlarm(id)
-                            alarmScheduler.cancelAlarm("${id}_pre")
-                        }
-                    } else {
-                        // Timer nicht gefunden, versuche trotzdem ID-basierte Alarme zu löschen
-                        Log.w("TimerViewModel", "⚠️ Timer nicht gefunden, lösche trotzdem Alarme: $id")
+                        Log.d("TimerViewModel", "🔕 Alle Alarme abgebrochen für Timer $id (Gruppe: $groupId)")
+                    } catch (e: Exception) {
+                        Log.e("TimerViewModel", "⚠️ Fehler beim Parsen der Timer-Zeit: ${e.message}")
                         alarmScheduler.cancelAlarm(id)
                         alarmScheduler.cancelAlarm("${id}_pre")
                     }
-
-                    // Dann Timer aus der Datenbank löschen
-                    repository.deleteTimer(id)
-
-                    // WICHTIG: Warte bis refreshTimers() fertig ist
-                    // Dies stellt sicher, dass der gelöschte Timer nicht mehr in timers.value ist
-                    repository.refreshTimers()
-
-                    // ✅ Performance: Debounced Reschedule
-                    debouncedRescheduleAlarms()
-
-                    Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht: $id")
-                } catch (e: Exception) {
-                    Log.e("TimerViewModel", "❌ Fehler beim Löschen des Timers: ${e.message}", e)
+                } else {
+                    Log.w("TimerViewModel", "⚠️ Timer nicht gefunden, lösche trotzdem Alarme: $id")
+                    alarmScheduler.cancelAlarm(id)
+                    alarmScheduler.cancelAlarm("${id}_pre")
                 }
+
+                // Dann Timer aus der Datenbank löschen
+                repository.deleteTimer(id)
+                    .onSuccess {
+                        debouncedRescheduleAlarms()
+                        Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht: $id")
+                    }
+                    .onError { exception, _ ->
+                        setError("Fehler beim Löschen: ${exception.message}")
+                        Log.e("TimerViewModel", "❌ Fehler beim Löschen des Timers: ${exception.message}")
+                    }
             }
         }
     }
@@ -192,26 +210,35 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     fun markTimerCompleted(id: String) {
         viewModelScope.launch {
             alarmMutex.withLock {
-                // ✅ Prüfe ob Timer eine Wiederholung hat
                 val timer = timers.value.find { it.id == id }
 
                 repository.markTimerCompleted(id)
-                alarmScheduler.cancelAlarm(id)
+                    .onSuccess {
+                        alarmScheduler.cancelAlarm(id)
 
-                // ✅ Wenn Timer wiederholt werden soll, erstelle nächste Instanz
-                if (timer != null && timer.recurrence != null) {
-                    val nextTimer = alarmScheduler.calculateNextOccurrence(timer)
-                    if (nextTimer != null) {
-                        val createdTimer = repository.createTimer(nextTimer)
-                        if (createdTimer != null) {
-                            repository.refreshTimers()
-                            Log.d("TimerViewModel", "🔁 Wiederholender Timer erstellt: ${nextTimer.name}")
+                        // ✅ Wenn Timer wiederholt werden soll, erstelle nächste Instanz
+                        if (timer != null && timer.recurrence != null) {
+                            val nextTimer = alarmScheduler.calculateNextOccurrence(timer)
+                            if (nextTimer != null) {
+                                viewModelScope.launch {
+                                    repository.createTimer(nextTimer)
+                                        .onSuccess { created ->
+                                            repository.refreshTimers()
+                                            Log.d("TimerViewModel", "🔁 Wiederholender Timer erstellt: ${created.name}")
+                                        }
+                                        .onError { exception, _ ->
+                                            Log.e("TimerViewModel", "Fehler beim Erstellen des wiederkehrenden Timers: ${exception.message}")
+                                        }
+                                }
+                            }
                         }
-                    }
-                }
 
-                // ✅ Performance: Debounced Reschedule
-                debouncedRescheduleAlarms()
+                        debouncedRescheduleAlarms()
+                        Log.d("TimerViewModel", "✅ Timer abgeschlossen: $id")
+                    }
+                    .onError { exception, _ ->
+                        setError("Fehler beim Abschließen: ${exception.message}")
+                    }
             }
         }
     }
@@ -220,12 +247,24 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     fun createCategory(category: Category) {
         viewModelScope.launch {
             repository.createCategory(category)
+                .onSuccess {
+                    Log.d("TimerViewModel", "✅ Kategorie erstellt")
+                }
+                .onError { exception, _ ->
+                    setError("Fehler beim Erstellen der Kategorie: ${exception.message}")
+                }
         }
     }
 
     fun deleteCategory(id: String) {
         viewModelScope.launch {
             repository.deleteCategory(id)
+                .onSuccess {
+                    Log.d("TimerViewModel", "✅ Kategorie gelöscht")
+                }
+                .onError { exception, _ ->
+                    setError("Fehler beim Löschen der Kategorie: ${exception.message}")
+                }
         }
     }
 
@@ -233,28 +272,50 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     fun createTemplate(template: TimerTemplate) {
         viewModelScope.launch {
             repository.createTemplate(template)
+                .onSuccess {
+                    Log.d("TimerViewModel", "✅ Template erstellt")
+                }
+                .onError { exception, _ ->
+                    setError("Fehler beim Erstellen des Templates: ${exception.message}")
+                }
         }
     }
 
     fun deleteTemplate(id: String) {
         viewModelScope.launch {
             repository.deleteTemplate(id)
+                .onSuccess {
+                    Log.d("TimerViewModel", "✅ Template gelöscht")
+                }
+                .onError { exception, _ ->
+                    setError("Fehler beim Löschen des Templates: ${exception.message}")
+                }
         }
     }
 
     // QR Code Operations
     fun createQRCode(qrCode: QRCodeData) {
         viewModelScope.launch {
-            val createdQRCode = repository.createQRCode(qrCode)
-            createdQRCode?.let {
-                repository.addQRCodeToLocalList(it)
-            }
+            repository.createQRCode(qrCode)
+                .onSuccess { createdQRCode ->
+                    repository.addQRCodeToLocalList(createdQRCode)
+                    Log.d("TimerViewModel", "✅ QR-Code erstellt")
+                }
+                .onError { exception, _ ->
+                    setError("Fehler beim Erstellen des QR-Codes: ${exception.message}")
+                }
         }
     }
 
     fun deleteQRCode(id: String) {
         viewModelScope.launch {
             repository.deleteQRCode(id)
+                .onSuccess {
+                    Log.d("TimerViewModel", "✅ QR-Code gelöscht")
+                }
+                .onError { exception, _ ->
+                    setError("Fehler beim Löschen des QR-Codes: ${exception.message}")
+                }
         }
     }
 }
