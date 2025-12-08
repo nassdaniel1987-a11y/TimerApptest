@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -19,6 +20,15 @@ object NotificationHelper {
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // ✅ KRITISCH: AudioAttributes für ALARM-Stream
+            // Dies garantiert, dass der Alarm auch im Vibrationsmodus klingelt!
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+
+            val alarmUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
@@ -29,13 +39,15 @@ object NotificationHelper {
                 enableLights(true)
                 setBypassDnd(true) // Bypass "Nicht stören" Modus
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                // ✅ KRITISCH: Verwende ALARM-Stream für Notification Channel
+                setSound(alarmUri, audioAttributes)
             }
 
             val notificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
 
-            android.util.Log.d("NotificationHelper", "✅ Notification Channel erstellt (Importance: HIGH, Bypass DND: true)")
+            android.util.Log.d("NotificationHelper", "✅ Notification Channel erstellt (Importance: HIGH, Bypass DND: true, ALARM-Stream)")
         }
     }
 
@@ -128,7 +140,19 @@ object NotificationHelper {
             // Aber falls der AlarmReceiver blockiert wird, greift dieser Fallback
             val settingsManager = SettingsManager.getInstance(context)
             if (settingsManager.isSoundEnabled) {
-                builder.setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM))
+                val alarmUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+                // ✅ KRITISCH: Verwende AudioAttributes mit USAGE_ALARM
+                // Dies garantiert, dass der Alarm auch im Vibrationsmodus klingelt!
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    val audioAttributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                    builder.setSound(alarmUri, audioAttributes)
+                } else {
+                    @Suppress("DEPRECATION")
+                    builder.setSound(alarmUri)
+                }
             }
             if (settingsManager.isVibrationEnabled) {
                 builder.setVibrate(longArrayOf(0, 1000, 1000))
