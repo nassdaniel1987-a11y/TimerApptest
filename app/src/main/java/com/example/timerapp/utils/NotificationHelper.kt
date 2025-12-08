@@ -135,25 +135,18 @@ object NotificationHelper {
             builder.setPriority(NotificationCompat.PRIORITY_MAX)
             builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-            // ✅ FALLBACK: Aktiviere auch Sound/Vibration in der Notification selbst
-            // Dies ist ein ZWEITER Layer - AlarmReceiver startet bereits Sound/Vibration
-            // Aber falls der AlarmReceiver blockiert wird, greift dieser Fallback
+            // ✅ KRITISCH: Sound wird vom NotificationChannel mit USAGE_ALARM gehandhabt!
+            // Der Channel (erstellt in createNotificationChannel) verwendet bereits AudioAttributes
+            // mit USAGE_ALARM, was garantiert dass der Alarm auch im Vibrationsmodus klingelt.
+            // Für Android O+ (API 26+) übernimmt der Channel die Sound-Konfiguration vollständig.
+
+            // Nur für Pre-O Geräte (< API 26) setzen wir den Sound direkt
             val settingsManager = SettingsManager.getInstance(context)
-            if (settingsManager.isSoundEnabled) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O && settingsManager.isSoundEnabled) {
                 val alarmUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
-                // ✅ KRITISCH: Verwende AudioAttributes mit USAGE_ALARM
-                // Dies garantiert, dass der Alarm auch im Vibrationsmodus klingelt!
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    val audioAttributes = AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                    builder.setSound(alarmUri, audioAttributes)
-                } else {
-                    @Suppress("DEPRECATION")
-                    builder.setSound(alarmUri)
-                }
+                builder.setSound(alarmUri)
             }
+
             if (settingsManager.isVibrationEnabled) {
                 builder.setVibrate(longArrayOf(0, 1000, 1000))
             }
