@@ -62,6 +62,17 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         _error.value = null
     }
 
+    // ✅ Hilfsfunktion: Widget-Cache aktualisieren mit Delay
+    private fun updateWidgetCache() {
+        viewModelScope.launch {
+            // Kurzer Delay, damit StateFlow-Änderung propagiert wird
+            delay(100)
+            WidgetDataCache.cacheTimers(getApplication(), timers.value)
+            WidgetUtils.updateWidgets(getApplication())
+            Log.d("TimerViewModel", "🔄 Widget-Cache aktualisiert: ${timers.value.size} Timer")
+        }
+    }
+
     // ✅ Debounced Reschedule - verhindert zu häufige Reschedule-Operationen
     // Wartet 500ms und bündelt mehrere Operationen
     private fun debouncedRescheduleAlarms() {
@@ -137,9 +148,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                     .onSuccess { createdTimer ->
                         repository.refreshTimers()
                         debouncedRescheduleAlarms()
-                        // Widget-Cache und Widget aktualisieren
-                        WidgetDataCache.cacheTimers(getApplication(), timers.value)
-                        WidgetUtils.updateWidgets(getApplication())
+                        updateWidgetCache()
                         Log.d("TimerViewModel", "✅ Timer erfolgreich erstellt: ${createdTimer.name}")
                     }
                     .onError { exception, retryable ->
@@ -159,12 +168,9 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
             alarmMutex.withLock {
                 repository.updateTimer(id, timer)
                     .onSuccess {
-                        // Erst Timer-Liste aktualisieren
-                        repository.refreshTimers()
+                        // Repository ruft bereits refreshTimers() auf
                         debouncedRescheduleAlarms()
-                        // Widget-Cache und Widget aktualisieren (nach refreshTimers!)
-                        WidgetDataCache.cacheTimers(getApplication(), timers.value)
-                        WidgetUtils.updateWidgets(getApplication())
+                        updateWidgetCache()
                         Log.d("TimerViewModel", "✅ Timer aktualisiert: $id")
                     }
                     .onError { exception, _ ->
@@ -208,14 +214,11 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // Dann Timer aus der Datenbank löschen
+                // Repository ruft bereits refreshTimers() auf
                 repository.deleteTimer(id)
                     .onSuccess {
-                        // Erst Timer-Liste aktualisieren
-                        repository.refreshTimers()
                         debouncedRescheduleAlarms()
-                        // Widget-Cache und Widget aktualisieren (nach refreshTimers!)
-                        WidgetDataCache.cacheTimers(getApplication(), timers.value)
-                        WidgetUtils.updateWidgets(getApplication())
+                        updateWidgetCache()
                         Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht: $id")
                     }
                     .onError { exception, _ ->
@@ -231,6 +234,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
             alarmMutex.withLock {
                 val timer = timers.value.find { it.id == id }
 
+                // Repository ruft bereits refreshTimers() auf
                 repository.markTimerCompleted(id)
                     .onSuccess {
                         alarmScheduler.cancelAlarm(id)
@@ -243,6 +247,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                                     repository.createTimer(nextTimer)
                                         .onSuccess { created ->
                                             repository.refreshTimers()
+                                            updateWidgetCache()
                                             Log.d("TimerViewModel", "🔁 Wiederholender Timer erstellt: ${created.name}")
                                         }
                                         .onError { exception, _ ->
@@ -252,12 +257,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
 
-                        // Erst Timer-Liste aktualisieren
-                        repository.refreshTimers()
                         debouncedRescheduleAlarms()
-                        // Widget-Cache und Widget aktualisieren (nach refreshTimers!)
-                        WidgetDataCache.cacheTimers(getApplication(), timers.value)
-                        WidgetUtils.updateWidgets(getApplication())
+                        updateWidgetCache()
                         Log.d("TimerViewModel", "✅ Timer abgeschlossen: $id")
                     }
                     .onError { exception, _ ->
