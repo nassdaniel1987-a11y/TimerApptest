@@ -9,7 +9,6 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -24,26 +23,23 @@ object WidgetUtils {
      * Sollte aufgerufen werden, wenn Timer erstellt, geändert oder gelöscht werden.
      */
     fun updateWidgets(context: Context) {
-        CoroutineScope(Dispatchers.IO).launch {
+        Log.d(TAG, "🔄 updateWidgets() aufgerufen")
+
+        CoroutineScope(Dispatchers.Main).launch {
             try {
-                // Kurzer Delay, damit die Datenbank-Operation abgeschlossen ist
-                delay(500)
-
-                // Methode 1: Glance updateAll
+                // Glance Widget aktualisieren
                 TimerWidget().updateAll(context)
-                Log.d(TAG, "✅ Widgets aktualisiert (Glance)")
-
+                Log.d(TAG, "✅ Glance updateAll() erfolgreich")
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Glance Update fehlgeschlagen: ${e.message}")
-
-                // Methode 2: Fallback mit Broadcast
-                try {
-                    sendUpdateBroadcast(context)
-                    Log.d(TAG, "✅ Widgets aktualisiert (Broadcast)")
-                } catch (e2: Exception) {
-                    Log.e(TAG, "❌ Broadcast Update fehlgeschlagen: ${e2.message}")
-                }
+                Log.e(TAG, "❌ Glance Update fehlgeschlagen: ${e.message}", e)
             }
+        }
+
+        // Zusätzlich: Broadcast senden als Fallback
+        try {
+            sendUpdateBroadcast(context)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Broadcast fehlgeschlagen: ${e.message}")
         }
     }
 
@@ -61,7 +57,9 @@ object WidgetUtils {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds)
             }
             context.sendBroadcast(intent)
-            Log.d(TAG, "📡 Update-Broadcast gesendet für ${appWidgetIds.size} Widgets")
+            Log.d(TAG, "📡 Broadcast gesendet für ${appWidgetIds.size} Widgets")
+        } else {
+            Log.d(TAG, "📭 Keine Widgets gefunden")
         }
     }
 
@@ -73,7 +71,6 @@ object WidgetUtils {
             val manager = GlanceAppWidgetManager(context)
             manager.getGlanceIds(TimerWidget::class.java).isNotEmpty()
         } catch (e: Exception) {
-            // Fallback: Prüfe über AppWidgetManager
             try {
                 val appWidgetManager = AppWidgetManager.getInstance(context)
                 val componentName = ComponentName(context, TimerWidgetReceiver::class.java)

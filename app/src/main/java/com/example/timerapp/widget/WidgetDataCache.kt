@@ -33,7 +33,9 @@ object WidgetDataCache {
      */
     fun cacheTimers(context: Context, timers: List<Timer>) {
         try {
-            // Konvertiere Timer zu WidgetTimer
+            Log.d(TAG, "📝 cacheTimers() aufgerufen mit ${timers.size} Timern")
+
+            // Konvertiere Timer zu WidgetTimer - nur nicht abgeschlossene
             val widgetTimers = timers
                 .filter { !it.is_completed }
                 .sortedBy { it.target_time }
@@ -48,12 +50,17 @@ object WidgetDataCache {
                     )
                 }
 
+            Log.d(TAG, "📋 ${widgetTimers.size} aktive Timer für Cache")
+            widgetTimers.forEach { timer ->
+                Log.d(TAG, "   - ${timer.name} (${timer.target_time})")
+            }
+
             val jsonString = json.encodeToString(widgetTimers)
 
             getPrefs(context).edit()
                 .putString(KEY_TIMERS, jsonString)
                 .putLong(KEY_LAST_UPDATE, System.currentTimeMillis())
-                .apply()
+                .commit() // commit() statt apply() für synchrones Schreiben
 
             Log.d(TAG, "✅ ${widgetTimers.size} Timer im Cache gespeichert")
         } catch (e: Exception) {
@@ -92,7 +99,7 @@ object WidgetDataCache {
      * Löscht den Cache.
      */
     fun clearCache(context: Context) {
-        getPrefs(context).edit().clear().apply()
+        getPrefs(context).edit().clear().commit()
         Log.d(TAG, "🗑️ Cache gelöscht")
     }
 }

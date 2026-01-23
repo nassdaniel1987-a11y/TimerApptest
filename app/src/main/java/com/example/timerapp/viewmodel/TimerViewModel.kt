@@ -65,11 +65,12 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     // ✅ Hilfsfunktion: Widget-Cache aktualisieren mit Delay
     private fun updateWidgetCache() {
         viewModelScope.launch {
-            // Kurzer Delay, damit StateFlow-Änderung propagiert wird
-            delay(100)
-            WidgetDataCache.cacheTimers(getApplication(), timers.value)
+            // Längerer Delay, damit StateFlow-Änderung sicher propagiert wird
+            delay(500)
+            val currentTimers = timers.value
+            Log.d("TimerViewModel", "🔄 Widget-Cache Update: ${currentTimers.size} Timer")
+            WidgetDataCache.cacheTimers(getApplication(), currentTimers)
             WidgetUtils.updateWidgets(getApplication())
-            Log.d("TimerViewModel", "🔄 Widget-Cache aktualisiert: ${timers.value.size} Timer")
         }
     }
 
