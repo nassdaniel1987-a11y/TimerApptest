@@ -7,7 +7,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.timerapp.BuildConfig
 
 @Composable
 fun DrawerContent(
@@ -34,7 +36,7 @@ fun DrawerContent(
                 Column {
                     Icon(
                         imageVector = Icons.Default.Timer,
-                        contentDescription = null,
+                        contentDescription = "Timer-App Logo",
                         modifier = Modifier.size(48.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -51,11 +53,11 @@ fun DrawerContent(
                 }
             }
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // Navigation Items
             NavigationDrawerItem(
-                icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
                 label = { Text("Home") },
                 selected = currentRoute == "home",
                 onClick = {
@@ -66,7 +68,7 @@ fun DrawerContent(
             )
 
             NavigationDrawerItem(
-                icon = { Icon(Icons.Default.QrCodeScanner, contentDescription = null) },
+                icon = { Icon(Icons.Default.QrCodeScanner, contentDescription = "QR-Code scannen") },
                 label = { Text("QR-Code scannen") },
                 selected = currentRoute == "qr_scanner",
                 onClick = {
@@ -77,7 +79,7 @@ fun DrawerContent(
             )
 
             NavigationDrawerItem(
-                icon = { Icon(Icons.Default.Category, contentDescription = null) },
+                icon = { Icon(Icons.Default.Category, contentDescription = "Kategorien") },
                 label = { Text("Kategorien") },
                 selected = currentRoute == "categories",
                 onClick = {
@@ -88,7 +90,7 @@ fun DrawerContent(
             )
 
             NavigationDrawerItem(
-                icon = { Icon(Icons.Default.QrCode, contentDescription = null) },
+                icon = { Icon(Icons.Default.QrCode, contentDescription = "QR-Codes verwalten") },
                 label = { Text("QR-Codes verwalten") },
                 selected = currentRoute == "manage_qr_codes",
                 onClick = {
@@ -98,10 +100,10 @@ fun DrawerContent(
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             NavigationDrawerItem(
-                icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                icon = { Icon(Icons.Default.Settings, contentDescription = "Einstellungen") },
                 label = { Text("Einstellungen") },
                 selected = currentRoute == "settings",
                 onClick = {
@@ -112,7 +114,7 @@ fun DrawerContent(
             )
 
             NavigationDrawerItem(
-                icon = { Icon(Icons.Default.Help, contentDescription = null) },
+                icon = { Icon(Icons.Default.Help, contentDescription = "Hilfe") },
                 label = { Text("Hilfe") },
                 selected = false,
                 onClick = { onCloseDrawer() },
@@ -129,7 +131,7 @@ fun DrawerContent(
             ) {
                 Column {
                     Text(
-                        text = "Version 1.0.0",
+                        text = "Version ${BuildConfig.VERSION_NAME}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
