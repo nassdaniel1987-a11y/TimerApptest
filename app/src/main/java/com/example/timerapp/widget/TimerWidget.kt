@@ -1,6 +1,7 @@
 package com.example.timerapp.widget
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -28,19 +29,28 @@ import java.time.ZonedDateTime
  */
 class TimerWidget : GlanceAppWidget() {
 
+    companion object {
+        private const val TAG = "TimerWidget"
+    }
+
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val timers = fetchUpcomingTimers(context)
+        Log.d(TAG, "🔄 provideGlance aufgerufen")
+        val result = fetchUpcomingTimers(context)
 
         provideContent {
-            TimerWidgetContent(timers = timers)
+            TimerWidgetContent(
+                timers = result.timers,
+                errorMessage = result.errorMessage
+            )
         }
     }
 
-    private suspend fun fetchUpcomingTimers(context: Context): List<WidgetTimer> {
+    private suspend fun fetchUpcomingTimers(context: Context): WidgetResult {
         return withContext(Dispatchers.IO) {
             try {
+                Log.d(TAG, "📡 Lade Timer aus Supabase...")
                 val now = ZonedDateTime.now()
                 val result = com.example.timerapp.SupabaseClient.client
                     .from("timers")
@@ -49,42 +59,53 @@ class TimerWidget : GlanceAppWidget() {
                             eq("is_completed", false)
                         }
                         order("target_time", Order.ASCENDING)
-                        limit(5)
+                        limit(10)
                     }
                     .decodeList<WidgetTimer>()
 
+                Log.d(TAG, "📥 ${result.size} Timer aus DB geladen")
+
                 // Filtere nur zukünftige Timer
-                result.filter { timer ->
+                val filteredTimers = result.filter { timer ->
                     val targetTime = DateTimeUtils.parseIsoDateTime(timer.target_time)
-                    targetTime != null && targetTime.isAfter(now)
+                    val isFuture = targetTime != null && targetTime.isAfter(now)
+                    if (!isFuture) {
+                        Log.d(TAG, "⏭️ Timer übersprungen (vergangen): ${timer.name}")
+                    }
+                    isFuture
                 }.take(5)
+
+                Log.d(TAG, "✅ ${filteredTimers.size} zukünftige Timer gefunden")
+                WidgetResult(timers = filteredTimers, errorMessage = null)
+
             } catch (e: Exception) {
-                emptyList()
+                Log.e(TAG, "❌ Fehler beim Laden: ${e.message}", e)
+                WidgetResult(timers = emptyList(), errorMessage = e.message ?: "Unbekannter Fehler")
             }
         }
     }
 }
 
+data class WidgetResult(
+    val timers: List<WidgetTimer>,
+    val errorMessage: String?
+)
+
 // Farben als Konstanten
 private val PrimaryColorDay = Color(0xFF1976D2)
-private val PrimaryColorNight = Color(0xFF90CAF9)
 private val BackgroundColorDay = Color(0xFFF5F5F5)
-private val BackgroundColorNight = Color(0xFF1E1E1E)
 private val TextColorDay = Color(0xFF212121)
-private val TextColorNight = Color(0xFFE0E0E0)
 private val SubtextColorDay = Color(0xFF757575)
-private val SubtextColorNight = Color(0xFFBDBDBD)
 private val DividerColorDay = Color(0xFFE0E0E0)
-private val DividerColorNight = Color(0xFF424242)
 private val UrgentColorDay = Color(0xFFD32F2F)
-private val UrgentColorNight = Color(0xFFEF5350)
 private val WarningColorDay = Color(0xFFE65100)
-private val WarningColorNight = Color(0xFFFF9800)
+private val ErrorColorDay = Color(0xFFB71C1C)
 
 @Composable
-private fun TimerWidgetContent(timers: List<WidgetTimer>) {
-    val isNightMode = GlanceTheme.colors.background == ColorProvider(Color.Black)
-
+private fun TimerWidgetContent(
+    timers: List<WidgetTimer>,
+    errorMessage: String?
+) {
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -105,7 +126,7 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Nächste Timer",
+                    text = "⏰ Nächste Timer",
                     style = TextStyle(
                         color = ColorProvider(PrimaryColorDay),
                         fontSize = 16.sp,
@@ -114,27 +135,70 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
                 )
             }
 
-            if (timers.isEmpty()) {
-                // Empty State
-                Box(
-                    modifier = GlanceModifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Keine Timer",
-                        style = TextStyle(
-                            color = ColorProvider(SubtextColorDay),
-                            fontSize = 14.sp
-                        )
-                    )
+            when {
+                errorMessage != null -> {
+                    // Error State
+                    Box(
+                        modifier = GlanceModifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "⚠️ Fehler",
+                                style = TextStyle(
+                                    color = ColorProvider(ErrorColorDay),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                            Spacer(modifier = GlanceModifier.height(4.dp))
+                            Text(
+                                text = "Tippe zum Öffnen",
+                                style = TextStyle(
+                                    color = ColorProvider(SubtextColorDay),
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
+                    }
                 }
-            } else {
-                // Timer List
-                LazyColumn(
-                    modifier = GlanceModifier.fillMaxSize()
-                ) {
-                    items(timers) { timer ->
-                        TimerListItem(timer = timer)
+                timers.isEmpty() -> {
+                    // Empty State
+                    Box(
+                        modifier = GlanceModifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "✓ Keine Timer",
+                                style = TextStyle(
+                                    color = ColorProvider(SubtextColorDay),
+                                    fontSize = 14.sp
+                                )
+                            )
+                            Spacer(modifier = GlanceModifier.height(4.dp))
+                            Text(
+                                text = "Tippe zum Erstellen",
+                                style = TextStyle(
+                                    color = ColorProvider(PrimaryColorDay),
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    // Timer List
+                    Column(
+                        modifier = GlanceModifier.fillMaxSize()
+                    ) {
+                        timers.forEach { timer ->
+                            TimerListItem(timer = timer)
+                        }
                     }
                 }
             }
@@ -166,7 +230,7 @@ private fun TimerListItem(timer: WidgetTimer) {
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp)
+            .padding(vertical = 4.dp)
     ) {
         // Timer Name
         Text(
@@ -204,7 +268,7 @@ private fun TimerListItem(timer: WidgetTimer) {
         }
 
         // Trennlinie
-        Spacer(modifier = GlanceModifier.height(6.dp))
+        Spacer(modifier = GlanceModifier.height(4.dp))
         Box(
             modifier = GlanceModifier
                 .fillMaxWidth()
