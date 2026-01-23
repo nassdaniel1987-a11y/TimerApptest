@@ -7,9 +7,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
+import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.*
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.layout.*
 import androidx.glance.text.*
 import androidx.glance.unit.ColorProvider
@@ -51,6 +54,20 @@ class TimerWidget : GlanceAppWidget() {
     }
 }
 
+/**
+ * ActionCallback für den Aktualisieren-Button.
+ */
+class RefreshWidgetAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters
+    ) {
+        Log.d("TimerWidget", "🔄 Manuelles Widget-Update angefordert")
+        TimerWidget().update(context, glanceId)
+    }
+}
+
 // Farben als Konstanten
 private val PrimaryColorDay = Color(0xFF1976D2)
 private val BackgroundColorDay = Color(0xFFF5F5F5)
@@ -67,34 +84,60 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
             .fillMaxSize()
             .background(ColorProvider(BackgroundColorDay))
             .cornerRadius(16.dp)
-            .clickable(actionStartActivity<MainActivity>())
     ) {
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .padding(12.dp)
         ) {
-            // Header
+            // Header mit Aktualisieren-Button
             Row(
                 modifier = GlanceModifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalAlignment = Alignment.Start
             ) {
-                Text(
-                    text = "⏰ Nächste Timer",
-                    style = TextStyle(
-                        color = ColorProvider(PrimaryColorDay),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                // Titel - klickbar öffnet App
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .clickable(actionStartActivity<MainActivity>())
+                ) {
+                    Text(
+                        text = "⏰ Nächste Timer",
+                        style = TextStyle(
+                            color = ColorProvider(PrimaryColorDay),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
-                )
+                }
+
+                // Aktualisieren-Button
+                Box(
+                    modifier = GlanceModifier
+                        .size(32.dp)
+                        .cornerRadius(16.dp)
+                        .background(ColorProvider(PrimaryColorDay.copy(alpha = 0.1f)))
+                        .clickable(actionRunCallback<RefreshWidgetAction>()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "🔄",
+                        style = TextStyle(
+                            fontSize = 16.sp
+                        )
+                    )
+                }
             }
 
             if (timers.isEmpty()) {
                 // Empty State
                 Box(
-                    modifier = GlanceModifier.fillMaxSize(),
+                    modifier = GlanceModifier
+                        .fillMaxSize()
+                        .clickable(actionStartActivity<MainActivity>()),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -120,7 +163,9 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
             } else {
                 // Timer List
                 Column(
-                    modifier = GlanceModifier.fillMaxSize()
+                    modifier = GlanceModifier
+                        .fillMaxSize()
+                        .clickable(actionStartActivity<MainActivity>())
                 ) {
                     timers.forEach { timer ->
                         TimerListItem(timer = timer)
