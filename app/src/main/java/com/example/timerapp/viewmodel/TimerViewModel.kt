@@ -13,6 +13,7 @@ import com.example.timerapp.models.onError
 import com.example.timerapp.models.onSuccess
 import com.example.timerapp.repository.TimerRepository
 import com.example.timerapp.utils.AlarmScheduler
+import com.example.timerapp.widget.WidgetDataCache
 import com.example.timerapp.widget.WidgetUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -120,6 +121,10 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
             val activeTimers = timers.value.filter { !it.is_completed }
             alarmScheduler.rescheduleAllAlarms(activeTimers)
 
+            // ✅ Widget-Cache aktualisieren
+            WidgetDataCache.cacheTimers(getApplication(), timers.value)
+            WidgetUtils.updateWidgets(getApplication())
+
             _isLoading.value = false
         }
     }
@@ -132,6 +137,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                     .onSuccess { createdTimer ->
                         repository.refreshTimers()
                         debouncedRescheduleAlarms()
+                        // Widget-Cache und Widget aktualisieren
+                        WidgetDataCache.cacheTimers(getApplication(), timers.value)
                         WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer erfolgreich erstellt: ${createdTimer.name}")
                     }
@@ -153,6 +160,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                 repository.updateTimer(id, timer)
                     .onSuccess {
                         debouncedRescheduleAlarms()
+                        // Widget-Cache und Widget aktualisieren
+                        WidgetDataCache.cacheTimers(getApplication(), timers.value)
                         WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer aktualisiert: $id")
                     }
@@ -200,6 +209,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                 repository.deleteTimer(id)
                     .onSuccess {
                         debouncedRescheduleAlarms()
+                        // Widget-Cache und Widget aktualisieren
+                        WidgetDataCache.cacheTimers(getApplication(), timers.value)
                         WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht: $id")
                     }
@@ -238,6 +249,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                         }
 
                         debouncedRescheduleAlarms()
+                        // Widget-Cache und Widget aktualisieren
+                        WidgetDataCache.cacheTimers(getApplication(), timers.value)
                         WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer abgeschlossen: $id")
                     }
