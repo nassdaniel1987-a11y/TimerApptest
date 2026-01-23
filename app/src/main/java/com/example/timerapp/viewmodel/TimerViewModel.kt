@@ -13,6 +13,7 @@ import com.example.timerapp.models.onError
 import com.example.timerapp.models.onSuccess
 import com.example.timerapp.repository.TimerRepository
 import com.example.timerapp.utils.AlarmScheduler
+import com.example.timerapp.widget.WidgetUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -131,6 +132,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                     .onSuccess { createdTimer ->
                         repository.refreshTimers()
                         debouncedRescheduleAlarms()
+                        WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer erfolgreich erstellt: ${createdTimer.name}")
                     }
                     .onError { exception, retryable ->
@@ -151,6 +153,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                 repository.updateTimer(id, timer)
                     .onSuccess {
                         debouncedRescheduleAlarms()
+                        WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer aktualisiert: $id")
                     }
                     .onError { exception, _ ->
@@ -197,6 +200,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                 repository.deleteTimer(id)
                     .onSuccess {
                         debouncedRescheduleAlarms()
+                        WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht: $id")
                     }
                     .onError { exception, _ ->
@@ -234,6 +238,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                         }
 
                         debouncedRescheduleAlarms()
+                        WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer abgeschlossen: $id")
                     }
                     .onError { exception, _ ->

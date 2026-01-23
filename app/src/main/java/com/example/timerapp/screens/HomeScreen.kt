@@ -1232,7 +1232,7 @@ private fun TimerCard(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             icon = if (isRecurring) {
-                { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                { Icon(Icons.Default.Warning, contentDescription = "Warnung", tint = MaterialTheme.colorScheme.error) }
             } else null,
             title = { Text(if (isRecurring) "Wiederholenden Timer löschen?" else "Timer löschen?") },
             text = {
@@ -1240,7 +1240,7 @@ private fun TimerCard(
                     Text("Möchtest du '${timer.name}' wirklich löschen?")
 
                     if (isRecurring) {
-                        Divider()
+                        HorizontalDivider()
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1498,7 +1498,7 @@ fun FilterSortDialog(
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 Text("Filtern nach Kategorie:", style = MaterialTheme.typography.titleSmall)
                 Row(
@@ -1812,7 +1812,7 @@ private fun EditTimerDialog(
 private fun ExactAlarmPermissionRationaleDialog(onGoToSettings: () -> Unit) {
     AlertDialog(
         onDismissRequest = { },
-        icon = { Icon(Icons.Default.Alarm, contentDescription = null) },
+        icon = { Icon(Icons.Default.Alarm, contentDescription = "Alarm-Berechtigung") },
         title = { Text("Berechtigung erforderlich") },
         text = {
             Text(
@@ -1852,7 +1852,7 @@ private fun EmptyState(onCreateTimer: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(24.dp))
             Button(onClick = onCreateTimer) {
-                Icon(Icons.Default.Add, contentDescription = null)
+                Icon(Icons.Default.Add, contentDescription = "Timer erstellen")
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Neuen Timer erstellen")
             }

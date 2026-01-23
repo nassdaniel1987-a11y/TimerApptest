@@ -254,7 +254,7 @@ fun CreateTimerScreen(
                     },
                     navigationIcon = {
                         TextButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Close, contentDescription = "Schließen", modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(4.dp))
                             Text("Abbrechen")
                         }
@@ -923,7 +923,7 @@ fun CreateTimerScreen(
 
         AlertDialog(
             onDismissRequest = { showRecurrenceDialog = false },
-            icon = { Icon(Icons.Default.Repeat, contentDescription = null) },
+            icon = { Icon(Icons.Default.Repeat, contentDescription = "Wiederholung") },
             title = { Text("Wiederholung wählen") },
             text = {
                 Column(

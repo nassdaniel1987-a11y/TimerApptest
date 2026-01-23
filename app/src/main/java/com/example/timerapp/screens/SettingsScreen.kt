@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.timerapp.BuildConfig
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.ui.theme.GradientColors
 
@@ -109,7 +110,7 @@ fun SettingsScreen(
                         leadingContent = {
                             Icon(
                                 if (isDarkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,
-                                contentDescription = null,
+                                contentDescription = if (isDarkModeEnabled) "Dark Mode aktiviert" else "Light Mode aktiviert",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         },
@@ -148,7 +149,7 @@ fun SettingsScreen(
                         leadingContent = {
                             Icon(
                                 if (isSoundEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
-                                contentDescription = null,
+                                contentDescription = if (isSoundEnabled) "Sound aktiviert" else "Sound deaktiviert",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         },
@@ -171,7 +172,7 @@ fun SettingsScreen(
                         leadingContent = {
                             Icon(
                                 if (isVibrationEnabled) Icons.Default.Vibration else Icons.Default.PhoneDisabled,
-                                contentDescription = null,
+                                contentDescription = if (isVibrationEnabled) "Vibration aktiviert" else "Vibration deaktiviert",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         },
@@ -194,7 +195,7 @@ fun SettingsScreen(
                         leadingContent = {
                             Icon(
                                 Icons.Default.TrendingUp,
-                                contentDescription = null,
+                                contentDescription = "Eskalierender Alarm",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         },
@@ -239,7 +240,7 @@ fun SettingsScreen(
                         leadingContent = {
                             Icon(
                                 Icons.Default.NotificationsActive,
-                                contentDescription = null,
+                                contentDescription = "Vorab-Erinnerung",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         },
@@ -263,7 +264,7 @@ fun SettingsScreen(
                             leadingContent = {
                                 Icon(
                                     Icons.Default.Schedule,
-                                    contentDescription = null,
+                                    contentDescription = "Erinnerungszeit",
                                     tint = MaterialTheme.colorScheme.secondary
                                 )
                             },
@@ -283,7 +284,7 @@ fun SettingsScreen(
                         leadingContent = {
                             Icon(
                                 Icons.Default.Snooze,
-                                contentDescription = null,
+                                contentDescription = "Snooze-Zeit",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         },
@@ -317,7 +318,7 @@ fun SettingsScreen(
                         leadingContent = {
                             Icon(
                                 Icons.Default.TouchApp,
-                                contentDescription = null,
+                                contentDescription = "Haptisches Feedback",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         },
@@ -355,7 +356,7 @@ fun SettingsScreen(
                         leadingContent = {
                             Icon(
                                 Icons.Default.Public,
-                                contentDescription = null,
+                                contentDescription = "Zeitzone",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -365,11 +366,11 @@ fun SettingsScreen(
 
                     ListItem(
                         headlineContent = { Text("App-Version", fontWeight = FontWeight.Medium) },
-                        supportingContent = { Text("1.0.0") },
+                        supportingContent = { Text(BuildConfig.VERSION_NAME) },
                         leadingContent = {
                             Icon(
                                 Icons.Default.Info,
-                                contentDescription = null,
+                                contentDescription = "App-Version",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -391,7 +392,7 @@ fun SettingsScreen(
                     ) {
                         Icon(
                             Icons.Default.Info,
-                            contentDescription = null,
+                            contentDescription = "Wichtiger Hinweis",
                             tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.size(24.dp)
                         )
