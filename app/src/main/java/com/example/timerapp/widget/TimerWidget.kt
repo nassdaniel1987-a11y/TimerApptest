@@ -1,8 +1,8 @@
 package com.example.timerapp.widget
 
 import android.content.Context
-import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
@@ -65,29 +65,30 @@ class TimerWidget : GlanceAppWidget() {
     }
 }
 
+// Farben als Konstanten
+private val PrimaryColorDay = Color(0xFF1976D2)
+private val PrimaryColorNight = Color(0xFF90CAF9)
+private val BackgroundColorDay = Color(0xFFF5F5F5)
+private val BackgroundColorNight = Color(0xFF1E1E1E)
+private val TextColorDay = Color(0xFF212121)
+private val TextColorNight = Color(0xFFE0E0E0)
+private val SubtextColorDay = Color(0xFF757575)
+private val SubtextColorNight = Color(0xFFBDBDBD)
+private val DividerColorDay = Color(0xFFE0E0E0)
+private val DividerColorNight = Color(0xFF424242)
+private val UrgentColorDay = Color(0xFFD32F2F)
+private val UrgentColorNight = Color(0xFFEF5350)
+private val WarningColorDay = Color(0xFFE65100)
+private val WarningColorNight = Color(0xFFFF9800)
+
 @Composable
 private fun TimerWidgetContent(timers: List<WidgetTimer>) {
-    val primaryColor = ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFF1976D2),
-        night = androidx.compose.ui.graphics.Color(0xFF90CAF9)
-    )
-    val backgroundColor = ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFFF5F5F5),
-        night = androidx.compose.ui.graphics.Color(0xFF1E1E1E)
-    )
-    val textColor = ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFF212121),
-        night = androidx.compose.ui.graphics.Color(0xFFE0E0E0)
-    )
-    val subtextColor = ColorProvider(
-        day = androidx.compose.ui.graphics.Color(0xFF757575),
-        night = androidx.compose.ui.graphics.Color(0xFFBDBDBD)
-    )
+    val isNightMode = GlanceTheme.colors.background == ColorProvider(Color.Black)
 
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(ColorProvider(BackgroundColorDay))
             .cornerRadius(16.dp)
             .clickable(actionStartActivity<MainActivity>())
     ) {
@@ -106,7 +107,7 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
                 Text(
                     text = "Nächste Timer",
                     style = TextStyle(
-                        color = primaryColor,
+                        color = ColorProvider(PrimaryColorDay),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -122,7 +123,7 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
                     Text(
                         text = "Keine Timer",
                         style = TextStyle(
-                            color = subtextColor,
+                            color = ColorProvider(SubtextColorDay),
                             fontSize = 14.sp
                         )
                     )
@@ -133,12 +134,7 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
                     modifier = GlanceModifier.fillMaxSize()
                 ) {
                     items(timers) { timer ->
-                        TimerListItem(
-                            timer = timer,
-                            textColor = textColor,
-                            subtextColor = subtextColor,
-                            primaryColor = primaryColor
-                        )
+                        TimerListItem(timer = timer)
                     }
                 }
             }
@@ -147,12 +143,7 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
 }
 
 @Composable
-private fun TimerListItem(
-    timer: WidgetTimer,
-    textColor: ColorProvider,
-    subtextColor: ColorProvider,
-    primaryColor: ColorProvider
-) {
+private fun TimerListItem(timer: WidgetTimer) {
     val targetTime = DateTimeUtils.parseIsoDateTime(timer.target_time)
     val timeText = if (targetTime != null) {
         DateTimeUtils.getTimeUntilText(targetTime)
@@ -164,18 +155,12 @@ private fun TimerListItem(
     val urgencyColor = if (targetTime != null) {
         val minutesUntil = DateTimeUtils.getMinutesUntil(targetTime)
         when {
-            minutesUntil < 0 -> ColorProvider(
-                day = androidx.compose.ui.graphics.Color(0xFFD32F2F),
-                night = androidx.compose.ui.graphics.Color(0xFFEF5350)
-            )
-            minutesUntil < 60 -> ColorProvider(
-                day = androidx.compose.ui.graphics.Color(0xFFE65100),
-                night = androidx.compose.ui.graphics.Color(0xFFFF9800)
-            )
-            else -> primaryColor
+            minutesUntil < 0 -> UrgentColorDay
+            minutesUntil < 60 -> WarningColorDay
+            else -> PrimaryColorDay
         }
     } else {
-        subtextColor
+        SubtextColorDay
     }
 
     Column(
@@ -187,7 +172,7 @@ private fun TimerListItem(
         Text(
             text = timer.name,
             style = TextStyle(
-                color = textColor,
+                color = ColorProvider(TextColorDay),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             ),
@@ -202,7 +187,7 @@ private fun TimerListItem(
             Text(
                 text = timeText,
                 style = TextStyle(
-                    color = urgencyColor,
+                    color = ColorProvider(urgencyColor),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Normal
                 )
@@ -211,7 +196,7 @@ private fun TimerListItem(
             Text(
                 text = timer.category,
                 style = TextStyle(
-                    color = subtextColor,
+                    color = ColorProvider(SubtextColorDay),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Normal
                 )
@@ -224,10 +209,7 @@ private fun TimerListItem(
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(ColorProvider(
-                    day = androidx.compose.ui.graphics.Color(0xFFE0E0E0),
-                    night = androidx.compose.ui.graphics.Color(0xFF424242)
-                ))
+                .background(ColorProvider(DividerColorDay))
         ) {}
     }
 }
