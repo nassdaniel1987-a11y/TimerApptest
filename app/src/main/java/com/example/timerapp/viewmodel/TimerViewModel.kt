@@ -159,8 +159,10 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
             alarmMutex.withLock {
                 repository.updateTimer(id, timer)
                     .onSuccess {
+                        // Erst Timer-Liste aktualisieren
+                        repository.refreshTimers()
                         debouncedRescheduleAlarms()
-                        // Widget-Cache und Widget aktualisieren
+                        // Widget-Cache und Widget aktualisieren (nach refreshTimers!)
                         WidgetDataCache.cacheTimers(getApplication(), timers.value)
                         WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer aktualisiert: $id")
@@ -208,8 +210,10 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                 // Dann Timer aus der Datenbank löschen
                 repository.deleteTimer(id)
                     .onSuccess {
+                        // Erst Timer-Liste aktualisieren
+                        repository.refreshTimers()
                         debouncedRescheduleAlarms()
-                        // Widget-Cache und Widget aktualisieren
+                        // Widget-Cache und Widget aktualisieren (nach refreshTimers!)
                         WidgetDataCache.cacheTimers(getApplication(), timers.value)
                         WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht: $id")
@@ -248,8 +252,10 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
 
+                        // Erst Timer-Liste aktualisieren
+                        repository.refreshTimers()
                         debouncedRescheduleAlarms()
-                        // Widget-Cache und Widget aktualisieren
+                        // Widget-Cache und Widget aktualisieren (nach refreshTimers!)
                         WidgetDataCache.cacheTimers(getApplication(), timers.value)
                         WidgetUtils.updateWidgets(getApplication())
                         Log.d("TimerViewModel", "✅ Timer abgeschlossen: $id")
