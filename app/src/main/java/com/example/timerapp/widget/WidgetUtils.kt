@@ -27,21 +27,29 @@ object WidgetUtils {
     fun updateWidgets(context: Context) {
         Log.d(TAG, "🔄 updateWidgets() aufgerufen")
 
-        // Methode 1: Glance updateAll
         CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
+                // Methode 1: Hole alle GlanceIds und update jedes Widget einzeln
+                val manager = GlanceAppWidgetManager(context)
+                val glanceIds = manager.getGlanceIds(TimerWidget::class.java)
+
+                Log.d(TAG, "📱 Gefunden: ${glanceIds.size} Glance Widgets")
+
+                glanceIds.forEach { glanceId ->
+                    Log.d(TAG, "🔄 Update Widget: $glanceId")
+                    TimerWidget().update(context, glanceId)
+                }
+
+                // Methode 2: Auch updateAll aufrufen
                 TimerWidget().updateAll(context)
-                Log.d(TAG, "✅ Glance updateAll() erfolgreich")
+                Log.d(TAG, "✅ Glance Updates erfolgreich")
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Glance Update fehlgeschlagen: ${e.message}", e)
             }
         }
 
-        // Methode 2: IMMER auch Broadcast senden als Backup
+        // Methode 3: Broadcast senden als Backup
         sendUpdateBroadcast(context)
-
-        // Methode 3: notifyAppWidgetViewDataChanged für sofortige Aktualisierung
-        forceWidgetRefresh(context)
     }
 
     /**
