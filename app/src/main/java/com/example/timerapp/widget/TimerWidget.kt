@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.Preferences
 import androidx.glance.*
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
@@ -13,7 +14,9 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.*
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.state.GlanceStateDefinition
 import androidx.glance.layout.*
+import androidx.glance.state.currentState
 import androidx.glance.text.*
 import androidx.glance.unit.ColorProvider
 import com.example.timerapp.MainActivity
@@ -24,37 +27,60 @@ import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 /**
  * Timer Widget - Zeigt die nächsten anstehenden Timer als Liste an.
- * Liest Daten aus dem lokalen Cache (WidgetDataCache).
+ * Nutzt GlanceStateDefinition für LIVE-Updates!
  */
 class TimerWidget : GlanceAppWidget() {
 
     companion object {
         private const val TAG = "TimerWidget"
+
+        private val json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
     }
+
+    // Verwende den GlanceStateDefinition für automatische Updates
+    override val stateDefinition: GlanceStateDefinition<*> = TimerWidgetStateDefinition
 
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         Log.d(TAG, "🔄 provideGlance aufgerufen")
 
-        // Lade Timer aus dem lokalen Cache
-        val cachedTimers = WidgetDataCache.loadTimers(context)
-        val now = ZonedDateTime.now()
-
-        // Filtere nur zukünftige Timer
-        val upcomingTimers = cachedTimers.filter { timer ->
-            val targetTime = DateTimeUtils.parseIsoDateTime(timer.target_time)
-            targetTime != null && targetTime.isAfter(now)
-        }.take(5)
-
-        Log.d(TAG, "📋 ${upcomingTimers.size} zukünftige Timer für Widget")
-
         provideContent {
+            // Lese den State direkt aus dem DataStore
+            val prefs = currentState<Preferences>()
+            val jsonString = prefs[TimerWidgetStateKeys.TIMERS_JSON]
+
+            val cachedTimers = if (jsonString.isNullOrEmpty()) {
+                // Fallback: Lade aus altem Cache
+                WidgetDataCache.loadTimers(context)
+            } else {
+                try {
+                    json.decodeFromString<List<WidgetTimer>>(jsonString)
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ JSON Parse Fehler: ${e.message}")
+                    WidgetDataCache.loadTimers(context)
+                }
+            }
+
+            val now = ZonedDateTime.now()
+
+            // Filtere nur zukünftige Timer
+            val upcomingTimers = cachedTimers.filter { timer ->
+                val targetTime = DateTimeUtils.parseIsoDateTime(timer.target_time)
+                targetTime != null && targetTime.isAfter(now)
+            }.take(5)
+
+            Log.d(TAG, "📋 ${upcomingTimers.size} zukünftige Timer für Widget")
+
             TimerWidgetContent(timers = upcomingTimers)
         }
     }
@@ -62,7 +88,7 @@ class TimerWidget : GlanceAppWidget() {
 
 /**
  * ActionCallback für den Aktualisieren-Button.
- * Lädt Daten DIREKT von Supabase und aktualisiert das Widget.
+ * Lädt Daten DIREKT von Supabase und aktualisiert den Widget-State.
  */
 class RefreshWidgetAction : ActionCallback {
     override suspend fun onAction(
@@ -100,15 +126,16 @@ class RefreshWidgetAction : ActionCallback {
             if (timers != null) {
                 Log.d("TimerWidget", "✅ ${timers.size} Timer von Supabase geladen")
 
-                // 2. Cache aktualisieren
+                // 2. State aktualisieren (triggert automatisch Widget-Update!)
+                TimerWidgetStateHelper.updateTimers(context, timers)
+
+                // 3. Auch alten Cache aktualisieren (Fallback)
                 WidgetDataCache.cacheTimers(context, timers)
 
-                // 3. Widget aktualisieren
-                TimerWidget().update(context, glanceId)
-                Log.d("TimerWidget", "✅ Widget aktualisiert!")
+                Log.d("TimerWidget", "✅ Widget-State aktualisiert!")
             } else {
                 Log.w("TimerWidget", "⚠️ Keine Daten erhalten, zeige Cache")
-                // Trotzdem Widget aktualisieren mit Cache-Daten
+                // Trotzdem Widget aktualisieren
                 TimerWidget().update(context, glanceId)
             }
         } catch (e: Exception) {

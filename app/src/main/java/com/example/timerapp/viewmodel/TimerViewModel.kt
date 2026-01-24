@@ -14,7 +14,7 @@ import com.example.timerapp.models.onSuccess
 import com.example.timerapp.repository.TimerRepository
 import com.example.timerapp.utils.AlarmScheduler
 import com.example.timerapp.widget.WidgetDataCache
-import com.example.timerapp.widget.WidgetUtils
+import com.example.timerapp.widget.TimerWidgetStateHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,13 +62,19 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         _error.value = null
     }
 
-    // ✅ Hilfsfunktion: Widget-Cache SOFORT aktualisieren (synchron!)
+    // ✅ Hilfsfunktion: Widget-State SOFORT aktualisieren (Live-Update!)
     private fun updateWidgetCache() {
         viewModelScope.launch {
             val currentTimers = timers.value
-            Log.d("TimerViewModel", "🔄 Widget-Cache Update: ${currentTimers.size} Timer")
-            // Neue synchrone Funktion: Cache + Widget in einem Schritt
-            WidgetUtils.updateCacheAndWidgets(getApplication(), currentTimers)
+            Log.d("TimerViewModel", "🔄 Widget-State Update: ${currentTimers.size} Timer")
+
+            // Neuer DataStore-basierter State für LIVE-Updates
+            TimerWidgetStateHelper.updateTimers(getApplication(), currentTimers)
+
+            // Auch alten Cache aktualisieren (Fallback)
+            WidgetDataCache.cacheTimers(getApplication(), currentTimers)
+
+            Log.d("TimerViewModel", "✅ Widget sollte jetzt SOFORT aktualisiert sein!")
         }
     }
 
