@@ -62,13 +62,13 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         _error.value = null
     }
 
-    // ✅ Hilfsfunktion: Widget-Cache SOFORT aktualisieren (kein Delay!)
+    // ✅ Hilfsfunktion: Widget-Cache SOFORT aktualisieren (synchron!)
     private fun updateWidgetCache() {
         viewModelScope.launch {
             val currentTimers = timers.value
             Log.d("TimerViewModel", "🔄 Widget-Cache Update: ${currentTimers.size} Timer")
-            WidgetDataCache.cacheTimers(getApplication(), currentTimers)
-            WidgetUtils.updateWidgets(getApplication())
+            // Neue synchrone Funktion: Cache + Widget in einem Schritt
+            WidgetUtils.updateCacheAndWidgets(getApplication(), currentTimers)
         }
     }
 
