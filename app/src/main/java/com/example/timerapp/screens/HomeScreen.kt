@@ -896,7 +896,7 @@ private fun TimerCard(
     SwipeableActionsBox(
         startActions = if (!timer.is_completed) listOf(completeAction) else emptyList(),
         endActions = listOf(deleteAction),
-        swipeThreshold = 100.dp
+        swipeThreshold = 180.dp
     ) {
         // ✅ Glasmorphism Box mit animierter Border + Glow
         Box(
