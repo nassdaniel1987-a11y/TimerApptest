@@ -56,7 +56,7 @@ class TimerWidget : GlanceAppWidget() {
 
 /**
  * ActionCallback für den Aktualisieren-Button.
- * Lädt Daten direkt von Supabase und aktualisiert dann das Widget.
+ * Sendet einen Broadcast an den Receiver, der dann die Daten vom Server lädt.
  */
 class RefreshWidgetAction : ActionCallback {
     override suspend fun onAction(
@@ -64,19 +64,10 @@ class RefreshWidgetAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters
     ) {
-        Log.d("TimerWidget", "🔄 Manuelles Widget-Update angefordert - lade von Server...")
+        Log.d("TimerWidget", "🔄 Refresh-Button gedrückt - sende Broadcast...")
 
-        // 1. Daten direkt von Supabase laden und Cache aktualisieren
-        val success = WidgetDataCache.refreshFromServer(context)
-
-        if (success) {
-            Log.d("TimerWidget", "✅ Server-Daten geladen, aktualisiere Widget")
-        } else {
-            Log.w("TimerWidget", "⚠️ Server-Refresh fehlgeschlagen, zeige Cache-Daten")
-        }
-
-        // 2. Widget mit neuen Daten aktualisieren
-        TimerWidget().updateAll(context)
+        // Broadcast an den Receiver senden, der dann vom Server lädt
+        TimerWidgetReceiver.sendRefreshBroadcast(context)
     }
 }
 

@@ -21,6 +21,18 @@ class TimerWidgetReceiver : GlanceAppWidgetReceiver() {
 
     companion object {
         private const val TAG = "TimerWidgetReceiver"
+        const val ACTION_REFRESH_FROM_SERVER = "com.example.timerapp.REFRESH_WIDGET_FROM_SERVER"
+
+        /**
+         * Sendet einen Broadcast um das Widget vom Server zu aktualisieren.
+         */
+        fun sendRefreshBroadcast(context: Context) {
+            Log.d(TAG, "📤 Sende Refresh-Broadcast...")
+            val intent = Intent(context, TimerWidgetReceiver::class.java).apply {
+                action = ACTION_REFRESH_FROM_SERVER
+            }
+            context.sendBroadcast(intent)
+        }
     }
 
     override fun onUpdate(
@@ -35,15 +47,41 @@ class TimerWidgetReceiver : GlanceAppWidgetReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
 
-        // Bei jedem Broadcast das Widget neu laden
-        if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
-            Log.d(TAG, "📡 Update-Broadcast empfangen")
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    glanceAppWidget.updateAll(context)
-                    Log.d(TAG, "✅ Widget aktualisiert nach Broadcast")
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ Fehler beim Widget-Update: ${e.message}")
+        when (intent.action) {
+            // Manueller Refresh vom Server (Refresh-Button)
+            ACTION_REFRESH_FROM_SERVER -> {
+                Log.d(TAG, "🌐 Server-Refresh-Broadcast empfangen")
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        // 1. Daten vom Server laden
+                        Log.d(TAG, "📥 Lade Daten von Supabase...")
+                        val success = WidgetDataCache.refreshFromServer(context)
+
+                        if (success) {
+                            Log.d(TAG, "✅ Server-Daten geladen")
+                        } else {
+                            Log.w(TAG, "⚠️ Server-Refresh fehlgeschlagen")
+                        }
+
+                        // 2. Widget aktualisieren
+                        glanceAppWidget.updateAll(context)
+                        Log.d(TAG, "✅ Widget nach Server-Refresh aktualisiert")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Fehler beim Server-Refresh: ${e.message}", e)
+                    }
+                }
+            }
+
+            // Standard Widget-Update
+            AppWidgetManager.ACTION_APPWIDGET_UPDATE -> {
+                Log.d(TAG, "📡 Update-Broadcast empfangen")
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        glanceAppWidget.updateAll(context)
+                        Log.d(TAG, "✅ Widget aktualisiert nach Broadcast")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Fehler beim Widget-Update: ${e.message}")
+                    }
                 }
             }
         }
@@ -52,6 +90,16 @@ class TimerWidgetReceiver : GlanceAppWidgetReceiver() {
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         Log.d(TAG, "✅ Widget wurde zum ersten Mal hinzugefügt")
+
+        // Beim ersten Hinzufügen direkt vom Server laden
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                WidgetDataCache.refreshFromServer(context)
+                glanceAppWidget.updateAll(context)
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Fehler beim initialen Laden: ${e.message}")
+            }
+        }
     }
 
     override fun onDisabled(context: Context) {
