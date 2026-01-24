@@ -107,9 +107,6 @@ dependencies {
     implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.glance:glance-material3:1.1.1")
 
-    // DataStore (für Widget Live-Updates)
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
-
     // Core
     implementation("androidx.core:core-ktx:1.13.1")
 
