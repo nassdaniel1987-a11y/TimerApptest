@@ -19,13 +19,14 @@ object WidgetUtils {
     private const val TAG = "WidgetUtils"
 
     /**
-     * Aktualisiert alle Timer-Widgets.
+     * Aktualisiert alle Timer-Widgets SOFORT.
      * Sollte aufgerufen werden, wenn Timer erstellt, geändert oder gelöscht werden.
      */
     fun updateWidgets(context: Context) {
         Log.d(TAG, "🔄 updateWidgets() aufgerufen")
 
-        CoroutineScope(Dispatchers.Main).launch {
+        // IO-Dispatcher für bessere Performance
+        CoroutineScope(Dispatchers.IO).launch {
             try {
                 // Glance Widget aktualisieren
                 TimerWidget().updateAll(context)
