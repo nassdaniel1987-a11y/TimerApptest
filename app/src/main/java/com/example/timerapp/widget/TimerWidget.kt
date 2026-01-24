@@ -17,9 +17,15 @@ import androidx.glance.layout.*
 import androidx.glance.text.*
 import androidx.glance.unit.ColorProvider
 import com.example.timerapp.MainActivity
+import com.example.timerapp.SupabaseClient
+import com.example.timerapp.models.Timer
 import com.example.timerapp.utils.DateTimeUtils
+import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 /**
  * Timer Widget - Zeigt die nächsten anstehenden Timer als Liste an.
@@ -56,7 +62,7 @@ class TimerWidget : GlanceAppWidget() {
 
 /**
  * ActionCallback für den Aktualisieren-Button.
- * Sendet einen Broadcast an den Receiver, der dann die Daten vom Server lädt.
+ * Lädt Daten DIREKT von Supabase und aktualisiert das Widget.
  */
 class RefreshWidgetAction : ActionCallback {
     override suspend fun onAction(
@@ -64,10 +70,50 @@ class RefreshWidgetAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters
     ) {
-        Log.d("TimerWidget", "🔄 Refresh-Button gedrückt - sende Broadcast...")
+        Log.d("TimerWidget", "🔄 Refresh-Button gedrückt - lade direkt von Supabase...")
 
-        // Broadcast an den Receiver senden, der dann vom Server lädt
-        TimerWidgetReceiver.sendRefreshBroadcast(context)
+        try {
+            // 1. Daten direkt von Supabase laden (im IO-Thread)
+            val timers = withContext(Dispatchers.IO) {
+                try {
+                    val client = SupabaseClient.client
+                    val response = client.from("timers")
+                        .select()
+                        .decodeList<Timer>()
+
+                    // Sortiere nach Zeit
+                    response.sortedBy {
+                        try {
+                            ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                                .toInstant()
+                                .toEpochMilli()
+                        } catch (e: Exception) {
+                            Long.MAX_VALUE
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("TimerWidget", "❌ Supabase-Fehler: ${e.message}", e)
+                    null
+                }
+            }
+
+            if (timers != null) {
+                Log.d("TimerWidget", "✅ ${timers.size} Timer von Supabase geladen")
+
+                // 2. Cache aktualisieren
+                WidgetDataCache.cacheTimers(context, timers)
+
+                // 3. Widget aktualisieren
+                TimerWidget().update(context, glanceId)
+                Log.d("TimerWidget", "✅ Widget aktualisiert!")
+            } else {
+                Log.w("TimerWidget", "⚠️ Keine Daten erhalten, zeige Cache")
+                // Trotzdem Widget aktualisieren mit Cache-Daten
+                TimerWidget().update(context, glanceId)
+            }
+        } catch (e: Exception) {
+            Log.e("TimerWidget", "❌ Refresh fehlgeschlagen: ${e.message}", e)
+        }
     }
 }
 

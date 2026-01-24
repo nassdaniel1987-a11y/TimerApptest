@@ -7,9 +7,11 @@ import android.content.Intent
 import android.util.Log
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
+import com.example.timerapp.models.Timer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Utility-Funktionen für das Timer Widget.
@@ -25,22 +27,38 @@ object WidgetUtils {
     fun updateWidgets(context: Context) {
         Log.d(TAG, "🔄 updateWidgets() aufgerufen")
 
-        // IO-Dispatcher für bessere Performance
-        CoroutineScope(Dispatchers.IO).launch {
+        // Sofort im Main-Thread starten für schnellste Reaktion
+        CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
                 // Glance Widget aktualisieren
                 TimerWidget().updateAll(context)
                 Log.d(TAG, "✅ Glance updateAll() erfolgreich")
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Glance Update fehlgeschlagen: ${e.message}", e)
+                // Fallback: Broadcast senden
+                sendUpdateBroadcast(context)
             }
         }
+    }
 
-        // Zusätzlich: Broadcast senden als Fallback
+    /**
+     * Aktualisiert Cache UND Widget in einem Schritt (synchron).
+     * Diese Funktion stellt sicher, dass der Cache geschrieben ist,
+     * bevor das Widget aktualisiert wird.
+     */
+    suspend fun updateCacheAndWidgets(context: Context, timers: List<Timer>) {
+        Log.d(TAG, "🔄 updateCacheAndWidgets() mit ${timers.size} Timern")
+
+        // 1. Cache schreiben (synchron)
+        WidgetDataCache.cacheTimers(context, timers)
+        Log.d(TAG, "✅ Cache geschrieben")
+
+        // 2. Widget aktualisieren
         try {
-            sendUpdateBroadcast(context)
+            TimerWidget().updateAll(context)
+            Log.d(TAG, "✅ Widget aktualisiert")
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Broadcast fehlgeschlagen: ${e.message}")
+            Log.e(TAG, "❌ Widget-Update fehlgeschlagen: ${e.message}", e)
         }
     }
 
