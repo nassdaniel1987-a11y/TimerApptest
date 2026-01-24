@@ -55,9 +55,9 @@
             android:enabled="true"
             android:exported="false" />
 
-        <!-- Timer Widget -->
+        <!-- Timer Widget (Klassischer AppWidgetProvider für sofortige Updates) -->
         <receiver
-            android:name=".widget.TimerWidgetReceiver"
+            android:name=".widget.TimerWidgetProvider"
             android:enabled="true"
             android:exported="true"
             android:label="@string/widget_name">
@@ -65,7 +65,7 @@
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <intent-filter>
-                <action android:name="com.example.timerapp.REFRESH_WIDGET_FROM_SERVER" />
+                <action android:name="com.example.timerapp.WIDGET_REFRESH" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
