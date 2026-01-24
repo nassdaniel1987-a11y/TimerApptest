@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.datastore.preferences.core.Preferences
 import androidx.glance.*
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
@@ -14,9 +13,7 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.*
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
-import androidx.glance.appwidget.state.GlanceStateDefinition
 import androidx.glance.layout.*
-import androidx.glance.state.currentState
 import androidx.glance.text.*
 import androidx.glance.unit.ColorProvider
 import com.example.timerapp.MainActivity
@@ -27,60 +24,36 @@ import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 /**
  * Timer Widget - Zeigt die nächsten anstehenden Timer als Liste an.
- * Nutzt GlanceStateDefinition für LIVE-Updates!
  */
 class TimerWidget : GlanceAppWidget() {
 
     companion object {
         private const val TAG = "TimerWidget"
-
-        private val json = Json {
-            ignoreUnknownKeys = true
-            encodeDefaults = true
-        }
     }
-
-    // Verwende den GlanceStateDefinition für automatische Updates
-    override val stateDefinition: GlanceStateDefinition<*> = TimerWidgetStateDefinition
 
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         Log.d(TAG, "🔄 provideGlance aufgerufen")
 
+        // Lade Timer aus dem lokalen Cache
+        val cachedTimers = WidgetDataCache.loadTimers(context)
+        val now = ZonedDateTime.now()
+
+        // Filtere nur zukünftige Timer
+        val upcomingTimers = cachedTimers.filter { timer ->
+            val targetTime = DateTimeUtils.parseIsoDateTime(timer.target_time)
+            targetTime != null && targetTime.isAfter(now)
+        }.take(5)
+
+        Log.d(TAG, "📋 ${upcomingTimers.size} zukünftige Timer für Widget")
+
         provideContent {
-            // Lese den State direkt aus dem DataStore
-            val prefs = currentState<Preferences>()
-            val jsonString = prefs[TimerWidgetStateKeys.TIMERS_JSON]
-
-            val cachedTimers = if (jsonString.isNullOrEmpty()) {
-                // Fallback: Lade aus altem Cache
-                WidgetDataCache.loadTimers(context)
-            } else {
-                try {
-                    json.decodeFromString<List<WidgetTimer>>(jsonString)
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ JSON Parse Fehler: ${e.message}")
-                    WidgetDataCache.loadTimers(context)
-                }
-            }
-
-            val now = ZonedDateTime.now()
-
-            // Filtere nur zukünftige Timer
-            val upcomingTimers = cachedTimers.filter { timer ->
-                val targetTime = DateTimeUtils.parseIsoDateTime(timer.target_time)
-                targetTime != null && targetTime.isAfter(now)
-            }.take(5)
-
-            Log.d(TAG, "📋 ${upcomingTimers.size} zukünftige Timer für Widget")
-
             TimerWidgetContent(timers = upcomingTimers)
         }
     }
@@ -88,7 +61,7 @@ class TimerWidget : GlanceAppWidget() {
 
 /**
  * ActionCallback für den Aktualisieren-Button.
- * Lädt Daten DIREKT von Supabase und aktualisiert den Widget-State.
+ * Lädt Daten DIREKT von Supabase und aktualisiert das Widget.
  */
 class RefreshWidgetAction : ActionCallback {
     override suspend fun onAction(
@@ -126,17 +99,17 @@ class RefreshWidgetAction : ActionCallback {
             if (timers != null) {
                 Log.d("TimerWidget", "✅ ${timers.size} Timer von Supabase geladen")
 
-                // 2. State aktualisieren (triggert automatisch Widget-Update!)
-                TimerWidgetStateHelper.updateTimers(context, timers)
-
-                // 3. Auch alten Cache aktualisieren (Fallback)
+                // 2. Cache aktualisieren
                 WidgetDataCache.cacheTimers(context, timers)
 
-                Log.d("TimerWidget", "✅ Widget-State aktualisiert!")
+                // 3. ALLE Widgets aktualisieren
+                TimerWidget().updateAll(context)
+
+                Log.d("TimerWidget", "✅ Widget aktualisiert!")
             } else {
-                Log.w("TimerWidget", "⚠️ Keine Daten erhalten, zeige Cache")
-                // Trotzdem Widget aktualisieren
-                TimerWidget().update(context, glanceId)
+                Log.w("TimerWidget", "⚠️ Keine Daten erhalten")
+                // Trotzdem Widget aktualisieren mit Cache-Daten
+                TimerWidget().updateAll(context)
             }
         } catch (e: Exception) {
             Log.e("TimerWidget", "❌ Refresh fehlgeschlagen: ${e.message}", e)
@@ -145,15 +118,15 @@ class RefreshWidgetAction : ActionCallback {
 }
 
 // Dark Mode Farben
-private val PrimaryColor = Color(0xFF64B5F6)       // Helleres Blau für Dark Mode
-private val BackgroundColor = Color(0xFF1E1E1E)    // Dunkler Hintergrund
-private val CardColor = Color(0xFF2D2D2D)          // Karten-Hintergrund
-private val TextColor = Color(0xFFE0E0E0)          // Heller Text
-private val SubtextColor = Color(0xFF9E9E9E)       // Grauer Subtext
-private val DividerColor = Color(0xFF424242)       // Dunkle Trennlinie
-private val UrgentColor = Color(0xFFEF5350)        // Rot für dringend
-private val WarningColor = Color(0xFFFFB74D)       // Orange für Warnung
-private val AccentColor = Color(0xFF81C784)        // Grün für Akzent
+private val PrimaryColor = Color(0xFF64B5F6)
+private val BackgroundColor = Color(0xFF1E1E1E)
+private val CardColor = Color(0xFF2D2D2D)
+private val TextColor = Color(0xFFE0E0E0)
+private val SubtextColor = Color(0xFF9E9E9E)
+private val DividerColor = Color(0xFF424242)
+private val UrgentColor = Color(0xFFEF5350)
+private val WarningColor = Color(0xFFFFB74D)
+private val AccentColor = Color(0xFF81C784)
 
 @Composable
 private fun TimerWidgetContent(timers: List<WidgetTimer>) {
@@ -269,7 +242,7 @@ private fun TimerListItem(timer: WidgetTimer) {
         when {
             minutesUntil < 0 -> UrgentColor
             minutesUntil < 60 -> WarningColor
-            else -> AccentColor  // Grün für Timer mit Zeit
+            else -> AccentColor
         }
     } else {
         SubtextColor
