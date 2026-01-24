@@ -68,41 +68,8 @@ object WidgetDataCache {
 
             Log.d(TAG, "✅ ${widgetTimers.size} Timer im Cache gespeichert")
 
-            // SOFORT Widget aktualisieren nach Cache-Update (neuer klassischer Provider)
-            TimerWidgetProvider.updateAllWidgets(context)
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Fehler beim Cachen: ${e.message}", e)
-        }
-    }
-
-    /**
-     * Speichert Timer im Cache OHNE Widget-Update.
-     * Wird intern verwendet, wenn das Widget sich selbst aktualisiert.
-     */
-    fun cacheTimersWithoutUpdate(context: Context, timers: List<Timer>) {
-        try {
-            val widgetTimers = timers
-                .filter { !it.is_completed }
-                .sortedBy { it.target_time }
-                .take(10)
-                .map { timer ->
-                    WidgetTimer(
-                        id = timer.id,
-                        name = timer.name,
-                        target_time = timer.target_time,
-                        category = timer.category,
-                        is_completed = timer.is_completed
-                    )
-                }
-
-            val jsonString = json.encodeToString(widgetTimers)
-
-            getPrefs(context).edit()
-                .putString(KEY_TIMERS, jsonString)
-                .putLong(KEY_LAST_UPDATE, System.currentTimeMillis())
-                .commit()
-
-            Log.d(TAG, "✅ ${widgetTimers.size} Timer im Cache gespeichert (ohne Widget-Update)")
+            // Widget aktualisieren nach Cache-Update
+            WidgetUtils.updateWidgets(context)
         } catch (e: Exception) {
             Log.e(TAG, "❌ Fehler beim Cachen: ${e.message}", e)
         }
