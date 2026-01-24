@@ -56,6 +56,7 @@ class TimerWidget : GlanceAppWidget() {
 
 /**
  * ActionCallback für den Aktualisieren-Button.
+ * Lädt Daten direkt von Supabase und aktualisiert dann das Widget.
  */
 class RefreshWidgetAction : ActionCallback {
     override suspend fun onAction(
@@ -63,26 +64,39 @@ class RefreshWidgetAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters
     ) {
-        Log.d("TimerWidget", "🔄 Manuelles Widget-Update angefordert")
-        TimerWidget().update(context, glanceId)
+        Log.d("TimerWidget", "🔄 Manuelles Widget-Update angefordert - lade von Server...")
+
+        // 1. Daten direkt von Supabase laden und Cache aktualisieren
+        val success = WidgetDataCache.refreshFromServer(context)
+
+        if (success) {
+            Log.d("TimerWidget", "✅ Server-Daten geladen, aktualisiere Widget")
+        } else {
+            Log.w("TimerWidget", "⚠️ Server-Refresh fehlgeschlagen, zeige Cache-Daten")
+        }
+
+        // 2. Widget mit neuen Daten aktualisieren
+        TimerWidget().updateAll(context)
     }
 }
 
-// Farben als Konstanten
-private val PrimaryColorDay = Color(0xFF1976D2)
-private val BackgroundColorDay = Color(0xFFF5F5F5)
-private val TextColorDay = Color(0xFF212121)
-private val SubtextColorDay = Color(0xFF757575)
-private val DividerColorDay = Color(0xFFE0E0E0)
-private val UrgentColorDay = Color(0xFFD32F2F)
-private val WarningColorDay = Color(0xFFE65100)
+// Dark Mode Farben
+private val PrimaryColor = Color(0xFF64B5F6)       // Helleres Blau für Dark Mode
+private val BackgroundColor = Color(0xFF1E1E1E)    // Dunkler Hintergrund
+private val CardColor = Color(0xFF2D2D2D)          // Karten-Hintergrund
+private val TextColor = Color(0xFFE0E0E0)          // Heller Text
+private val SubtextColor = Color(0xFF9E9E9E)       // Grauer Subtext
+private val DividerColor = Color(0xFF424242)       // Dunkle Trennlinie
+private val UrgentColor = Color(0xFFEF5350)        // Rot für dringend
+private val WarningColor = Color(0xFFFFB74D)       // Orange für Warnung
+private val AccentColor = Color(0xFF81C784)        // Grün für Akzent
 
 @Composable
 private fun TimerWidgetContent(timers: List<WidgetTimer>) {
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(ColorProvider(BackgroundColorDay))
+            .background(ColorProvider(BackgroundColor))
             .cornerRadius(16.dp)
     ) {
         Column(
@@ -107,7 +121,7 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
                     Text(
                         text = "⏰ Nächste Timer",
                         style = TextStyle(
-                            color = ColorProvider(PrimaryColorDay),
+                            color = ColorProvider(PrimaryColor),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -117,16 +131,16 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
                 // Aktualisieren-Button
                 Box(
                     modifier = GlanceModifier
-                        .size(32.dp)
-                        .cornerRadius(16.dp)
-                        .background(ColorProvider(PrimaryColorDay.copy(alpha = 0.1f)))
+                        .size(36.dp)
+                        .cornerRadius(18.dp)
+                        .background(ColorProvider(CardColor))
                         .clickable(actionRunCallback<RefreshWidgetAction>()),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "🔄",
                         style = TextStyle(
-                            fontSize = 16.sp
+                            fontSize = 18.sp
                         )
                     )
                 }
@@ -146,7 +160,7 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
                         Text(
                             text = "Keine Timer",
                             style = TextStyle(
-                                color = ColorProvider(SubtextColorDay),
+                                color = ColorProvider(SubtextColor),
                                 fontSize = 14.sp
                             )
                         )
@@ -154,7 +168,7 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
                         Text(
                             text = "Tippe zum Erstellen",
                             style = TextStyle(
-                                color = ColorProvider(PrimaryColorDay),
+                                color = ColorProvider(PrimaryColor),
                                 fontSize = 12.sp
                             )
                         )
@@ -189,12 +203,12 @@ private fun TimerListItem(timer: WidgetTimer) {
     val urgencyColor = if (targetTime != null) {
         val minutesUntil = DateTimeUtils.getMinutesUntil(targetTime)
         when {
-            minutesUntil < 0 -> UrgentColorDay
-            minutesUntil < 60 -> WarningColorDay
-            else -> PrimaryColorDay
+            minutesUntil < 0 -> UrgentColor
+            minutesUntil < 60 -> WarningColor
+            else -> AccentColor  // Grün für Timer mit Zeit
         }
     } else {
-        SubtextColorDay
+        SubtextColor
     }
 
     Column(
@@ -206,7 +220,7 @@ private fun TimerListItem(timer: WidgetTimer) {
         Text(
             text = timer.name,
             style = TextStyle(
-                color = ColorProvider(TextColorDay),
+                color = ColorProvider(TextColor),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             ),
@@ -230,7 +244,7 @@ private fun TimerListItem(timer: WidgetTimer) {
             Text(
                 text = timer.category,
                 style = TextStyle(
-                    color = ColorProvider(SubtextColorDay),
+                    color = ColorProvider(SubtextColor),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Normal
                 )
@@ -243,7 +257,7 @@ private fun TimerListItem(timer: WidgetTimer) {
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(ColorProvider(DividerColorDay))
+                .background(ColorProvider(DividerColor))
         ) {}
     }
 }
