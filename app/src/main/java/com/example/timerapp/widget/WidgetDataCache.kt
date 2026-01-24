@@ -3,9 +3,13 @@ package com.example.timerapp.widget
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.example.timerapp.SupabaseClient
 import com.example.timerapp.models.Timer
+import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 /**
  * Cache für Widget-Daten.
@@ -101,5 +105,41 @@ object WidgetDataCache {
     fun clearCache(context: Context) {
         getPrefs(context).edit().clear().commit()
         Log.d(TAG, "🗑️ Cache gelöscht")
+    }
+
+    /**
+     * Lädt Timer direkt von Supabase und aktualisiert den Cache.
+     * Diese Funktion wird vom Widget-Refresh-Button verwendet.
+     */
+    suspend fun refreshFromServer(context: Context): Boolean {
+        return try {
+            Log.d(TAG, "🌐 Lade Timer direkt von Supabase...")
+
+            val client = SupabaseClient.client
+            val response = client.from("timers")
+                .select()
+                .decodeList<Timer>()
+
+            // Sortiere nach Zeit
+            val sortedTimers = response.sortedBy {
+                try {
+                    ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                        .toInstant()
+                        .toEpochMilli()
+                } catch (e: Exception) {
+                    Long.MAX_VALUE
+                }
+            }
+
+            Log.d(TAG, "✅ ${sortedTimers.size} Timer von Server geladen")
+
+            // In Cache speichern
+            cacheTimers(context, sortedTimers)
+
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Fehler beim Laden von Supabase: ${e.message}", e)
+            false
+        }
     }
 }
