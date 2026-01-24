@@ -133,9 +133,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
             val activeTimers = timers.value.filter { !it.is_completed }
             alarmScheduler.rescheduleAllAlarms(activeTimers)
 
-            // ✅ Widget-Cache aktualisieren
-            WidgetDataCache.cacheTimers(getApplication(), timers.value)
-            WidgetUtils.updateWidgets(getApplication())
+            // ✅ Widget-Cache aktualisieren (mit Delay für StateFlow-Propagierung)
+            updateWidgetCache()
 
             _isLoading.value = false
         }
