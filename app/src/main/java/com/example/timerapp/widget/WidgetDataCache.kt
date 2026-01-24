@@ -67,6 +67,9 @@ object WidgetDataCache {
                 .commit() // commit() statt apply() für synchrones Schreiben
 
             Log.d(TAG, "✅ ${widgetTimers.size} Timer im Cache gespeichert")
+
+            // SOFORT Widget aktualisieren nach Cache-Update
+            WidgetUtils.updateWidgets(context)
         } catch (e: Exception) {
             Log.e(TAG, "❌ Fehler beim Cachen: ${e.message}", e)
         }
