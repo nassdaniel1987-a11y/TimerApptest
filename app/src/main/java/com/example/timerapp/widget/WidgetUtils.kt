@@ -27,17 +27,41 @@ object WidgetUtils {
     fun updateWidgets(context: Context) {
         Log.d(TAG, "🔄 updateWidgets() aufgerufen")
 
-        // Sofort im Main-Thread starten für schnellste Reaktion
+        // Methode 1: Glance updateAll
         CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
-                // Glance Widget aktualisieren
                 TimerWidget().updateAll(context)
                 Log.d(TAG, "✅ Glance updateAll() erfolgreich")
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Glance Update fehlgeschlagen: ${e.message}", e)
-                // Fallback: Broadcast senden
-                sendUpdateBroadcast(context)
             }
+        }
+
+        // Methode 2: IMMER auch Broadcast senden als Backup
+        sendUpdateBroadcast(context)
+
+        // Methode 3: notifyAppWidgetViewDataChanged für sofortige Aktualisierung
+        forceWidgetRefresh(context)
+    }
+
+    /**
+     * Erzwingt Widget-Refresh über AppWidgetManager.
+     */
+    private fun forceWidgetRefresh(context: Context) {
+        try {
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val componentName = ComponentName(context, TimerWidgetReceiver::class.java)
+            val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
+
+            if (appWidgetIds.isNotEmpty()) {
+                // Force update für jedes Widget
+                appWidgetIds.forEach { widgetId ->
+                    appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, android.R.id.list)
+                }
+                Log.d(TAG, "🔄 Force-Refresh für ${appWidgetIds.size} Widgets")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Force-Refresh fehlgeschlagen: ${e.message}")
         }
     }
 
@@ -65,7 +89,7 @@ object WidgetUtils {
     /**
      * Sendet einen Update-Broadcast an alle Widgets.
      */
-    private fun sendUpdateBroadcast(context: Context) {
+    fun sendUpdateBroadcast(context: Context) {
         val appWidgetManager = AppWidgetManager.getInstance(context)
         val componentName = ComponentName(context, TimerWidgetReceiver::class.java)
         val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
