@@ -50,7 +50,17 @@ class AlarmReceiver : BroadcastReceiver() {
             try {
                 stopAlarmSound() // Falls noch läuft
 
-                val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                val settingsManager = SettingsManager.getInstance(context)
+
+                // Custom-URI verwenden falls gesetzt, sonst System-Default
+                val alarmUri = settingsManager.alarmSoundUri?.let { uriString ->
+                    try {
+                        android.net.Uri.parse(uriString)
+                    } catch (e: Exception) {
+                        Log.e("AlarmReceiver", "Ungültige Custom-Sound-URI, verwende Standard")
+                        null
+                    }
+                } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
                 mediaPlayer = MediaPlayer().apply {
@@ -79,7 +89,6 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 // ✅ Eskalierender Alarm: Nach 60 Sekunden lauter
                 if (escalate) {
-                    val settingsManager = SettingsManager.getInstance(context)
                     if (settingsManager.isEscalatingAlarmEnabled) {
                         escalationHandler = android.os.Handler(android.os.Looper.getMainLooper())
                         escalationRunnable = Runnable {
@@ -93,6 +102,27 @@ class AlarmReceiver : BroadcastReceiver() {
                 }
             } catch (e: Exception) {
                 Log.e("AlarmReceiver", "❌ Fehler beim Sound: ${e.message}")
+                // Fallback: System-Default versuchen falls Custom-Sound fehlschlägt
+                try {
+                    val fallbackUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    mediaPlayer = MediaPlayer().apply {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_ALARM)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                    .build()
+                            )
+                        }
+                        setDataSource(context, fallbackUri)
+                        isLooping = true
+                        prepare()
+                        start()
+                    }
+                    Log.d("AlarmReceiver", "🔊 Fallback-Sound gestartet")
+                } catch (fallbackError: Exception) {
+                    Log.e("AlarmReceiver", "❌ Auch Fallback-Sound fehlgeschlagen: ${fallbackError.message}")
+                }
             }
         }
 
@@ -132,6 +162,13 @@ class AlarmReceiver : BroadcastReceiver() {
             // Entferne Notification
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             notificationManager.cancelAll()
+            return
+        }
+
+        // ✅ Pause-Modus: Wenn App pausiert ist, Alarm ignorieren
+        val settingsManager = SettingsManager.getInstance(context)
+        if (settingsManager.isAppPaused) {
+            Log.d("AlarmReceiver", "⏸️ App ist pausiert - Alarm wird ignoriert")
             return
         }
 

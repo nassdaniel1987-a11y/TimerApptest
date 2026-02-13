@@ -73,7 +73,9 @@ fun HomeScreen(
     onCreateTimer: () -> Unit,
     onOpenDrawer: () -> Unit
 ) {
-    val timers by viewModel.timers.collectAsState()
+    val allTimers by viewModel.timers.collectAsState()
+    val pendingDeleteIds by viewModel.pendingDeleteTimerIds.collectAsState()
+    val timers = allTimers.filter { it.id !in pendingDeleteIds }
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -86,6 +88,9 @@ fun HomeScreen(
     var filterCategory by remember { mutableStateOf<String?>(null) }
     var sortBy by remember { mutableStateOf(SortType.DATE) }
     var showFilterDialog by remember { mutableStateOf(false) }
+
+    // Pause-Modus State
+    var isAppPaused by remember { mutableStateOf(settingsManager.isAppPaused) }
 
     // ✨ SearchBar State
     var searchQuery by remember { mutableStateOf("") }
@@ -242,6 +247,18 @@ fun HomeScreen(
                     IconButton(onClick = { viewModel.sync() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Timer aktualisieren")
                     }
+                    // Pause-Modus Toggle
+                    IconButton(onClick = {
+                        performHaptic(haptic, settingsManager)
+                        settingsManager.isAppPaused = !settingsManager.isAppPaused
+                        isAppPaused = settingsManager.isAppPaused
+                    }) {
+                        Icon(
+                            if (isAppPaused) Icons.Default.NotificationsOff else Icons.Default.Notifications,
+                            contentDescription = if (isAppPaused) "Alarme aktivieren" else "Alarme pausieren",
+                            tint = if (isAppPaused) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent,
@@ -279,13 +296,65 @@ fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        SwipeRefresh(
-            state = rememberSwipeRefreshState(isLoading),
-            onRefresh = { viewModel.sync() },
-            modifier = Modifier.padding(padding)
-        ) {
+        Column(modifier = Modifier.padding(padding)) {
+            // Pause-Banner
+            if (isAppPaused) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            settingsManager.isAppPaused = false
+                            isAppPaused = false
+                        },
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    tonalElevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.NotificationsOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Alarme sind pausiert",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                "Tippe hier zum Reaktivieren",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Alarme wieder aktivieren",
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
+
+            SwipeRefresh(
+                state = rememberSwipeRefreshState(isLoading),
+                onRefresh = { viewModel.sync() }
+            ) {
             if (timers.isEmpty()) {
-                EmptyState(onCreateTimer = onCreateTimer)
+                EmptyStateView(
+                    icon = Icons.Default.Timer,
+                    title = "Keine Timer vorhanden",
+                    subtitle = "Erstelle deinen ersten Timer und werde rechtzeitig erinnert!",
+                    ctaText = "Neuen Timer erstellen",
+                    onCtaClick = onCreateTimer
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -444,7 +513,13 @@ fun HomeScreen(
                     if (filteredTimers.isEmpty() && completedTimers.isEmpty()) {
                         // ✅ Empty State anzeigen
                         item {
-                            AnimatedEmptyState()
+                            EmptyStateView(
+                                icon = Icons.Default.SearchOff,
+                                title = "Keine Timer gefunden",
+                                subtitle = "Versuche einen anderen Filter oder erstelle einen neuen Timer",
+                                ctaText = "Neuen Timer erstellen",
+                                onCtaClick = onCreateTimer
+                            )
                         }
                     }
 
@@ -494,8 +569,17 @@ fun HomeScreen(
                                 },
                                 onDelete = {
                                     performHaptic(haptic, settingsManager)
-                                    viewModel.deleteTimer(timer.id)
-                                    showSnackbar(snackbarHostState, "Timer gelöscht")
+                                    viewModel.softDeleteTimer(timer.id)
+                                    CoroutineScope(Dispatchers.Main).launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = "'${timer.name}' gelöscht",
+                                            actionLabel = "Rückgängig",
+                                            duration = SnackbarDuration.Long
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            viewModel.undoDeleteTimer(timer.id)
+                                        }
+                                    }
                                 },
                                 onEdit = { editedTimer ->
                                     performHaptic(haptic, settingsManager)
@@ -543,8 +627,17 @@ fun HomeScreen(
                                     onComplete = { },
                                     onDelete = {
                                         performHaptic(haptic, settingsManager)
-                                        viewModel.deleteTimer(timer.id)
-                                        showSnackbar(snackbarHostState, "Timer gelöscht")
+                                        viewModel.softDeleteTimer(timer.id)
+                                        CoroutineScope(Dispatchers.Main).launch {
+                                            val result = snackbarHostState.showSnackbar(
+                                                message = "'${timer.name}' gelöscht",
+                                                actionLabel = "Rückgängig",
+                                                duration = SnackbarDuration.Long
+                                            )
+                                            if (result == SnackbarResult.ActionPerformed) {
+                                                viewModel.undoDeleteTimer(timer.id)
+                                            }
+                                        }
                                     },
                                     onEdit = { },
                                     settingsManager = settingsManager,
@@ -555,7 +648,8 @@ fun HomeScreen(
                     }
                 }
             }
-        }
+            }
+        } // Column
     }
 }
 
@@ -1409,64 +1503,6 @@ private fun TimerCompleteAnimation(
     }
 }
 
-// ✅ Animated Empty State
-@Composable
-private fun AnimatedEmptyState() {
-    val infiniteTransition = rememberInfiniteTransition(label = "emptyState")
-
-    val floatingOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 20f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "floating"
-    )
-
-    val iconRotation by infiniteTransition.animateFloat(
-        initialValue = -10f,
-        targetValue = 10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "rotation"
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Animiertes Icon
-        Icon(
-            imageVector = Icons.Default.Timer,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-            modifier = Modifier
-                .size(120.dp)
-                .offset(y = floatingOffset.dp)
-                .rotate(iconRotation)
-        )
-
-        Text(
-            text = "Keine Timer vorhanden",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        )
-
-        Text(
-            text = "Erstelle deinen ersten Timer mit dem + Button",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        )
-    }
-}
 
 // ✅ Filter & Sort Dialog
 @Composable
@@ -1828,37 +1864,6 @@ private fun ExactAlarmPermissionRationaleDialog(onGoToSettings: () -> Unit) {
     )
 }
 
-@Composable
-private fun EmptyState(onCreateTimer: () -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Timer,
-                contentDescription = null,
-                modifier = Modifier.size(120.dp),
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Keine Timer vorhanden",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = onCreateTimer) {
-                Icon(Icons.Default.Add, contentDescription = "Timer erstellen")
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Neuen Timer erstellen")
-            }
-        }
-    }
-}
 
 // ✅ Haptic Feedback Helper
 fun performHaptic(haptic: androidx.compose.ui.hapticfeedback.HapticFeedback, settingsManager: SettingsManager) {

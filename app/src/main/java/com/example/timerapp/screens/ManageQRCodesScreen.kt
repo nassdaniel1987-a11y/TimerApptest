@@ -94,36 +94,14 @@ fun ManageQRCodesScreen(
             }
         ) { padding ->
             if (qrCodes.isEmpty()) {
-                // 🎨 Modern Empty State
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.QrCode,
-                            contentDescription = null,
-                            modifier = Modifier.size(120.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                        )
-                        Text(
-                            "Noch keine QR-Codes erstellt",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Text(
-                            "Erstelle deinen ersten QR-Code",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                    }
-                }
+                EmptyStateView(
+                    icon = Icons.Default.QrCode,
+                    title = "Noch keine QR-Codes erstellt",
+                    subtitle = "Erstelle QR-Codes, um Timer schnell per Scan zu starten",
+                    ctaText = "QR-Code erstellen",
+                    onCtaClick = onNavigateToCreate,
+                    modifier = Modifier.padding(padding)
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier

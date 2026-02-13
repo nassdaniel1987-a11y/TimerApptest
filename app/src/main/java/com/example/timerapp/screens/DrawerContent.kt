@@ -4,12 +4,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.timerapp.BuildConfig
+import com.example.timerapp.SettingsManager
 
 @Composable
 fun DrawerContent(
@@ -96,6 +98,46 @@ fun DrawerContent(
                 onClick = {
                     onNavigateToManageQRCodes() // Und hier wird er verwendet
                     onCloseDrawer()
+                },
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Pause-Modus Toggle
+            val context = LocalContext.current
+            val settingsManager = remember { SettingsManager.getInstance(context) }
+            var isAppPaused by remember { mutableStateOf(settingsManager.isAppPaused) }
+
+            NavigationDrawerItem(
+                icon = {
+                    Icon(
+                        if (isAppPaused) Icons.Default.NotificationsOff else Icons.Default.Notifications,
+                        contentDescription = "Alarme pausieren",
+                        tint = if (isAppPaused) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                label = {
+                    Text(
+                        if (isAppPaused) "Alarme pausiert" else "Alarme aktiv",
+                        fontWeight = if (isAppPaused) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isAppPaused) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                    )
+                },
+                badge = {
+                    Switch(
+                        checked = !isAppPaused,
+                        onCheckedChange = {
+                            isAppPaused = !it
+                            settingsManager.isAppPaused = !it
+                        },
+                        modifier = Modifier.height(24.dp)
+                    )
+                },
+                selected = false,
+                onClick = {
+                    isAppPaused = !isAppPaused
+                    settingsManager.isAppPaused = isAppPaused
                 },
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
