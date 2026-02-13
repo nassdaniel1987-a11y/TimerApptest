@@ -27,7 +27,13 @@ object NotificationHelper {
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
 
-            val alarmUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+            // Custom-Sound-URI verwenden falls gesetzt
+            val settingsManager = SettingsManager.getInstance(context)
+            val alarmUri = settingsManager.alarmSoundUri?.let { uriString ->
+                try {
+                    android.net.Uri.parse(uriString)
+                } catch (e: Exception) { null }
+            } ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
 
             val channel = NotificationChannel(
                 CHANNEL_ID,
@@ -48,6 +54,18 @@ object NotificationHelper {
             notificationManager.createNotificationChannel(channel)
 
             android.util.Log.d("NotificationHelper", "✅ Notification Channel erstellt (Importance: HIGH, Bypass DND: true, ALARM-Stream)")
+        }
+    }
+
+    // ✅ Channel neu erstellen wenn sich der Sound ändert
+    // Android erlaubt keine nachträgliche Änderung des Channel-Sounds
+    fun recreateNotificationChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.deleteNotificationChannel(CHANNEL_ID)
+            createNotificationChannel(context)
+            Log.d("NotificationHelper", "🔄 Notification Channel neu erstellt (Sound geändert)")
         }
     }
 

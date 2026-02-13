@@ -1,6 +1,12 @@
 package com.example.timerapp.screens
 
+import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +25,11 @@ import androidx.compose.ui.unit.dp
 import com.example.timerapp.BuildConfig
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.ui.theme.GradientColors
+import com.example.timerapp.utils.NotificationHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +51,27 @@ fun SettingsScreen(
 
     var showPreReminderDialog by remember { mutableStateOf(false) }
     var showSnoozeDialog by remember { mutableStateOf(false) }
+    var showSoundPickerDialog by remember { mutableStateOf(false) }
+    var alarmSoundName by remember { mutableStateOf(settingsManager.alarmSoundName) }
+
+    val ringtonePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            @Suppress("DEPRECATION")
+            val uri = result.data?.getParcelableExtra<Uri>(
+                RingtoneManager.EXTRA_RINGTONE_PICKED_URI
+            )
+            if (uri != null) {
+                settingsManager.alarmSoundUri = uri.toString()
+                val ringtone = RingtoneManager.getRingtone(context, uri)
+                val title = ringtone?.getTitle(context) ?: "Benutzerdefiniert"
+                settingsManager.alarmSoundName = title
+                alarmSoundName = title
+                NotificationHelper.recreateNotificationChannel(context)
+            }
+        }
+    }
 
     // 🎨 Gradient Background
     val backgroundGradient = Brush.verticalGradient(
@@ -163,6 +195,27 @@ fun SettingsScreen(
                             )
                         }
                     )
+
+                    if (isSoundEnabled) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                        ListItem(
+                            headlineContent = { Text("Alarm-Sound", fontWeight = FontWeight.Medium) },
+                            supportingContent = { Text(alarmSoundName) },
+                            leadingContent = {
+                                Icon(
+                                    Icons.Default.MusicNote,
+                                    contentDescription = "Alarm-Sound",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingContent = {
+                                TextButton(onClick = { showSoundPickerDialog = true }) {
+                                    Text("Ändern")
+                                }
+                            }
+                        )
+                    }
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
@@ -494,6 +547,126 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showSnoozeDialog = false }) {
+                    Text("Schließen")
+                }
+            }
+        )
+    }
+
+    // Sound Picker Dialog
+    if (showSoundPickerDialog) {
+        val soundOptions = listOf(
+            "Standard-Alarm" to null,
+            "Standard-Klingelton" to RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)?.toString(),
+            "Standard-Benachrichtigung" to RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)?.toString()
+        )
+
+        AlertDialog(
+            onDismissRequest = { showSoundPickerDialog = false },
+            title = { Text("Alarm-Sound wählen") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    soundOptions.forEach { (name, uriString) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    settingsManager.alarmSoundUri = uriString
+                                    settingsManager.alarmSoundName = name
+                                    alarmSoundName = name
+                                    NotificationHelper.recreateNotificationChannel(context)
+                                    showSoundPickerDialog = false
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            RadioButton(
+                                selected = alarmSoundName == name,
+                                onClick = {
+                                    settingsManager.alarmSoundUri = uriString
+                                    settingsManager.alarmSoundName = name
+                                    alarmSoundName = name
+                                    NotificationHelper.recreateNotificationChannel(context)
+                                    showSoundPickerDialog = false
+                                }
+                            )
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(
+                                onClick = {
+                                    val previewUri = if (uriString != null) {
+                                        Uri.parse(uriString)
+                                    } else {
+                                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                                    }
+                                    val ringtone = RingtoneManager.getRingtone(context, previewUri)
+                                    ringtone?.play()
+                                    CoroutineScope(Dispatchers.Main).launch {
+                                        delay(3000)
+                                        ringtone?.stop()
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.PlayArrow,
+                                    contentDescription = "Vorschau",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    // Custom picker option
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showSoundPickerDialog = false
+                                val existingUri = settingsManager.alarmSoundUri?.let { Uri.parse(it) }
+                                val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                    putExtra(
+                                        RingtoneManager.EXTRA_RINGTONE_TYPE,
+                                        RingtoneManager.TYPE_ALARM or RingtoneManager.TYPE_NOTIFICATION or RingtoneManager.TYPE_RINGTONE
+                                    )
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Alarm-Sound wählen")
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                    if (existingUri != null) {
+                                        putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existingUri)
+                                    }
+                                }
+                                ringtonePickerLauncher.launch(intent)
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        RadioButton(
+                            selected = settingsManager.alarmSoundUri != null
+                                    && soundOptions.none { it.second == settingsManager.alarmSoundUri },
+                            onClick = null
+                        )
+                        Icon(
+                            Icons.Default.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Aus Gerät wählen...",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSoundPickerDialog = false }) {
                     Text("Schließen")
                 }
             }

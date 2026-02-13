@@ -47,6 +47,11 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // ✅ Undo-Delete: Timer-IDs die gerade "soft deleted" sind
+    private val _pendingDeleteTimerIds = MutableStateFlow<Set<String>>(emptySet())
+    val pendingDeleteTimerIds: StateFlow<Set<String>> = _pendingDeleteTimerIds.asStateFlow()
+    private val pendingDeleteJobs = mutableMapOf<String, Job>()
+
     init {
         sync()
     }
@@ -231,6 +236,57 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                     }
             }
         }
+    }
+
+    // ✅ Soft-Delete: Timer wird visuell ausgeblendet, tatsächliche Löschung nach 5s
+    fun softDeleteTimer(id: String) {
+        // Sofort aus der Anzeige entfernen
+        _pendingDeleteTimerIds.value = _pendingDeleteTimerIds.value + id
+
+        // Alarm sofort canceln
+        viewModelScope.launch {
+            alarmMutex.withLock {
+                val timerToDelete = timers.value.find { it.id == id }
+                if (timerToDelete != null) {
+                    try {
+                        val targetTime = java.time.ZonedDateTime.parse(
+                            timerToDelete.target_time,
+                            java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                        )
+                        val groupId = "group_${targetTime.toLocalDate()}_${targetTime.hour}_${targetTime.minute}"
+                        alarmScheduler.cancelAlarm(id)
+                        alarmScheduler.cancelAlarm("${id}_pre")
+                        alarmScheduler.cancelGroupAlarm(groupId)
+                    } catch (e: Exception) {
+                        alarmScheduler.cancelAlarm(id)
+                        alarmScheduler.cancelAlarm("${id}_pre")
+                    }
+                }
+            }
+        }
+
+        // Tatsächliche Löschung nach 5 Sekunden (Snackbar-Dauer)
+        val job = viewModelScope.launch {
+            delay(5000)
+            if (_pendingDeleteTimerIds.value.contains(id)) {
+                _pendingDeleteTimerIds.value = _pendingDeleteTimerIds.value - id
+                deleteTimer(id)
+            }
+        }
+        pendingDeleteJobs[id] = job
+    }
+
+    // ✅ Undo: Soft-Delete rückgängig machen
+    fun undoDeleteTimer(id: String) {
+        pendingDeleteJobs[id]?.cancel()
+        pendingDeleteJobs.remove(id)
+        _pendingDeleteTimerIds.value = _pendingDeleteTimerIds.value - id
+
+        // Alarme neu planen für den wiederhergestellten Timer
+        viewModelScope.launch {
+            debouncedRescheduleAlarms()
+        }
+        Log.d("TimerViewModel", "↩️ Timer-Löschung rückgängig gemacht: $id")
     }
 
     fun markTimerCompleted(id: String) {

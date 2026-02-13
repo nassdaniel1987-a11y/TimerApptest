@@ -92,36 +92,14 @@ fun ManageCategoriesScreen(
             }
         ) { padding ->
             if (categories.isEmpty()) {
-                // 🎨 Modern Empty State
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Category,
-                            contentDescription = null,
-                            modifier = Modifier.size(120.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                        )
-                        Text(
-                            text = "Keine Kategorien vorhanden",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Text(
-                            text = "Erstelle deine erste Kategorie",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                    }
-                }
+                EmptyStateView(
+                    icon = Icons.Default.Category,
+                    title = "Keine Kategorien vorhanden",
+                    subtitle = "Erstelle Kategorien, um deine Timer besser zu organisieren",
+                    ctaText = "Kategorie erstellen",
+                    onCtaClick = { showAddDialog = true },
+                    modifier = Modifier.padding(padding)
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier
