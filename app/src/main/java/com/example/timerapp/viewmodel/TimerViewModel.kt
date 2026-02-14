@@ -92,14 +92,16 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         rescheduleJob = viewModelScope.launch {
             delay(500) // Warte 500ms
             try {
+                val allActive = timers.value.filter { !it.is_completed }
                 val klasseFilter = settingsManager.klasseFilter
-                val activeTimers = if (klasseFilter != null) {
-                    timers.value.filter { !it.is_completed && it.klasse == klasseFilter }
+                val toSchedule = if (klasseFilter != null) {
+                    allActive.filter { it.klasse == klasseFilter }
                 } else {
-                    timers.value.filter { !it.is_completed }
+                    allActive
                 }
-                alarmScheduler.rescheduleAllAlarms(activeTimers)
-                Log.d("TimerViewModel", "✅ Alarme neu geplant (debounced): ${activeTimers.size} Timer (Filter: ${klasseFilter ?: "Alle"})")
+                // Erst ALLE canceln, dann nur gefilterte neu planen
+                alarmScheduler.rescheduleAllAlarms(allActive, toSchedule)
+                Log.d("TimerViewModel", "✅ Alarme neu geplant: ${toSchedule.size}/${allActive.size} (Filter: ${klasseFilter ?: "Alle"})")
             } catch (e: Exception) {
                 Log.e("TimerViewModel", "❌ Fehler beim Reschedule: ${e.message}")
             }
@@ -152,15 +154,16 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                 alarmScheduler.cancelAlarm(timerId)
             }
 
-            // ✅ NEU: Alle Alarme neu gruppieren und planen (nach Klassen-Filter)
+            // ✅ NEU: Alle Alarme canceln, dann nur gefilterte Klasse neu planen
+            val allActive = timers.value.filter { !it.is_completed }
             val klasseFilter = settingsManager.klasseFilter
-            val activeTimers = if (klasseFilter != null) {
-                timers.value.filter { !it.is_completed && it.klasse == klasseFilter }
+            val toSchedule = if (klasseFilter != null) {
+                allActive.filter { it.klasse == klasseFilter }
             } else {
-                timers.value.filter { !it.is_completed }
+                allActive
             }
-            alarmScheduler.rescheduleAllAlarms(activeTimers)
-            Log.d("TimerViewModel", "🔔 Alarme geplant (Filter: ${klasseFilter ?: "Alle"}, ${activeTimers.size} Timer)")
+            alarmScheduler.rescheduleAllAlarms(allActive, toSchedule)
+            Log.d("TimerViewModel", "🔔 Alarme geplant: ${toSchedule.size}/${allActive.size} (Filter: ${klasseFilter ?: "Alle"})")
 
             // ✅ Auto-Aufräumen: Abgeschlossene Timer nach X Tagen löschen
             if (settingsManager.isAutoCleanupEnabled) {

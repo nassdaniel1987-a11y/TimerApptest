@@ -205,10 +205,8 @@ class AlarmScheduler(private val context: Context) {
         alarmManager.cancel(pendingIntent)
     }
 
-    // ✅ NEU: Bricht alle Alarme ab und setzt sie neu (für vollständige Synchronisation)
-    fun rescheduleAllAlarms(timers: List<Timer>) {
-        // WICHTIG: Alle möglichen Gruppen-Alarme abbrechen
-        // Gruppiere nach Zeit, um alle Gruppen-IDs zu finden
+    // Bricht Alarme für eine Liste von Timern ab (ohne neue zu setzen)
+    fun cancelAlarmsForTimers(timers: List<Timer>) {
         val groupIds = mutableSetOf<String>()
 
         timers.forEach { timer ->
@@ -219,23 +217,33 @@ class AlarmScheduler(private val context: Context) {
                 )
                 val groupId = "group_${targetTime.toLocalDate()}_${targetTime.hour}_${targetTime.minute}"
                 groupIds.add(groupId)
-
-                // Auch einzelne Timer-ID-basierte Alarme abbrechen (falls noch vorhanden)
                 cancelAlarm(timer.id)
             } catch (e: Exception) {
                 Log.e("AlarmScheduler", "Fehler beim Parsen von Timer ${timer.id}: ${e.message}")
             }
         }
 
-        // Alle Gruppen-Alarme abbrechen
         groupIds.forEach { groupId ->
             cancelGroupAlarm(groupId)
         }
 
-        // Neue gruppierte Alarme setzen
-        scheduleAlarmsForTimers(timers)
+        Log.d("AlarmScheduler", "🔕 Alarme gecancelt für ${timers.size} Timer (${groupIds.size} Gruppen)")
+    }
 
-        Log.d("AlarmScheduler", "🔄 Alle Alarme neu geplant für ${timers.size} Timer (${groupIds.size} Gruppen)")
+    // ✅ Bricht ALLE Alarme ab und setzt nur die übergebenen neu
+    fun rescheduleAllAlarms(allTimers: List<Timer>, timersToSchedule: List<Timer>) {
+        // Erst ALLE Alarme abbrechen
+        cancelAlarmsForTimers(allTimers)
+
+        // Dann nur die gefilterten neu setzen
+        scheduleAlarmsForTimers(timersToSchedule)
+
+        Log.d("AlarmScheduler", "🔄 Alarme neu geplant: ${timersToSchedule.size} von ${allTimers.size} Timer")
+    }
+
+    // Rückwärtskompatibilität: Wenn nur eine Liste übergeben wird
+    fun rescheduleAllAlarms(timers: List<Timer>) {
+        rescheduleAllAlarms(timers, timers)
     }
 
     // ✅ WIEDERHOLUNGS-LOGIK: Berechnet das nächste Vorkommen eines wiederholenden Timers
