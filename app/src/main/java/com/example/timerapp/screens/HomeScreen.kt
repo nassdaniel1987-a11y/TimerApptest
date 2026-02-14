@@ -467,7 +467,7 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    // Klassen-Filter Chips
+                    // Klassen-Filter Chips (steuert Anzeige UND Alarme)
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -478,7 +478,7 @@ fun HomeScreen(
                                 selected = klasseFilter == null,
                                 onClick = {
                                     klasseFilter = null
-                                    settingsManager.klasseFilter = null
+                                    viewModel.updateKlasseFilter(null)
                                 },
                                 label = { Text("Alle") },
                                 leadingIcon = if (klasseFilter == null) {
@@ -491,7 +491,7 @@ fun HomeScreen(
                                     selected = klasseFilter == klasse,
                                     onClick = {
                                         klasseFilter = klasse
-                                        settingsManager.klasseFilter = klasse
+                                        viewModel.updateKlasseFilter(klasse)
                                     },
                                     label = { Text(klasse.removePrefix("Klasse ")) },
                                     leadingIcon = if (klasseFilter == klasse) {
