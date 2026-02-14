@@ -99,6 +99,9 @@ fun HomeScreen(
     // ✨ SegmentedButton State für Zeitfilter
     var timeFilter by remember { mutableStateOf(TimeFilter.ALL) }
 
+    // Klassen-Filter (null = "Alle", sonst "Klasse 1" etc.)
+    var klasseFilter by remember { mutableStateOf(settingsManager.klasseFilter) }
+
     // ✅ Zeige Error als Snackbar
     LaunchedEffect(error) {
         error?.let {
@@ -111,8 +114,13 @@ fun HomeScreen(
     }
 
     // ✅ Filtern, Suchen und Sortieren
-    val filteredTimers = remember(timers, filterCategory, sortBy, searchQuery, timeFilter) {
+    val filteredTimers = remember(timers, filterCategory, sortBy, searchQuery, timeFilter, klasseFilter) {
         var filtered = timers.filter { !it.is_completed }
+
+        // Klassen-Filter
+        if (klasseFilter != null) {
+            filtered = filtered.filter { it.klasse == klasseFilter }
+        }
 
         // ✨ Suchfilter
         if (searchQuery.isNotBlank()) {
@@ -179,7 +187,7 @@ fun HomeScreen(
         }
     }
 
-    val completedTimers = timers.filter { it.is_completed }
+    val completedTimers = timers.filter { it.is_completed && (klasseFilter == null || it.klasse == klasseFilter) }
 
     fun checkPermission() {
         hasExactAlarmPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -459,6 +467,42 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
+                    // Klassen-Filter Chips
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // "Alle" Chip
+                            FilterChip(
+                                selected = klasseFilter == null,
+                                onClick = {
+                                    klasseFilter = null
+                                    settingsManager.klasseFilter = null
+                                },
+                                label = { Text("Alle") },
+                                leadingIcon = if (klasseFilter == null) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                } else null
+                            )
+                            // Klasse 1-4 Chips
+                            SettingsManager.KLASSE_OPTIONS.forEach { klasse ->
+                                FilterChip(
+                                    selected = klasseFilter == klasse,
+                                    onClick = {
+                                        klasseFilter = klasse
+                                        settingsManager.klasseFilter = klasse
+                                    },
+                                    label = { Text(klasse.removePrefix("Klasse ")) },
+                                    leadingIcon = if (klasseFilter == klasse) {
+                                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                    } else null
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
                     // ✨ Carousel mit Timer-Vorlagen
                     item {
                         // Hole Farben im @Composable Kontext
@@ -503,7 +547,8 @@ fun HomeScreen(
                                             val timer = Timer(
                                                 name = "${template.minutes} Min Timer",
                                                 target_time = targetTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
-                                                category = "Schnell-Timer"
+                                                category = "Schnell-Timer",
+                                                klasse = settingsManager.myKlasse
                                             )
                                             viewModel.createTimer(timer)
                                             showSnackbar(snackbarHostState, "Timer für ${template.minutes} Min erstellt")
@@ -739,7 +784,8 @@ fun QuickTimerButtons(
                             val timer = Timer(
                                 name = "${option.label} Timer",
                                 target_time = targetTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
-                                category = "Schnell-Timer"
+                                category = "Schnell-Timer",
+                                klasse = settingsManager.myKlasse
                             )
                             viewModel.createTimer(timer)
                             showSnackbar(snackbarHostState, "${option.label} Timer erstellt")

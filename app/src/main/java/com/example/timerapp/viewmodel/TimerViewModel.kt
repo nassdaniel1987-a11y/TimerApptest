@@ -92,9 +92,10 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         rescheduleJob = viewModelScope.launch {
             delay(500) // Warte 500ms
             try {
-                val activeTimers = timers.value.filter { !it.is_completed }
+                val myKlasse = settingsManager.myKlasse
+                val activeTimers = timers.value.filter { !it.is_completed && (it.klasse == null || it.klasse == myKlasse) }
                 alarmScheduler.rescheduleAllAlarms(activeTimers)
-                Log.d("TimerViewModel", "✅ Alarme neu geplant (debounced): ${activeTimers.size} Timer")
+                Log.d("TimerViewModel", "✅ Alarme neu geplant (debounced): ${activeTimers.size} Timer (Klasse: $myKlasse)")
             } catch (e: Exception) {
                 Log.e("TimerViewModel", "❌ Fehler beim Reschedule: ${e.message}")
             }
@@ -140,9 +141,11 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
                 alarmScheduler.cancelAlarm(timerId)
             }
 
-            // ✅ NEU: Alle Alarme neu gruppieren und planen
-            val activeTimers = timers.value.filter { !it.is_completed }
+            // ✅ NEU: Alle Alarme neu gruppieren und planen (nur eigene Klasse)
+            val myKlasse = settingsManager.myKlasse
+            val activeTimers = timers.value.filter { !it.is_completed && (it.klasse == null || it.klasse == myKlasse) }
             alarmScheduler.rescheduleAllAlarms(activeTimers)
+            Log.d("TimerViewModel", "🔔 Alarme geplant für Klasse: $myKlasse (${activeTimers.size} Timer)")
 
             // ✅ Auto-Aufräumen: Abgeschlossene Timer nach X Tagen löschen
             if (settingsManager.isAutoCleanupEnabled) {

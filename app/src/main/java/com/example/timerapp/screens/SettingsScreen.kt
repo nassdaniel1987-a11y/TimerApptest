@@ -61,6 +61,8 @@ fun SettingsScreen(
     var pickupTimes by remember { mutableStateOf(settingsManager.getPickupTimeList()) }
     var isAutoCleanupEnabled by remember { mutableStateOf(settingsManager.isAutoCleanupEnabled) }
     var autoCleanupDays by remember { mutableStateOf(settingsManager.autoCleanupDays) }
+    var myKlasse by remember { mutableStateOf(settingsManager.myKlasse) }
+    var showKlasseDialog by remember { mutableStateOf(false) }
 
     val ringtonePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -127,6 +129,42 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
+
+                // ═══════════ MEINE KLASSE ═══════════
+                Text(
+                    "Meine Klasse",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    ListItem(
+                        headlineContent = { Text("Zugeordnete Klasse", fontWeight = FontWeight.Medium) },
+                        supportingContent = {
+                            Text("Neue Timer werden dieser Klasse zugewiesen. Du bekommst nur Alarme für Timer deiner Klasse.")
+                        },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.Groups,
+                                contentDescription = "Klasse",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailingContent = {
+                            TextButton(onClick = { showKlasseDialog = true }) {
+                                Text(myKlasse, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    )
+                }
 
                 // ═══════════ DARSTELLUNG ═══════════
                 Text(
@@ -899,6 +937,56 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showCleanupDaysDialog = false }) {
+                    Text("Schließen")
+                }
+            }
+        )
+    }
+
+    // Klasse Selection Dialog
+    if (showKlasseDialog) {
+        AlertDialog(
+            onDismissRequest = { showKlasseDialog = false },
+            title = { Text("Meine Klasse wählen") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Du bekommst nur Alarme für Timer deiner Klasse.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsManager.KLASSE_OPTIONS.forEach { klasse ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    myKlasse = klasse
+                                    settingsManager.myKlasse = klasse
+                                    showKlasseDialog = false
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            RadioButton(
+                                selected = myKlasse == klasse,
+                                onClick = {
+                                    myKlasse = klasse
+                                    settingsManager.myKlasse = klasse
+                                    showKlasseDialog = false
+                                }
+                            )
+                            Text(
+                                text = klasse,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (myKlasse == klasse) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showKlasseDialog = false }) {
                     Text("Schließen")
                 }
             }
