@@ -307,7 +307,8 @@ fun CreateTimerScreen(
                                 recurrence_end_date = recurrenceEndDate?.atStartOfDay(userZone)?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                                 recurrence_weekdays = if (recurrence == "custom" && selectedWeekdays.isNotEmpty()) {
                                     selectedWeekdays.sorted().joinToString(",")
-                                } else null
+                                } else null,
+                                klasse = settingsManager.myKlasse
                             )
 
                             viewModel.createTimer(timer)

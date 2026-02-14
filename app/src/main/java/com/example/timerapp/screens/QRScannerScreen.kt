@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.example.timerapp.SettingsManager
 import com.example.timerapp.models.parseQRString
 import com.example.timerapp.viewmodel.TimerViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -41,6 +42,8 @@ fun QRScannerScreen(
     viewModel: TimerViewModel,
     onNavigateBack: () -> Unit
 ) {
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager.getInstance(context) }
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
     LaunchedEffect(Unit) {
@@ -85,7 +88,8 @@ fun QRScannerScreen(
                                 name = qrData.name,
                                 target_time = targetDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                                 category = qrData.category,
-                                note = qrData.note
+                                note = qrData.note,
+                                klasse = settingsManager.myKlasse
                             )
 
                             viewModel.createTimer(timer)

@@ -77,6 +77,16 @@ class SettingsManager private constructor(context: Context) {
         pickupTimePresets = current.joinToString(",")
     }
 
+    // Klassen-Zuordnung: Eigene Klasse (wird beim Erstellen automatisch zugewiesen)
+    var myKlasse: String
+        get() = prefs.getString(KEY_MY_KLASSE, KLASSE_OPTIONS[0]) ?: KLASSE_OPTIONS[0]
+        set(value) = prefs.edit().putString(KEY_MY_KLASSE, value).apply()
+
+    // Klassen-Filter auf dem HomeScreen (null = "Alle")
+    var klasseFilter: String?
+        get() = prefs.getString(KEY_KLASSE_FILTER, null)
+        set(value) = prefs.edit().putString(KEY_KLASSE_FILTER, value).apply()
+
     // Auto-Aufräumen abgeschlossener Timer
     var isAutoCleanupEnabled: Boolean
         get() = prefs.getBoolean(KEY_AUTO_CLEANUP_ENABLED, false)
@@ -87,6 +97,8 @@ class SettingsManager private constructor(context: Context) {
         set(value) = prefs.edit().putInt(KEY_AUTO_CLEANUP_DAYS, value).apply()
 
     companion object {
+        val KLASSE_OPTIONS = listOf("Klasse 1", "Klasse 2", "Klasse 3", "Klasse 4")
+
         private const val DEFAULT_PICKUP_TIMES = "13:00,13:45,14:00,14:45,15:00,15:45,16:00"
 
         private const val KEY_SOUND_ENABLED = "sound_enabled"
@@ -103,6 +115,8 @@ class SettingsManager private constructor(context: Context) {
         private const val KEY_PICKUP_TIME_PRESETS = "pickup_time_presets"
         private const val KEY_AUTO_CLEANUP_ENABLED = "auto_cleanup_enabled"
         private const val KEY_AUTO_CLEANUP_DAYS = "auto_cleanup_days"
+        private const val KEY_MY_KLASSE = "my_klasse"
+        private const val KEY_KLASSE_FILTER = "klasse_filter"
         
         @Volatile
         private var instance: SettingsManager? = null
