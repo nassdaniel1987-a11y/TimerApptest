@@ -26,6 +26,9 @@ import com.example.timerapp.BuildConfig
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.ui.theme.GradientColors
 import com.example.timerapp.utils.NotificationHelper
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import java.time.LocalTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -52,7 +55,12 @@ fun SettingsScreen(
     var showPreReminderDialog by remember { mutableStateOf(false) }
     var showSnoozeDialog by remember { mutableStateOf(false) }
     var showSoundPickerDialog by remember { mutableStateOf(false) }
+    var showAddTimeDialog by remember { mutableStateOf(false) }
+    var showCleanupDaysDialog by remember { mutableStateOf(false) }
     var alarmSoundName by remember { mutableStateOf(settingsManager.alarmSoundName) }
+    var pickupTimes by remember { mutableStateOf(settingsManager.getPickupTimeList()) }
+    var isAutoCleanupEnabled by remember { mutableStateOf(settingsManager.isAutoCleanupEnabled) }
+    var autoCleanupDays by remember { mutableStateOf(settingsManager.autoCleanupDays) }
 
     val ringtonePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -387,6 +395,148 @@ fun SettingsScreen(
                     )
                 }
 
+                // ═══════════ ABHOLZEITEN ═══════════
+                Text(
+                    "Abholzeiten-Vorlagen",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Diese Zeiten erscheinen als Schnellauswahl beim Erstellen eines Timers.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        // Zeit-Chips mit Löschen-Option
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(pickupTimes) { time ->
+                                InputChip(
+                                    selected = false,
+                                    onClick = { },
+                                    label = { Text(time, fontWeight = FontWeight.Medium) },
+                                    trailingIcon = {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Entfernen",
+                                            modifier = Modifier
+                                                .size(16.dp)
+                                                .clickable {
+                                                    settingsManager.removePickupTime(time)
+                                                    pickupTimes = settingsManager.getPickupTimeList()
+                                                }
+                                        )
+                                    }
+                                )
+                            }
+                        }
+
+                        // Buttons: Hinzufügen + Zurücksetzen
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showAddTimeDialog = true }
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Zeit hinzufügen")
+                            }
+                            if (pickupTimes.size != 7 || pickupTimes.joinToString(",") != "13:00,13:45,14:00,14:45,15:00,15:45,16:00") {
+                                TextButton(
+                                    onClick = {
+                                        settingsManager.pickupTimePresets = "13:00,13:45,14:00,14:45,15:00,15:45,16:00"
+                                        pickupTimes = settingsManager.getPickupTimeList()
+                                    }
+                                ) {
+                                    Text("Zurücksetzen")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ═══════════ AUFRÄUMEN ═══════════
+                Text(
+                    "Aufräumen",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    ListItem(
+                        headlineContent = { Text("Auto-Aufräumen", fontWeight = FontWeight.Medium) },
+                        supportingContent = {
+                            Text(
+                                if (isAutoCleanupEnabled)
+                                    "Abgeschlossene Timer nach $autoCleanupDays Tagen löschen"
+                                else
+                                    "Abgeschlossene Timer manuell löschen"
+                            )
+                        },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.AutoDelete,
+                                contentDescription = "Auto-Aufräumen",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isAutoCleanupEnabled,
+                                onCheckedChange = {
+                                    isAutoCleanupEnabled = it
+                                    settingsManager.isAutoCleanupEnabled = it
+                                }
+                            )
+                        }
+                    )
+
+                    if (isAutoCleanupEnabled) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                        ListItem(
+                            headlineContent = { Text("Aufräumen nach", fontWeight = FontWeight.Medium) },
+                            supportingContent = { Text("$autoCleanupDays Tagen") },
+                            leadingContent = {
+                                Icon(
+                                    Icons.Default.Schedule,
+                                    contentDescription = "Aufräumen-Zeitraum",
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                            },
+                            trailingContent = {
+                                TextButton(onClick = { showCleanupDaysDialog = true }) {
+                                    Text("Ändern")
+                                }
+                            }
+                        )
+                    }
+                }
+
                 // ═══════════ INFO ═══════════
                 Text(
                     "Information",
@@ -667,6 +817,88 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showSoundPickerDialog = false }) {
+                    Text("Schließen")
+                }
+            }
+        )
+    }
+
+    // Add Time Preset Dialog
+    if (showAddTimeDialog) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = 14,
+            initialMinute = 0,
+            is24Hour = true
+        )
+
+        AlertDialog(
+            onDismissRequest = { showAddTimeDialog = false },
+            title = { Text("Abholzeit hinzufügen") },
+            text = {
+                TimePicker(
+                    state = timePickerState,
+                    modifier = Modifier.padding(8.dp)
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val newTime = String.format("%02d:%02d", timePickerState.hour, timePickerState.minute)
+                        settingsManager.addPickupTime(newTime)
+                        pickupTimes = settingsManager.getPickupTimeList()
+                        showAddTimeDialog = false
+                    }
+                ) {
+                    Text("Hinzufügen")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddTimeDialog = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        )
+    }
+
+    // Cleanup Days Dialog
+    if (showCleanupDaysDialog) {
+        val options = listOf(3, 7, 14, 30)
+
+        AlertDialog(
+            onDismissRequest = { showCleanupDaysDialog = false },
+            title = { Text("Nach wie vielen Tagen aufräumen?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    options.forEach { days ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    autoCleanupDays = days
+                                    settingsManager.autoCleanupDays = days
+                                    showCleanupDaysDialog = false
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            RadioButton(
+                                selected = autoCleanupDays == days,
+                                onClick = {
+                                    autoCleanupDays = days
+                                    settingsManager.autoCleanupDays = days
+                                    showCleanupDaysDialog = false
+                                }
+                            )
+                            Text(
+                                text = "$days Tage",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCleanupDaysDialog = false }) {
                     Text("Schließen")
                 }
             }
