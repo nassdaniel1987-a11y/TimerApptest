@@ -26,9 +26,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.timerapp.SettingsManager
 import com.example.timerapp.models.Timer
 import com.example.timerapp.ui.theme.GradientColors
 import com.example.timerapp.viewmodel.TimerViewModel
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.platform.LocalContext
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -208,6 +212,10 @@ fun CreateTimerScreen(
     var recurrence by remember { mutableStateOf<String?>(null) }
     var recurrenceEndDate by remember { mutableStateOf<LocalDate?>(null) }
     var selectedWeekdays by remember { mutableStateOf(setOf<Int>()) } // ISO 8601: 1=Mo, 7=So
+
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager.getInstance(context) }
+    val pickupTimes = remember { settingsManager.getPickupTimeList() }
 
     val userZone = ZoneId.systemDefault() // Nutzt Handy-Timezone
 
@@ -451,6 +459,103 @@ fun CreateTimerScreen(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                 )
             )
+
+            // Datum Schnell-Auswahl
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                ),
+                shape = MaterialTheme.shapes.extraLarge
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Wann?",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    // Datum-Chips
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val today = LocalDate.now()
+                        val dateOptions = listOf(
+                            "Heute" to today,
+                            "Morgen" to today.plusDays(1)
+                        )
+                        dateOptions.forEach { (label, date) ->
+                            FilterChip(
+                                selected = selectedDate == date,
+                                onClick = {
+                                    selectedDate = date
+                                    dateError = null
+                                },
+                                label = {
+                                    Text(
+                                        label,
+                                        fontWeight = if (selectedDate == date) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                leadingIcon = if (selectedDate == date) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                } else null
+                            )
+                        }
+                        FilterChip(
+                            selected = selectedDate != LocalDate.now() && selectedDate != LocalDate.now().plusDays(1),
+                            onClick = { showDatePicker = true },
+                            label = { Text("Anderes Datum...") },
+                            leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        )
+                    }
+
+                    // Uhrzeiten-Chips
+                    if (pickupTimes.isNotEmpty()) {
+                        Text(
+                            text = "Abholzeit",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(pickupTimes) { timeStr ->
+                                val parts = timeStr.split(":")
+                                val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
+                                val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                                val chipTime = LocalTime.of(hour, minute)
+                                val isSelected = selectedTime.hour == hour && selectedTime.minute == minute
+
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        selectedTime = chipTime
+                                    },
+                                    label = {
+                                        Text(
+                                            timeStr,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    },
+                                    leadingIcon = if (isSelected) {
+                                        { Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                    } else null,
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             // ✅ Datum & Zeit - Glasmorphism Cards
             Row(

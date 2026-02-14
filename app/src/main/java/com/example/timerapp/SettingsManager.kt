@@ -54,7 +54,41 @@ class SettingsManager private constructor(context: Context) {
         get() = prefs.getString(KEY_ALARM_SOUND_NAME, "Standard-Alarm") ?: "Standard-Alarm"
         set(value) = prefs.edit().putString(KEY_ALARM_SOUND_NAME, value).apply()
 
+    // Abholzeiten-Vorlagen (komma-separierte "HH:mm" Werte)
+    var pickupTimePresets: String
+        get() = prefs.getString(KEY_PICKUP_TIME_PRESETS, DEFAULT_PICKUP_TIMES) ?: DEFAULT_PICKUP_TIMES
+        set(value) = prefs.edit().putString(KEY_PICKUP_TIME_PRESETS, value).apply()
+
+    fun getPickupTimeList(): List<String> {
+        return pickupTimePresets.split(",").map { it.trim() }.filter { it.isNotBlank() }.sorted()
+    }
+
+    fun addPickupTime(time: String) {
+        val current = getPickupTimeList().toMutableList()
+        if (!current.contains(time)) {
+            current.add(time)
+            pickupTimePresets = current.sorted().joinToString(",")
+        }
+    }
+
+    fun removePickupTime(time: String) {
+        val current = getPickupTimeList().toMutableList()
+        current.remove(time)
+        pickupTimePresets = current.joinToString(",")
+    }
+
+    // Auto-Aufräumen abgeschlossener Timer
+    var isAutoCleanupEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_CLEANUP_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_CLEANUP_ENABLED, value).apply()
+
+    var autoCleanupDays: Int
+        get() = prefs.getInt(KEY_AUTO_CLEANUP_DAYS, 7)
+        set(value) = prefs.edit().putInt(KEY_AUTO_CLEANUP_DAYS, value).apply()
+
     companion object {
+        private const val DEFAULT_PICKUP_TIMES = "13:00,13:45,14:00,14:45,15:00,15:45,16:00"
+
         private const val KEY_SOUND_ENABLED = "sound_enabled"
         private const val KEY_VIBRATION_ENABLED = "vibration_enabled"
         private const val KEY_PRE_REMINDER_ENABLED = "pre_reminder_enabled"
@@ -66,6 +100,9 @@ class SettingsManager private constructor(context: Context) {
         private const val KEY_APP_PAUSED = "app_paused"
         private const val KEY_ALARM_SOUND_URI = "alarm_sound_uri"
         private const val KEY_ALARM_SOUND_NAME = "alarm_sound_name"
+        private const val KEY_PICKUP_TIME_PRESETS = "pickup_time_presets"
+        private const val KEY_AUTO_CLEANUP_ENABLED = "auto_cleanup_enabled"
+        private const val KEY_AUTO_CLEANUP_DAYS = "auto_cleanup_days"
         
         @Volatile
         private var instance: SettingsManager? = null

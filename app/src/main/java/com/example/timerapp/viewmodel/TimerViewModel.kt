@@ -11,6 +11,7 @@ import com.example.timerapp.models.Timer
 import com.example.timerapp.models.TimerTemplate
 import com.example.timerapp.models.onError
 import com.example.timerapp.models.onSuccess
+import com.example.timerapp.SettingsManager
 import com.example.timerapp.repository.TimerRepository
 import com.example.timerapp.utils.AlarmScheduler
 import com.example.timerapp.widget.WidgetDataCache
@@ -28,6 +29,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = TimerRepository()
     private val alarmScheduler = AlarmScheduler(application.applicationContext)
+    private val settingsManager = SettingsManager.getInstance(application.applicationContext)
 
     // ✅ Mutex verhindert Race Conditions bei Timer-Operationen
     private val alarmMutex = Mutex()
@@ -142,10 +144,44 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
             val activeTimers = timers.value.filter { !it.is_completed }
             alarmScheduler.rescheduleAllAlarms(activeTimers)
 
+            // ✅ Auto-Aufräumen: Abgeschlossene Timer nach X Tagen löschen
+            if (settingsManager.isAutoCleanupEnabled) {
+                cleanupCompletedTimers()
+            }
+
             // ✅ Widget-Cache aktualisieren (mit Delay für StateFlow-Propagierung)
             updateWidgetCache()
 
             _isLoading.value = false
+        }
+    }
+
+    private suspend fun cleanupCompletedTimers() {
+        try {
+            val days = settingsManager.autoCleanupDays
+            val cutoff = java.time.ZonedDateTime.now().minusDays(days.toLong())
+            val completedTimers = timers.value.filter { it.is_completed }
+
+            var deletedCount = 0
+            for (timer in completedTimers) {
+                try {
+                    val targetTime = java.time.ZonedDateTime.parse(
+                        timer.target_time,
+                        java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                    )
+                    if (targetTime.isBefore(cutoff)) {
+                        repository.deleteTimer(timer.id)
+                        deletedCount++
+                    }
+                } catch (e: Exception) {
+                    Log.w("TimerViewModel", "⚠️ Fehler beim Cleanup von Timer ${timer.id}: ${e.message}")
+                }
+            }
+            if (deletedCount > 0) {
+                Log.d("TimerViewModel", "🧹 Auto-Cleanup: $deletedCount abgeschlossene Timer gelöscht (älter als $days Tage)")
+            }
+        } catch (e: Exception) {
+            Log.e("TimerViewModel", "❌ Fehler beim Auto-Cleanup: ${e.message}")
         }
     }
 
