@@ -3,6 +3,7 @@ package com.example.timerapp.widget
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.example.timerapp.SettingsManager
 import com.example.timerapp.SupabaseClient
 import com.example.timerapp.models.Timer
 import io.github.jan.supabase.postgrest.from
@@ -37,11 +38,12 @@ object WidgetDataCache {
      */
     fun cacheTimers(context: Context, timers: List<Timer>) {
         try {
-            Log.d(TAG, "📝 cacheTimers() aufgerufen mit ${timers.size} Timern")
+            val klasseFilter = SettingsManager.getInstance(context).klasseFilter
+            Log.d(TAG, "📝 cacheTimers() aufgerufen mit ${timers.size} Timern (Filter: ${klasseFilter ?: "Alle"})")
 
-            // Konvertiere Timer zu WidgetTimer - nur nicht abgeschlossene
+            // Konvertiere Timer zu WidgetTimer - nur nicht abgeschlossene + Klassen-Filter
             val widgetTimers = timers
-                .filter { !it.is_completed }
+                .filter { !it.is_completed && (klasseFilter == null || it.klasse == klasseFilter) }
                 .sortedBy { it.target_time }
                 .take(10)
                 .map { timer ->
@@ -134,9 +136,10 @@ object WidgetDataCache {
                 }
             }
 
-            Log.d(TAG, "✅ ${sortedTimers.size} Timer von Server geladen")
+            val klasseFilter = SettingsManager.getInstance(context).klasseFilter
+            Log.d(TAG, "✅ ${sortedTimers.size} Timer von Server geladen (Filter: ${klasseFilter ?: "Alle"})")
 
-            // In Cache speichern
+            // In Cache speichern (cacheTimers filtert auch nach Klasse)
             cacheTimers(context, sortedTimers)
 
             true
