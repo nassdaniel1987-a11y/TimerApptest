@@ -61,7 +61,7 @@ object WidgetDataCache {
             getPrefs(context).edit()
                 .putString(KEY_TIMERS, jsonString)
                 .putLong(KEY_LAST_UPDATE, System.currentTimeMillis())
-                .commit() // commit() statt apply() für synchrones Schreiben
+                .apply() // apply() — non-blocking, schreibt in-memory sofort
 
             Log.d(TAG, "⚡ ${widgetTimers.size} Timer im Cache gespeichert")
         } catch (e: Exception) {
