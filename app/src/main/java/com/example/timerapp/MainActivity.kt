@@ -47,8 +47,17 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        const val ACTION_CREATE_TIMER = "com.example.timerapp.ACTION_CREATE_TIMER"
+        const val ACTION_QUICK_TIMER = "com.example.timerapp.ACTION_QUICK_TIMER"
+        const val ACTION_QR_SCANNER = "com.example.timerapp.ACTION_QR_SCANNER"
+    }
+
     @Inject lateinit var timerRepository: TimerRepository
     @Inject lateinit var alarmScheduler: AlarmScheduler
+
+    // Shortcut-Action wird an AppNavigation weitergegeben
+    private val _shortcutAction = mutableStateOf<String?>(null)
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -78,12 +87,15 @@ class MainActivity : ComponentActivity() {
         scheduleDailyReminder()
 
         // ✅ KRITISCH: Synchronisiere alle Alarme beim App-Start
-        // Verhindert dass alte/gelöschte Alarme ausgelöst werden
         synchronizeAlarmsOnStartup()
+
+        // Shortcut-Intent auswerten
+        handleShortcutIntent(intent)
 
         setContent {
             val settingsManager = remember { SettingsManager.getInstance(this) }
             var isDarkMode by remember { mutableStateOf(settingsManager.isDarkModeEnabled) }
+            val shortcutAction by _shortcutAction
 
             TimerAppTheme(darkTheme = isDarkMode) {
                 Surface(
@@ -91,12 +103,27 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     AppNavigation(
+                        shortcutAction = shortcutAction,
+                        onShortcutHandled = { _shortcutAction.value = null },
                         onDarkModeChange = { enabled ->
                             isDarkMode = enabled
                         }
                     )
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleShortcutIntent(intent)
+    }
+
+    private fun handleShortcutIntent(intent: Intent?) {
+        val action = intent?.action
+        if (action in listOf(ACTION_CREATE_TIMER, ACTION_QUICK_TIMER, ACTION_QR_SCANNER)) {
+            Log.d("MainActivity", "📌 Shortcut-Action empfangen: $action")
+            _shortcutAction.value = action
         }
     }
 
@@ -219,14 +246,42 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation(
     viewModel: TimerViewModel = hiltViewModel(),
+    shortcutAction: String? = null,
+    onShortcutHandled: () -> Unit = {},
     onDarkModeChange: (Boolean) -> Unit = {}
 ) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: ""
+
+    // Shortcut-Actions verarbeiten
+    LaunchedEffect(shortcutAction) {
+        when (shortcutAction) {
+            MainActivity.ACTION_CREATE_TIMER -> {
+                navController.navigate(CreateTimer)
+                onShortcutHandled()
+            }
+            MainActivity.ACTION_QUICK_TIMER -> {
+                // Schnell-Timer: 5 Minuten ab jetzt
+                val targetTime = java.time.ZonedDateTime.now().plusMinutes(5)
+                val timer = com.example.timerapp.models.Timer(
+                    name = "Schnell-Timer (5 Min)",
+                    target_time = com.example.timerapp.utils.DateTimeUtils.formatToIso(targetTime),
+                    category = "Schnell-Timer"
+                )
+                viewModel.createTimer(timer)
+                onShortcutHandled()
+            }
+            MainActivity.ACTION_QR_SCANNER -> {
+                navController.navigate(QRScanner)
+                onShortcutHandled()
+            }
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,

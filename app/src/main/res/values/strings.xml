@@ -3,4 +3,12 @@
     <string name="app_name">Timer-App</string>
     <string name="widget_description">Zeigt die nächsten anstehenden Timer als Liste an</string>
     <string name="widget_name">Timer Übersicht</string>
+
+    <!-- App Shortcuts -->
+    <string name="shortcut_create_timer_short">Neuer Timer</string>
+    <string name="shortcut_create_timer_long">Neuen Timer erstellen</string>
+    <string name="shortcut_quick_5_short">5 Min Timer</string>
+    <string name="shortcut_quick_5_long">Schnell-Timer 5 Minuten</string>
+    <string name="shortcut_qr_short">QR scannen</string>
+    <string name="shortcut_qr_long">QR-Code scannen</string>
 </resources>

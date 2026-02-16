@@ -73,7 +73,7 @@ class TimerViewModel @Inject constructor(
         _error.value = null
     }
 
-    // ✅ Hilfsfunktion: Widget-Cache SOFORT aktualisieren
+    // ✅ Hilfsfunktion: Widget-Cache + Dynamic Shortcuts SOFORT aktualisieren
     private fun updateWidgetCache() {
         viewModelScope.launch {
             val currentTimers = timers.value
@@ -85,7 +85,11 @@ class TimerViewModel @Inject constructor(
             // Widget aktualisieren
             WidgetUtils.updateWidgets(getApplication())
 
-            Log.d("TimerViewModel", "✅ Widget aktualisiert!")
+            // Dynamic Shortcuts aktualisieren
+            com.example.timerapp.shortcuts.ShortcutManagerHelper
+                .updateDynamicShortcuts(getApplication(), currentTimers)
+
+            Log.d("TimerViewModel", "✅ Widget + Shortcuts aktualisiert!")
         }
     }
 

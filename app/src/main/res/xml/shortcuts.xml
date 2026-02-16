@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Shortcut 1: Neuen Timer erstellen -->
+    <shortcut
+        android:shortcutId="create_timer"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_timer"
+        android:shortcutShortLabel="@string/shortcut_create_timer_short"
+        android:shortcutLongLabel="@string/shortcut_create_timer_long">
+        <intent
+            android:action="com.example.timerapp.ACTION_CREATE_TIMER"
+            android:targetPackage="com.example.timerapp"
+            android:targetClass="com.example.timerapp.MainActivity" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+    <!-- Shortcut 2: Schnell-Timer (5 Min) -->
+    <shortcut
+        android:shortcutId="quick_timer_5"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_quick"
+        android:shortcutShortLabel="@string/shortcut_quick_5_short"
+        android:shortcutLongLabel="@string/shortcut_quick_5_long">
+        <intent
+            android:action="com.example.timerapp.ACTION_QUICK_TIMER"
+            android:targetPackage="com.example.timerapp"
+            android:targetClass="com.example.timerapp.MainActivity">
+            <extra android:name="minutes" android:value="5" />
+        </intent>
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+    <!-- Shortcut 3: QR-Code scannen -->
+    <shortcut
+        android:shortcutId="qr_scanner"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_qr"
+        android:shortcutShortLabel="@string/shortcut_qr_short"
+        android:shortcutLongLabel="@string/shortcut_qr_long">
+        <intent
+            android:action="com.example.timerapp.ACTION_QR_SCANNER"
+            android:targetPackage="com.example.timerapp"
+            android:targetClass="com.example.timerapp.MainActivity" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+</shortcuts>
