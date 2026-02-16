@@ -16,6 +16,7 @@ import com.example.timerapp.repository.TimerRepository
 import com.example.timerapp.utils.AlarmScheduler
 import com.example.timerapp.widget.WidgetDataCache
 import com.example.timerapp.widget.WidgetUtils
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,12 +25,15 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import javax.inject.Inject
 
-class TimerViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val repository = TimerRepository()
-    private val alarmScheduler = AlarmScheduler(application.applicationContext)
-    private val settingsManager = SettingsManager.getInstance(application.applicationContext)
+@HiltViewModel
+class TimerViewModel @Inject constructor(
+    application: Application,
+    private val repository: TimerRepository,
+    private val alarmScheduler: AlarmScheduler,
+    private val settingsManager: SettingsManager
+) : AndroidViewModel(application) {
 
     // ✅ Mutex verhindert Race Conditions bei Timer-Operationen
     private val alarmMutex = Mutex()
