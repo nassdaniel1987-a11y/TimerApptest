@@ -147,7 +147,7 @@ fun DrawerContent(
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.Settings, contentDescription = "Einstellungen") },
                 label = { Text("Einstellungen") },
-                selected = currentRoute.contains("Settings"),
+                selected = currentRoute.contains("SettingsRoute"),
                 onClick = {
                     onNavigateToSettings()
                     onCloseDrawer()
