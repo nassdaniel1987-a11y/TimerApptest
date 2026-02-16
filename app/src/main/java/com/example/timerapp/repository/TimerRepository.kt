@@ -49,6 +49,38 @@ class TimerRepository(
         response
     }
 
+    /**
+     * Fügt einen Timer sofort zur lokalen Liste hinzu (optimistisches Update).
+     * Widget wird sofort aktualisiert, ohne auf Server-Refresh zu warten.
+     */
+    fun addTimerToLocalList(timer: Timer) {
+        _timers.value = (_timers.value + timer).sortedBy {
+            try {
+                ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    .toInstant().toEpochMilli()
+            } catch (e: Exception) { Long.MAX_VALUE }
+        }
+        Log.d("TimerRepository", "⚡ Timer lokal hinzugefügt: ${timer.name}")
+    }
+
+    /**
+     * Entfernt einen Timer sofort aus der lokalen Liste (optimistisches Update).
+     */
+    fun removeTimerFromLocalList(id: String) {
+        _timers.value = _timers.value.filter { it.id != id }
+        Log.d("TimerRepository", "⚡ Timer lokal entfernt: $id")
+    }
+
+    /**
+     * Markiert einen Timer lokal als erledigt (optimistisches Update).
+     */
+    fun markTimerCompletedLocally(id: String) {
+        _timers.value = _timers.value.map { timer ->
+            if (timer.id == id) timer.copy(is_completed = true) else timer
+        }
+        Log.d("TimerRepository", "⚡ Timer lokal als erledigt markiert: $id")
+    }
+
     suspend fun deleteTimer(id: String): Result<Unit> = retry {
         client.from("timers").delete { filter { eq("id", id) } }
         refreshTimers()

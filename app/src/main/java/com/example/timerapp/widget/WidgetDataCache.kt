@@ -34,12 +34,12 @@ object WidgetDataCache {
 
     /**
      * Speichert die Timer-Liste im Cache.
-     * Sollte aufgerufen werden, wenn Timer in der App geladen/geändert werden.
+     * HINWEIS: Ruft NICHT mehr automatisch WidgetUtils.updateWidgets() auf.
+     * Der Aufrufer (z.B. TimerViewModel.updateWidgetCache()) steuert das Widget-Update selbst.
      */
     fun cacheTimers(context: Context, timers: List<Timer>) {
         try {
             val klasseFilter = SettingsManager.getInstance(context).klasseFilter
-            Log.d(TAG, "📝 cacheTimers() aufgerufen mit ${timers.size} Timern (Filter: ${klasseFilter ?: "Alle"})")
 
             // Konvertiere Timer zu WidgetTimer - nur nicht abgeschlossene + Klassen-Filter
             val widgetTimers = timers
@@ -56,11 +56,6 @@ object WidgetDataCache {
                     )
                 }
 
-            Log.d(TAG, "📋 ${widgetTimers.size} aktive Timer für Cache")
-            widgetTimers.forEach { timer ->
-                Log.d(TAG, "   - ${timer.name} (${timer.target_time})")
-            }
-
             val jsonString = json.encodeToString(widgetTimers)
 
             getPrefs(context).edit()
@@ -68,10 +63,7 @@ object WidgetDataCache {
                 .putLong(KEY_LAST_UPDATE, System.currentTimeMillis())
                 .commit() // commit() statt apply() für synchrones Schreiben
 
-            Log.d(TAG, "✅ ${widgetTimers.size} Timer im Cache gespeichert")
-
-            // Widget aktualisieren nach Cache-Update
-            WidgetUtils.updateWidgets(context)
+            Log.d(TAG, "⚡ ${widgetTimers.size} Timer im Cache gespeichert")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Fehler beim Cachen: ${e.message}", e)
         }
@@ -141,6 +133,9 @@ object WidgetDataCache {
 
             // In Cache speichern (cacheTimers filtert auch nach Klasse)
             cacheTimers(context, sortedTimers)
+
+            // Widget aktualisieren (refreshFromServer wird direkt vom Widget aufgerufen)
+            WidgetUtils.updateWidgets(context)
 
             true
         } catch (e: Exception) {
