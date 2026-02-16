@@ -239,7 +239,7 @@ fun AppNavigation(
                     }
                 },
                 onNavigateToSettings = {
-                    navController.navigate(Settings)
+                    navController.navigate(SettingsRoute)
                 },
                 onNavigateToQRScanner = {
                     navController.navigate(QRScanner)
@@ -281,7 +281,7 @@ fun AppNavigation(
                 )
             }
 
-            composable<Settings> {
+            composable<SettingsRoute> {
                 SettingsScreen(
                     onNavigateBack = {
                         navController.popBackStack()

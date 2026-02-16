@@ -9,7 +9,7 @@ data object Home
 data object CreateTimer
 
 @Serializable
-data object Settings
+data object SettingsRoute
 
 @Serializable
 data object QRScanner
