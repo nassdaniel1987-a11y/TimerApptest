@@ -22,6 +22,7 @@ class TimerWidgetReceiver : GlanceAppWidgetReceiver() {
     companion object {
         private const val TAG = "TimerWidgetReceiver"
         const val ACTION_REFRESH_FROM_SERVER = "com.example.timerapp.REFRESH_WIDGET_FROM_SERVER"
+        const val ACTION_AUTO_UPDATE = "com.example.timerapp.WIDGET_AUTO_UPDATE"
 
         /**
          * Sendet einen Broadcast um das Widget vom Server zu aktualisieren.
@@ -72,6 +73,19 @@ class TimerWidgetReceiver : GlanceAppWidgetReceiver() {
                 }
             }
 
+            // Auto-Update für Echtzeit-Countdown
+            ACTION_AUTO_UPDATE -> {
+                Log.d(TAG, "⏰ Auto-Update für Countdown")
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        glanceAppWidget.updateAll(context)
+                        Log.d(TAG, "✅ Widget Countdown aktualisiert")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Fehler beim Auto-Update: ${e.message}")
+                    }
+                }
+            }
+
             // Standard Widget-Update
             AppWidgetManager.ACTION_APPWIDGET_UPDATE -> {
                 Log.d(TAG, "📡 Update-Broadcast empfangen")
@@ -104,6 +118,7 @@ class TimerWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        Log.d(TAG, "🗑️ Letztes Widget wurde entfernt")
+        WidgetAutoUpdater.cancelAutoUpdate(context)
+        Log.d(TAG, "🗑️ Letztes Widget wurde entfernt, Auto-Update gestoppt")
     }
 }

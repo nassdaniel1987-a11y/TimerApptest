@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
 import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.*
@@ -52,6 +53,9 @@ class TimerWidget : GlanceAppWidget() {
         }.take(5)
 
         Log.d(TAG, "📋 ${upcomingTimers.size} zukünftige Timer für Widget")
+
+        // Plane minütliches Update wenn Timer in der nächsten Stunde ablaufen
+        WidgetAutoUpdater.scheduleNextUpdate(context, upcomingTimers)
 
         provideContent {
             TimerWidgetContent(timers = upcomingTimers)
@@ -117,6 +121,41 @@ class RefreshWidgetAction : ActionCallback {
     }
 }
 
+/**
+ * ActionCallback: Timer direkt im Widget als erledigt markieren.
+ */
+class CompleteTimerAction : ActionCallback {
+
+    companion object {
+        val TIMER_ID_KEY = ActionParameters.Key<String>("timer_id")
+    }
+
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters
+    ) {
+        val timerId = parameters[TIMER_ID_KEY] ?: return
+        Log.d("TimerWidget", "✅ Timer erledigt markiert: $timerId")
+
+        try {
+            withContext(Dispatchers.IO) {
+                SupabaseClient.client.from("timers")
+                    .update({ set("is_completed", true) }) {
+                        filter { eq("id", timerId) }
+                    }
+            }
+
+            // Cache aktualisieren und Widget refreshen
+            WidgetDataCache.refreshFromServer(context)
+            TimerWidget().updateAll(context)
+        } catch (e: Exception) {
+            Log.e("TimerWidget", "❌ Fehler beim Erledigen: ${e.message}", e)
+            TimerWidget().updateAll(context)
+        }
+    }
+}
+
 // Dark Mode Farben
 private val PrimaryColor = Color(0xFF64B5F6)
 private val BackgroundColor = Color(0xFF1E1E1E)
@@ -127,6 +166,7 @@ private val DividerColor = Color(0xFF424242)
 private val UrgentColor = Color(0xFFEF5350)
 private val WarningColor = Color(0xFFFFB74D)
 private val AccentColor = Color(0xFF81C784)
+private val CompletedColor = Color(0xFF4CAF50)
 
 @Composable
 private fun TimerWidgetContent(timers: List<WidgetTimer>) {
@@ -214,9 +254,7 @@ private fun TimerWidgetContent(timers: List<WidgetTimer>) {
             } else {
                 // Timer List
                 Column(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .clickable(actionStartActivity<MainActivity>())
+                    modifier = GlanceModifier.fillMaxSize()
                 ) {
                     timers.forEach { timer ->
                         TimerListItem(timer = timer)
@@ -248,55 +286,79 @@ private fun TimerListItem(timer: WidgetTimer) {
         SubtextColor
     }
 
-    Column(
+    Row(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Timer Name
-        Text(
-            text = timer.name,
-            style = TextStyle(
-                color = ColorProvider(TextColor),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
-            ),
-            maxLines = 1
-        )
-
-        // Zeit + Kategorie
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.Start
+        // Timer-Info (klickbar öffnet App)
+        Column(
+            modifier = GlanceModifier
+                .defaultWeight()
+                .clickable(actionStartActivity<MainActivity>())
         ) {
             Text(
-                text = timeText,
+                text = timer.name,
                 style = TextStyle(
-                    color = ColorProvider(urgencyColor),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Normal
-                )
+                    color = ColorProvider(TextColor),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                maxLines = 1
             )
-            Spacer(modifier = GlanceModifier.width(8.dp))
+            Row(
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = timeText,
+                    style = TextStyle(
+                        color = ColorProvider(urgencyColor),
+                        fontSize = 12.sp
+                    )
+                )
+                Spacer(modifier = GlanceModifier.width(8.dp))
+                Text(
+                    text = timer.category,
+                    style = TextStyle(
+                        color = ColorProvider(SubtextColor),
+                        fontSize = 11.sp
+                    )
+                )
+            }
+        }
+
+        // Erledigt-Button
+        Box(
+            modifier = GlanceModifier
+                .size(30.dp)
+                .cornerRadius(15.dp)
+                .background(ColorProvider(CardColor))
+                .clickable(
+                    actionRunCallback<CompleteTimerAction>(
+                        actionParametersOf(CompleteTimerAction.TIMER_ID_KEY to timer.id)
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
-                text = timer.category,
+                text = "✓",
                 style = TextStyle(
-                    color = ColorProvider(SubtextColor),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Normal
+                    color = ColorProvider(CompletedColor),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
             )
         }
-
-        // Trennlinie
-        Spacer(modifier = GlanceModifier.height(4.dp))
-        Box(
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(ColorProvider(DividerColor))
-        ) {}
     }
+
+    // Trennlinie
+    Box(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(ColorProvider(DividerColor))
+    ) {}
 }
 
 /**
