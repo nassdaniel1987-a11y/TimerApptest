@@ -74,23 +74,20 @@ class TimerViewModel @Inject constructor(
     }
 
     // ✅ Hilfsfunktion: Widget-Cache + Dynamic Shortcuts SOFORT aktualisieren
+    // Kein viewModelScope.launch — wird direkt aufgerufen (synchron im Aufrufer-Kontext)
     private fun updateWidgetCache() {
-        viewModelScope.launch {
-            val currentTimers = timers.value
-            Log.d("TimerViewModel", "🔄 Widget-Cache Update: ${currentTimers.size} Timer")
+        val currentTimers = timers.value
+        Log.d("TimerViewModel", "⚡ Widget-Cache Update: ${currentTimers.size} Timer")
 
-            // Cache aktualisieren
-            WidgetDataCache.cacheTimers(getApplication(), currentTimers)
+        // Cache aktualisieren (schreibt SharedPrefs synchron mit .commit())
+        WidgetDataCache.cacheTimers(getApplication(), currentTimers)
 
-            // Widget aktualisieren
-            WidgetUtils.updateWidgets(getApplication())
+        // Widget aktualisieren
+        WidgetUtils.updateWidgets(getApplication())
 
-            // Dynamic Shortcuts aktualisieren
-            com.example.timerapp.shortcuts.ShortcutManagerHelper
-                .updateDynamicShortcuts(getApplication(), currentTimers)
-
-            Log.d("TimerViewModel", "✅ Widget + Shortcuts aktualisiert!")
-        }
+        // Dynamic Shortcuts aktualisieren
+        com.example.timerapp.shortcuts.ShortcutManagerHelper
+            .updateDynamicShortcuts(getApplication(), currentTimers)
     }
 
     // ✅ Debounced Reschedule - verhindert zu häufige Reschedule-Operationen
@@ -220,6 +217,11 @@ class TimerViewModel @Inject constructor(
             alarmMutex.withLock {
                 repository.createTimer(timer)
                     .onSuccess { createdTimer ->
+                        // ⚡ Optimistisches Update: Timer SOFORT lokal hinzufügen + Widget aktualisieren
+                        repository.addTimerToLocalList(createdTimer)
+                        updateWidgetCache()
+
+                        // Server-Refresh im Hintergrund (bestätigt den lokalen Stand)
                         repository.refreshTimers()
                         debouncedRescheduleAlarms()
                         updateWidgetCache()
@@ -287,8 +289,11 @@ class TimerViewModel @Inject constructor(
                     alarmScheduler.cancelAlarm("${id}_pre")
                 }
 
-                // Dann Timer aus der Datenbank löschen
-                // Repository ruft bereits refreshTimers() auf
+                // ⚡ Optimistisches Update: Timer SOFORT lokal entfernen + Widget aktualisieren
+                repository.removeTimerFromLocalList(id)
+                updateWidgetCache()
+
+                // Dann Timer aus der Datenbank löschen + Server-Refresh
                 repository.deleteTimer(id)
                     .onSuccess {
                         debouncedRescheduleAlarms()
@@ -296,6 +301,9 @@ class TimerViewModel @Inject constructor(
                         Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht: $id")
                     }
                     .onError { exception, _ ->
+                        // Bei Fehler: Server-Stand wiederherstellen
+                        repository.refreshTimers()
+                        updateWidgetCache()
                         setError("Fehler beim Löschen: ${exception.message}")
                         Log.e("TimerViewModel", "❌ Fehler beim Löschen des Timers: ${exception.message}")
                     }
@@ -359,18 +367,23 @@ class TimerViewModel @Inject constructor(
             alarmMutex.withLock {
                 val timer = timers.value.find { it.id == id }
 
-                // Repository ruft bereits refreshTimers() auf
+                // ⚡ Optimistisches Update: Timer SOFORT lokal als erledigt markieren
+                repository.markTimerCompletedLocally(id)
+                alarmScheduler.cancelAlarm(id)
+                updateWidgetCache()
+
+                // Server-Update
                 repository.markTimerCompleted(id)
                     .onSuccess {
-                        alarmScheduler.cancelAlarm(id)
-
-                        // ✅ Wenn Timer wiederholt werden soll, erstelle nächste Instanz
+                        // Wenn Timer wiederholt werden soll, erstelle nächste Instanz
                         if (timer != null && timer.recurrence != null) {
                             val nextTimer = alarmScheduler.calculateNextOccurrence(timer)
                             if (nextTimer != null) {
                                 viewModelScope.launch {
                                     repository.createTimer(nextTimer)
                                         .onSuccess { created ->
+                                            repository.addTimerToLocalList(created)
+                                            updateWidgetCache()
                                             repository.refreshTimers()
                                             updateWidgetCache()
                                             Log.d("TimerViewModel", "🔁 Wiederholender Timer erstellt: ${created.name}")
@@ -387,6 +400,9 @@ class TimerViewModel @Inject constructor(
                         Log.d("TimerViewModel", "✅ Timer abgeschlossen: $id")
                     }
                     .onError { exception, _ ->
+                        // Bei Fehler: Server-Stand wiederherstellen
+                        repository.refreshTimers()
+                        updateWidgetCache()
                         setError("Fehler beim Abschließen: ${exception.message}")
                     }
             }
