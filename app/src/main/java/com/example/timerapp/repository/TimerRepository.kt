@@ -1,7 +1,6 @@
 package com.example.timerapp.repository
 
 import android.util.Log
-import com.example.timerapp.SupabaseClient
 import com.example.timerapp.models.Category
 import com.example.timerapp.models.QRCodeData
 import com.example.timerapp.models.Result
@@ -15,9 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-class TimerRepository {
-
-    private val client = SupabaseClient.client
+class TimerRepository(
+    private val client: io.github.jan.supabase.SupabaseClient
+) {
 
     private val _timers = MutableStateFlow<List<Timer>>(emptyList())
     val timers: StateFlow<List<Timer>> = _timers.asStateFlow()

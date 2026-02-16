@@ -184,7 +184,7 @@ class AlarmReceiver : BroadcastReceiver() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     // Timer aus Datenbank laden
-                    val repository = com.example.timerapp.repository.TimerRepository()
+                    val repository = com.example.timerapp.repository.TimerRepository(SupabaseClient.client)
                     repository.refreshTimers()
 
                     // Hole aktuelle Timer-IDs
@@ -248,7 +248,7 @@ class AlarmReceiver : BroadcastReceiver() {
             // ✅ Prüfe ob Timer noch existiert
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val repository = com.example.timerapp.repository.TimerRepository()
+                    val repository = com.example.timerapp.repository.TimerRepository(SupabaseClient.client)
                     repository.refreshTimers()
 
                     val timerExists = repository.timers.value.any { it.id == timerId }

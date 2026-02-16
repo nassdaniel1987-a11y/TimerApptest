@@ -40,7 +40,7 @@ class DailyReminderWorker(
             Log.d("DailyReminderWorker", "🔔 Starte tägliche Erinnerung...")
 
             // Hole alle aktiven Timer
-            val repository = TimerRepository()
+            val repository = TimerRepository(com.example.timerapp.SupabaseClient.client)
             repository.refreshTimers()
             val allTimers = repository.timers.value.filter { !it.is_completed }
 

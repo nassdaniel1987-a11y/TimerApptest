@@ -61,7 +61,7 @@ fun DrawerContent(
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
                 label = { Text("Home") },
-                selected = currentRoute == "home",
+                selected = currentRoute.contains("Home"),
                 onClick = {
                     onNavigateToHome()
                     onCloseDrawer()
@@ -72,7 +72,7 @@ fun DrawerContent(
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.QrCodeScanner, contentDescription = "QR-Code scannen") },
                 label = { Text("QR-Code scannen") },
-                selected = currentRoute == "qr_scanner",
+                selected = currentRoute.contains("QRScanner"),
                 onClick = {
                     onNavigateToQRScanner()
                     onCloseDrawer()
@@ -83,7 +83,7 @@ fun DrawerContent(
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.Category, contentDescription = "Kategorien") },
                 label = { Text("Kategorien") },
-                selected = currentRoute == "categories",
+                selected = currentRoute.contains("Categories"),
                 onClick = {
                     onNavigateToCategories()
                     onCloseDrawer()
@@ -94,7 +94,7 @@ fun DrawerContent(
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.QrCode, contentDescription = "QR-Codes verwalten") },
                 label = { Text("QR-Codes verwalten") },
-                selected = currentRoute == "manage_qr_codes",
+                selected = currentRoute.contains("ManageQRCodes"),
                 onClick = {
                     onNavigateToManageQRCodes() // Und hier wird er verwendet
                     onCloseDrawer()
@@ -147,7 +147,7 @@ fun DrawerContent(
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.Settings, contentDescription = "Einstellungen") },
                 label = { Text("Einstellungen") },
-                selected = currentRoute == "settings",
+                selected = currentRoute.contains("Settings"),
                 onClick = {
                     onNavigateToSettings()
                     onCloseDrawer()

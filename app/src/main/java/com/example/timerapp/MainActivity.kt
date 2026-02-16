@@ -15,14 +15,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavType
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import com.example.timerapp.navigation.*
 import com.example.timerapp.screens.*
+import com.example.timerapp.screens.home.HomeScreen
+import androidx.navigation.toRoute
 import com.example.timerapp.ui.theme.TimerAppTheme
 import com.example.timerapp.utils.NotificationHelper
 import com.example.timerapp.viewmodel.TimerViewModel
@@ -38,8 +39,16 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.PowerManager
 import android.util.Log
+import com.example.timerapp.repository.TimerRepository
+import com.example.timerapp.utils.AlarmScheduler
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var timerRepository: TimerRepository
+    @Inject lateinit var alarmScheduler: AlarmScheduler
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -188,20 +197,14 @@ class MainActivity : ComponentActivity() {
     // ✅ KRITISCH: Synchronisiere alle Alarme beim App-Start
     // Verhindert dass gelöschte Timer Alarme auslösen
     private fun synchronizeAlarmsOnStartup() {
-        // Verwende Lifecycle-Scope für asynchrone Operation
         lifecycleScope.launch {
             try {
                 Log.d("MainActivity", "🔄 Starte Alarm-Synchronisierung...")
 
-                // Lade aktuelle Timer aus Datenbank
-                val repository = com.example.timerapp.repository.TimerRepository()
-                repository.refreshTimers()
+                timerRepository.refreshTimers()
 
-                // Hole alle aktiven Timer
-                val activeTimers = repository.timers.value.filter { !it.is_completed }
+                val activeTimers = timerRepository.timers.value.filter { !it.is_completed }
 
-                // Plane alle Alarme neu
-                val alarmScheduler = com.example.timerapp.utils.AlarmScheduler(applicationContext)
                 alarmScheduler.rescheduleAllAlarms(activeTimers)
 
                 Log.d("MainActivity", "✅ Alarm-Synchronisierung abgeschlossen: ${activeTimers.size} aktive Timer")
@@ -215,7 +218,7 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavigation(
-    viewModel: TimerViewModel = viewModel(),
+    viewModel: TimerViewModel = hiltViewModel(),
     onDarkModeChange: (Boolean) -> Unit = {}
 ) {
     val navController = rememberNavController()
@@ -223,7 +226,7 @@ fun AppNavigation(
     val scope = rememberCoroutineScope()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route ?: "home"
+    val currentRoute = navBackStackEntry?.destination?.route ?: ""
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -231,21 +234,21 @@ fun AppNavigation(
             DrawerContent(
                 currentRoute = currentRoute,
                 onNavigateToHome = {
-                    navController.navigate("home") {
-                        popUpTo("home") { inclusive = true }
+                    navController.navigate(Home) {
+                        popUpTo<Home> { inclusive = true }
                     }
                 },
                 onNavigateToSettings = {
-                    navController.navigate("settings")
+                    navController.navigate(Settings)
                 },
                 onNavigateToQRScanner = {
-                    navController.navigate("qr_scanner")
+                    navController.navigate(QRScanner)
                 },
                 onNavigateToCategories = {
-                    navController.navigate("categories")
+                    navController.navigate(Categories)
                 },
                 onNavigateToManageQRCodes = {
-                    navController.navigate("manage_qr_codes")
+                    navController.navigate(ManageQRCodes)
                 },
                 onCloseDrawer = {
                     scope.launch { drawerState.close() }
@@ -255,13 +258,13 @@ fun AppNavigation(
     ) {
         NavHost(
             navController = navController,
-            startDestination = "home"
+            startDestination = Home
         ) {
-            composable("home") {
+            composable<Home> {
                 HomeScreen(
                     viewModel = viewModel,
                     onCreateTimer = {
-                        navController.navigate("create_timer")
+                        navController.navigate(CreateTimer)
                     },
                     onOpenDrawer = {
                         scope.launch { drawerState.open() }
@@ -269,7 +272,7 @@ fun AppNavigation(
                 )
             }
 
-            composable("create_timer") {
+            composable<CreateTimer> {
                 CreateTimerScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
@@ -278,7 +281,7 @@ fun AppNavigation(
                 )
             }
 
-            composable("settings") {
+            composable<Settings> {
                 SettingsScreen(
                     onNavigateBack = {
                         navController.popBackStack()
@@ -287,7 +290,7 @@ fun AppNavigation(
                 )
             }
 
-            composable("qr_scanner") {
+            composable<QRScanner> {
                 QRScannerScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
@@ -296,7 +299,7 @@ fun AppNavigation(
                 )
             }
 
-            composable("categories") {
+            composable<Categories> {
                 ManageCategoriesScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
@@ -305,40 +308,35 @@ fun AppNavigation(
                 )
             }
 
-            composable("manage_qr_codes") {
+            composable<ManageQRCodes> {
                 ManageQRCodesScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
                         navController.popBackStack()
                     },
                     onNavigateToDetail = { qrCodeId ->
-                        navController.navigate("qr_code_detail/$qrCodeId")
+                        navController.navigate(QRCodeDetail(qrCodeId))
                     },
                     onNavigateToCreate = {
-                        navController.navigate("create_qr_code")
+                        navController.navigate(CreateQRCode)
                     }
                 )
             }
 
-            composable("create_qr_code") {
+            composable<CreateQRCode> {
                 CreateQRCodeScreen(
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
 
-            composable(
-                route = "qr_code_detail/{qrCodeId}",
-                arguments = listOf(navArgument("qrCodeId") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val qrCodeId = backStackEntry.arguments?.getString("qrCodeId")
-                if (qrCodeId != null) {
-                    QRCodeDetailScreen(
-                        qrCodeId = qrCodeId,
-                        viewModel = viewModel,
-                        onNavigateBack = { navController.popBackStack() }
-                    )
-                }
+            composable<QRCodeDetail> { backStackEntry ->
+                val route = backStackEntry.toRoute<QRCodeDetail>()
+                QRCodeDetailScreen(
+                    qrCodeId = route.qrCodeId,
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
         }
     }
