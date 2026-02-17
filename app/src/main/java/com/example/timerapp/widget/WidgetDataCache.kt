@@ -6,6 +6,7 @@ import android.util.Log
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.SupabaseClient
 import com.example.timerapp.models.Timer
+import androidx.glance.appwidget.updateAll
 import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -134,8 +135,8 @@ object WidgetDataCache {
             // In Cache speichern (cacheTimers filtert auch nach Klasse)
             cacheTimers(context, sortedTimers)
 
-            // Widget aktualisieren (refreshFromServer wird direkt vom Widget aufgerufen)
-            WidgetUtils.updateWidgets(context)
+            // Widget direkt aktualisieren (refreshFromServer ist suspend — properly awaited)
+            TimerWidget().updateAll(context)
 
             true
         } catch (e: Exception) {

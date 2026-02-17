@@ -14,8 +14,9 @@ import com.example.timerapp.models.onSuccess
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.repository.TimerRepository
 import com.example.timerapp.utils.AlarmScheduler
+import com.example.timerapp.widget.TimerWidget
 import com.example.timerapp.widget.WidgetDataCache
-import com.example.timerapp.widget.WidgetUtils
+import androidx.glance.appwidget.updateAll
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -73,16 +74,22 @@ class TimerViewModel @Inject constructor(
         _error.value = null
     }
 
-    // ✅ Widget-Cache + Dynamic Shortcuts aktualisieren (non-blocking, fire-and-forget)
-    private fun updateWidgetCache() {
+    // ✅ Widget-Cache + Dynamic Shortcuts aktualisieren (suspend — awaited in viewModelScope)
+    private suspend fun updateWidgetCache() {
         val currentTimers = timers.value
         val app = getApplication<Application>()
 
         // Cache schreiben (.apply() ist non-blocking)
         WidgetDataCache.cacheTimers(app, currentTimers)
 
-        // Widget + Shortcuts im Hintergrund aktualisieren
-        WidgetUtils.updateWidgets(app)
+        // Widget direkt aktualisieren (properly awaited, kein fire-and-forget)
+        try {
+            TimerWidget().updateAll(app)
+        } catch (e: Exception) {
+            Log.e("TimerViewModel", "Widget update failed: ${e.message}", e)
+        }
+
+        // Dynamic Shortcuts aktualisieren
         com.example.timerapp.shortcuts.ShortcutManagerHelper
             .updateDynamicShortcuts(app, currentTimers)
     }
