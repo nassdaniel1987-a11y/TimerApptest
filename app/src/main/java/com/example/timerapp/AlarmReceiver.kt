@@ -183,12 +183,13 @@ class AlarmReceiver : BroadcastReceiver() {
             // Verhindert Alarme von gelöschten Timern
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    // Timer aus Datenbank laden
-                    val repository = com.example.timerapp.repository.TimerRepository(SupabaseClient.client)
-                    repository.refreshTimers()
-
-                    // Hole aktuelle Timer-IDs
-                    val currentTimerIds = repository.timers.value.map { it.id }.toSet()
+                    // Timer aus Room-Datenbank laden (offline-fähig)
+                    val db = androidx.room.Room.databaseBuilder(
+                        context,
+                        com.example.timerapp.data.AppDatabase::class.java,
+                        "timer_database"
+                    ).build()
+                    val currentTimerIds = db.timerDao().getActiveTimersForWidget().map { it.id }.toSet()
 
                     // Filtere nur noch existierende Timer
                     val validIndices = timerIds.indices.filter { currentTimerIds.contains(timerIds[it]) }
@@ -248,10 +249,13 @@ class AlarmReceiver : BroadcastReceiver() {
             // ✅ Prüfe ob Timer noch existiert
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val repository = com.example.timerapp.repository.TimerRepository(SupabaseClient.client)
-                    repository.refreshTimers()
-
-                    val timerExists = repository.timers.value.any { it.id == timerId }
+                    // Timer aus Room-Datenbank prüfen (offline-fähig)
+                    val db = androidx.room.Room.databaseBuilder(
+                        context,
+                        com.example.timerapp.data.AppDatabase::class.java,
+                        "timer_database"
+                    ).build()
+                    val timerExists = db.timerDao().getTimerById(timerId) != null
 
                     if (!timerExists) {
                         Log.d("AlarmReceiver", "⏭️ Timer wurde gelöscht - Alarm wird ignoriert: $timerId")
