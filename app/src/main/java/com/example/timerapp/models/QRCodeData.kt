@@ -1,20 +1,23 @@
 package com.example.timerapp.models
 
-import kotlinx.serialization.SerialName // <-- NEUER IMPORT
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
+@Entity(tableName = "qr_codes")
 data class QRCodeData(
+    @PrimaryKey
     val id: String = "",
     val name: String,
     val time: String, // Format: "HH:mm"
     val category: String,
     val note: String? = null,
 
-    // ----- HIER IST DIE KORREKTUR -----
-    // Diese Anmerkung ordnet den Datenbank-Namen 'isflexible'
-    // unserem Kotlin-Feld 'isFlexible' zu.
     @SerialName("isflexible")
+    @ColumnInfo(name = "isFlexible")
     val isFlexible: Boolean = false,
 
     val created_at: String = ""

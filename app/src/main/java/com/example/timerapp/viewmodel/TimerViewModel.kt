@@ -6,18 +6,19 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timerapp.models.Category
 import com.example.timerapp.models.QRCodeData
-import com.example.timerapp.models.Result
 import com.example.timerapp.models.Timer
 import com.example.timerapp.models.TimerTemplate
 import com.example.timerapp.models.onError
 import com.example.timerapp.models.onSuccess
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.repository.TimerRepository
+import com.example.timerapp.sync.SyncManager
 import com.example.timerapp.utils.AlarmScheduler
 import com.example.timerapp.widget.TimerWidget
 import com.example.timerapp.widget.WidgetDataCache
 import androidx.glance.appwidget.updateAll
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,13 +34,14 @@ class TimerViewModel @Inject constructor(
     application: Application,
     private val repository: TimerRepository,
     private val alarmScheduler: AlarmScheduler,
-    private val settingsManager: SettingsManager
+    private val settingsManager: SettingsManager,
+    private val syncManager: SyncManager
 ) : AndroidViewModel(application) {
 
-    // ✅ Mutex verhindert Race Conditions bei Timer-Operationen
+    // Mutex verhindert Race Conditions bei Timer-Operationen
     private val alarmMutex = Mutex()
 
-    // ✅ Debouncing für rescheduleAllAlarms (Performance-Optimierung)
+    // Debouncing für rescheduleAllAlarms
     private var rescheduleJob: Job? = null
 
     val timers: StateFlow<List<Timer>> = repository.timers
@@ -50,56 +52,58 @@ class TimerViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // ✅ Error-StateFlow für User-Feedback
+    // Error-StateFlow für User-Feedback
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    // ✅ Undo-Delete: Timer-IDs die gerade "soft deleted" sind
+    // Undo-Delete: Timer-IDs die gerade "soft deleted" sind
     private val _pendingDeleteTimerIds = MutableStateFlow<Set<String>>(emptySet())
     val pendingDeleteTimerIds: StateFlow<Set<String>> = _pendingDeleteTimerIds.asStateFlow()
     private val pendingDeleteJobs = mutableMapOf<String, Job>()
 
+    // Sync-Status für UI
+    val pendingSyncCount: Flow<Int> = repository.pendingSyncCount
+    val isOnline: StateFlow<Boolean> = syncManager.isOnline
+    val isSyncing: StateFlow<Boolean> = syncManager.isSyncing
+
     init {
+        // Room-Flows → StateFlows (automatische Updates bei DB-Änderungen)
+        repository.observeAll(viewModelScope)
+        // Server-Daten laden (falls online — falls offline bleiben Room-Daten erhalten)
         sync()
     }
 
-    // Hilfsfunktion zum Setzen von Fehlern
     private fun setError(message: String) {
         _error.value = message
         Log.e("TimerViewModel", "❌ Error: $message")
     }
 
-    // Hilfsfunktion zum Löschen von Fehlern
     fun clearError() {
         _error.value = null
     }
 
-    // ✅ Widget-Cache + Dynamic Shortcuts aktualisieren (suspend — awaited in viewModelScope)
+    // Widget-Cache + Dynamic Shortcuts aktualisieren
     private suspend fun updateWidgetCache() {
         val currentTimers = timers.value
         val app = getApplication<Application>()
 
-        // Cache schreiben (.apply() ist non-blocking)
         WidgetDataCache.cacheTimers(app, currentTimers)
 
-        // Widget direkt aktualisieren (properly awaited, kein fire-and-forget)
         try {
             TimerWidget().updateAll(app)
         } catch (e: Exception) {
             Log.e("TimerViewModel", "Widget update failed: ${e.message}", e)
         }
 
-        // Dynamic Shortcuts aktualisieren
         com.example.timerapp.shortcuts.ShortcutManagerHelper
             .updateDynamicShortcuts(app, currentTimers)
     }
 
-    // ✅ Debounced Reschedule - verhindert zu häufige Reschedule-Operationen
-    // Wartet 500ms und bündelt mehrere Operationen
+    // Debounced Reschedule — verhindert zu häufige Reschedule-Operationen
     private fun debouncedRescheduleAlarms() {
         rescheduleJob?.cancel()
         rescheduleJob = viewModelScope.launch {
-            delay(500) // Warte 500ms
+            delay(500)
             try {
                 val allActive = timers.value.filter { !it.is_completed }
                 val klasseFilter = settingsManager.klasseFilter
@@ -108,7 +112,6 @@ class TimerViewModel @Inject constructor(
                 } else {
                     allActive
                 }
-                // Erst ALLE canceln, dann nur gefilterte neu planen
                 alarmScheduler.rescheduleAllAlarms(allActive, toSchedule)
                 Log.d("TimerViewModel", "✅ Alarme neu geplant: ${toSchedule.size}/${allActive.size} (Filter: ${klasseFilter ?: "Alle"})")
             } catch (e: Exception) {
@@ -117,7 +120,6 @@ class TimerViewModel @Inject constructor(
         }
     }
 
-    // Klassen-Filter ändern und Alarme sofort neu planen
     fun updateKlasseFilter(klasse: String?) {
         settingsManager.klasseFilter = klasse
         debouncedRescheduleAlarms()
@@ -128,42 +130,31 @@ class TimerViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
 
-            // Alte Timer-IDs merken (vor dem Refresh)
             val oldTimerIds = timers.value.map { it.id }.toSet()
 
-            // Daten aus Supabase laden
+            // Zuerst ausstehende Sync-Operationen hochladen
+            syncManager.processPendingSync()
+
+            // Dann Server-Daten laden (bei Offline-Fehler bleiben Room-Daten erhalten)
             repository.refreshTimers()
-                .onError { exception, retryable ->
-                    setError(exception.message ?: "Fehler beim Laden der Timer")
+                .onError { exception, _ ->
+                    if (timers.value.isEmpty()) {
+                        setError(exception.message ?: "Fehler beim Laden der Timer")
+                    }
+                    // Wenn Room-Daten vorhanden, kein Fehler anzeigen (Offline ok)
                 }
 
             repository.refreshCategories()
-                .onError { exception, _ ->
-                    Log.w("TimerViewModel", "Kategorien konnten nicht geladen werden: ${exception.message}")
-                }
-
             repository.refreshTemplates()
-                .onError { exception, _ ->
-                    Log.w("TimerViewModel", "Templates konnten nicht geladen werden: ${exception.message}")
-                }
-
             repository.refreshQRCodes()
-                .onError { exception, _ ->
-                    Log.w("TimerViewModel", "QR-Codes konnten nicht geladen werden: ${exception.message}")
-                }
 
-            // Neue Timer-IDs nach dem Refresh
             val newTimerIds = timers.value.map { it.id }.toSet()
-
-            // Timer, die gelöscht wurden (in alten IDs, aber nicht in neuen)
             val deletedTimerIds = oldTimerIds - newTimerIds
 
-            // Alarme für gelöschte Timer abbrechen
             deletedTimerIds.forEach { timerId ->
                 alarmScheduler.cancelAlarm(timerId)
             }
 
-            // ✅ NEU: Alle Alarme canceln, dann nur gefilterte Klasse neu planen
             val allActive = timers.value.filter { !it.is_completed }
             val klasseFilter = settingsManager.klasseFilter
             val toSchedule = if (klasseFilter != null) {
@@ -174,12 +165,10 @@ class TimerViewModel @Inject constructor(
             alarmScheduler.rescheduleAllAlarms(allActive, toSchedule)
             Log.d("TimerViewModel", "🔔 Alarme geplant: ${toSchedule.size}/${allActive.size} (Filter: ${klasseFilter ?: "Alle"})")
 
-            // ✅ Auto-Aufräumen: Abgeschlossene Timer nach X Tagen löschen
             if (settingsManager.isAutoCleanupEnabled) {
                 cleanupCompletedTimers()
             }
 
-            // ✅ Widget-Cache aktualisieren (mit Delay für StateFlow-Propagierung)
             updateWidgetCache()
 
             _isLoading.value = false
@@ -215,28 +204,20 @@ class TimerViewModel @Inject constructor(
         }
     }
 
-    // Timer Operations
+    // ── Timer Operations (Room-First) ──
+
     fun createTimer(timer: Timer) {
         viewModelScope.launch {
             alarmMutex.withLock {
                 repository.createTimer(timer)
                     .onSuccess { createdTimer ->
-                        // ⚡ Optimistisch: Timer sofort lokal hinzufügen + Widget
-                        repository.addTimerToLocalList(createdTimer)
+                        // Room-Flow aktualisiert UI automatisch
                         updateWidgetCache()
-
-                        // Server-Refresh bestätigt den Stand
-                        repository.refreshTimers()
                         debouncedRescheduleAlarms()
-                        Log.d("TimerViewModel", "✅ Timer erfolgreich erstellt: ${createdTimer.name}")
+                        Log.d("TimerViewModel", "✅ Timer erstellt: ${createdTimer.name}")
                     }
-                    .onError { exception, retryable ->
-                        val message = if (retryable) {
-                            "Timer konnte nicht erstellt werden. Bitte Internetverbindung prüfen."
-                        } else {
-                            "Fehler beim Erstellen des Timers: ${exception.message}"
-                        }
-                        setError(message)
+                    .onError { exception, _ ->
+                        setError("Fehler beim Erstellen des Timers: ${exception.message}")
                     }
             }
         }
@@ -247,9 +228,8 @@ class TimerViewModel @Inject constructor(
             alarmMutex.withLock {
                 repository.updateTimer(id, timer)
                     .onSuccess {
-                        // Repository ruft bereits refreshTimers() auf
-                        debouncedRescheduleAlarms()
                         updateWidgetCache()
+                        debouncedRescheduleAlarms()
                         Log.d("TimerViewModel", "✅ Timer aktualisiert: $id")
                     }
                     .onError { exception, _ ->
@@ -264,7 +244,6 @@ class TimerViewModel @Inject constructor(
             alarmMutex.withLock {
                 Log.d("TimerViewModel", "🗑️ Starte Löschen von Timer: $id")
 
-                // Finde den Timer BEVOR er gelöscht wird, um seine Gruppe zu identifizieren
                 val timerToDelete = timers.value.find { it.id == id }
 
                 if (timerToDelete != null) {
@@ -275,49 +254,36 @@ class TimerViewModel @Inject constructor(
                         )
                         val groupId = "group_${targetTime.toLocalDate()}_${targetTime.hour}_${targetTime.minute}"
 
-                        // Breche ALLE Alarm-Varianten ab
                         alarmScheduler.cancelAlarm(id)
                         alarmScheduler.cancelAlarm("${id}_pre")
                         alarmScheduler.cancelGroupAlarm(groupId)
-
-                        Log.d("TimerViewModel", "🔕 Alle Alarme abgebrochen für Timer $id (Gruppe: $groupId)")
                     } catch (e: Exception) {
-                        Log.e("TimerViewModel", "⚠️ Fehler beim Parsen der Timer-Zeit: ${e.message}")
                         alarmScheduler.cancelAlarm(id)
                         alarmScheduler.cancelAlarm("${id}_pre")
                     }
                 } else {
-                    Log.w("TimerViewModel", "⚠️ Timer nicht gefunden, lösche trotzdem Alarme: $id")
                     alarmScheduler.cancelAlarm(id)
                     alarmScheduler.cancelAlarm("${id}_pre")
                 }
 
-                // ⚡ Optimistisches Update: Timer SOFORT lokal entfernen + Widget aktualisieren
-                repository.removeTimerFromLocalList(id)
-                updateWidgetCache()
-
-                // Server-Delete im Hintergrund
+                // Room löscht lokal → Flow aktualisiert UI + Sync-Queue
                 repository.deleteTimer(id)
                     .onSuccess {
+                        updateWidgetCache()
                         debouncedRescheduleAlarms()
-                        Log.d("TimerViewModel", "✅ Timer erfolgreich gelöscht: $id")
+                        Log.d("TimerViewModel", "✅ Timer gelöscht: $id")
                     }
                     .onError { exception, _ ->
-                        // Bei Fehler: Server-Stand wiederherstellen
-                        repository.refreshTimers()
-                        updateWidgetCache()
                         setError("Fehler beim Löschen: ${exception.message}")
                     }
             }
         }
     }
 
-    // ✅ Soft-Delete: Timer wird visuell ausgeblendet, tatsächliche Löschung nach 5s
+    // Soft-Delete: Timer wird visuell ausgeblendet, tatsächliche Löschung nach 5s
     fun softDeleteTimer(id: String) {
-        // Sofort aus der Anzeige entfernen
         _pendingDeleteTimerIds.value = _pendingDeleteTimerIds.value + id
 
-        // Alarm sofort canceln
         viewModelScope.launch {
             alarmMutex.withLock {
                 val timerToDelete = timers.value.find { it.id == id }
@@ -339,7 +305,6 @@ class TimerViewModel @Inject constructor(
             }
         }
 
-        // Tatsächliche Löschung nach 5 Sekunden (Snackbar-Dauer)
         val job = viewModelScope.launch {
             delay(5000)
             if (_pendingDeleteTimerIds.value.contains(id)) {
@@ -350,13 +315,11 @@ class TimerViewModel @Inject constructor(
         pendingDeleteJobs[id] = job
     }
 
-    // ✅ Undo: Soft-Delete rückgängig machen
     fun undoDeleteTimer(id: String) {
         pendingDeleteJobs[id]?.cancel()
         pendingDeleteJobs.remove(id)
         _pendingDeleteTimerIds.value = _pendingDeleteTimerIds.value - id
 
-        // Alarme neu planen für den wiederhergestellten Timer
         viewModelScope.launch {
             debouncedRescheduleAlarms()
         }
@@ -368,29 +331,22 @@ class TimerViewModel @Inject constructor(
             alarmMutex.withLock {
                 val timer = timers.value.find { it.id == id }
 
-                // ⚡ Optimistisches Update: Timer SOFORT lokal als erledigt markieren
-                repository.markTimerCompletedLocally(id)
                 alarmScheduler.cancelAlarm(id)
-                updateWidgetCache()
 
-                // Server-Update
+                // Room markiert als erledigt + Sync-Queue
                 repository.markTimerCompleted(id)
                     .onSuccess {
-                        // Wenn Timer wiederholt werden soll, erstelle nächste Instanz
+                        updateWidgetCache()
+
+                        // Wiederholung: nächste Instanz erstellen
                         if (timer != null && timer.recurrence != null) {
                             val nextTimer = alarmScheduler.calculateNextOccurrence(timer)
                             if (nextTimer != null) {
-                                viewModelScope.launch {
-                                    repository.createTimer(nextTimer)
-                                        .onSuccess { created ->
-                                            repository.addTimerToLocalList(created)
-                                            updateWidgetCache()
-                                            Log.d("TimerViewModel", "🔁 Wiederholender Timer erstellt: ${created.name}")
-                                        }
-                                        .onError { exception, _ ->
-                                            Log.e("TimerViewModel", "Fehler beim Erstellen des wiederkehrenden Timers: ${exception.message}")
-                                        }
-                                }
+                                repository.createTimer(nextTimer)
+                                    .onSuccess { created ->
+                                        updateWidgetCache()
+                                        Log.d("TimerViewModel", "🔁 Wiederholender Timer erstellt: ${created.name}")
+                                    }
                             }
                         }
 
@@ -398,9 +354,6 @@ class TimerViewModel @Inject constructor(
                         Log.d("TimerViewModel", "✅ Timer abgeschlossen: $id")
                     }
                     .onError { exception, _ ->
-                        // Bei Fehler: Server-Stand wiederherstellen
-                        repository.refreshTimers()
-                        updateWidgetCache()
                         setError("Fehler beim Abschließen: ${exception.message}")
                     }
             }
@@ -462,7 +415,6 @@ class TimerViewModel @Inject constructor(
         viewModelScope.launch {
             repository.createQRCode(qrCode)
                 .onSuccess { createdQRCode ->
-                    repository.addQRCodeToLocalList(createdQRCode)
                     Log.d("TimerViewModel", "✅ QR-Code erstellt")
                 }
                 .onError { exception, _ ->

@@ -49,26 +49,24 @@ class TimerWidgetReceiver : GlanceAppWidgetReceiver() {
         super.onReceive(context, intent)
 
         when (intent.action) {
-            // Manueller Refresh vom Server (Refresh-Button)
+            // Manueller Refresh aus Room-Datenbank (Refresh-Button)
             ACTION_REFRESH_FROM_SERVER -> {
-                Log.d(TAG, "🌐 Server-Refresh-Broadcast empfangen")
+                Log.d(TAG, "📦 Datenbank-Refresh-Broadcast empfangen")
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        // 1. Daten vom Server laden
-                        Log.d(TAG, "📥 Lade Daten von Supabase...")
-                        val success = WidgetDataCache.refreshFromServer(context)
+                        Log.d(TAG, "📥 Lade Daten aus Room...")
+                        val success = WidgetDataCache.refreshFromDatabase(context)
 
                         if (success) {
-                            Log.d(TAG, "✅ Server-Daten geladen")
+                            Log.d(TAG, "✅ Datenbank-Daten geladen")
                         } else {
-                            Log.w(TAG, "⚠️ Server-Refresh fehlgeschlagen")
+                            Log.w(TAG, "⚠️ Datenbank-Refresh fehlgeschlagen")
                         }
 
-                        // 2. Widget aktualisieren
                         glanceAppWidget.updateAll(context)
-                        Log.d(TAG, "✅ Widget nach Server-Refresh aktualisiert")
+                        Log.d(TAG, "✅ Widget nach Datenbank-Refresh aktualisiert")
                     } catch (e: Exception) {
-                        Log.e(TAG, "❌ Fehler beim Server-Refresh: ${e.message}", e)
+                        Log.e(TAG, "❌ Fehler beim Datenbank-Refresh: ${e.message}", e)
                     }
                 }
             }
@@ -105,10 +103,10 @@ class TimerWidgetReceiver : GlanceAppWidgetReceiver() {
         super.onEnabled(context)
         Log.d(TAG, "✅ Widget wurde zum ersten Mal hinzugefügt")
 
-        // Beim ersten Hinzufügen direkt vom Server laden
+        // Beim ersten Hinzufügen aus Room-Datenbank laden
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                WidgetDataCache.refreshFromServer(context)
+                WidgetDataCache.refreshFromDatabase(context)
                 glanceAppWidget.updateAll(context)
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Fehler beim initialen Laden: ${e.message}")

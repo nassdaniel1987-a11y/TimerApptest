@@ -1,9 +1,13 @@
 package com.example.timerapp.models
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
 @Serializable
+@Entity(tableName = "timers")
 data class Timer(
+    @PrimaryKey
     val id: String = "",
     val name: String,
     val target_time: String, // ISO 8601 mit Offset (z.B. "2025-10-12T15:30:00+02:00")
