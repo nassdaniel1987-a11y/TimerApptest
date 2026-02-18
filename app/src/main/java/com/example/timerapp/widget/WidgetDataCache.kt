@@ -4,14 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.example.timerapp.SettingsManager
-import com.example.timerapp.SupabaseClient
 import com.example.timerapp.models.Timer
 import androidx.glance.appwidget.updateAll
-import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
 /**
  * Cache für Widget-Daten.
@@ -106,41 +102,31 @@ object WidgetDataCache {
     }
 
     /**
-     * Lädt Timer direkt von Supabase und aktualisiert den Cache.
-     * Diese Funktion wird vom Widget-Refresh-Button verwendet.
+     * Lädt Timer aus der lokalen Room-Datenbank und aktualisiert den Cache.
+     * Funktioniert komplett offline.
      */
-    suspend fun refreshFromServer(context: Context): Boolean {
+    suspend fun refreshFromDatabase(context: Context): Boolean {
         return try {
-            Log.d(TAG, "🌐 Lade Timer direkt von Supabase...")
+            Log.d(TAG, "📦 Lade Timer aus Room-Datenbank...")
 
-            val client = SupabaseClient.client
-            val response = client.from("timers")
-                .select()
-                .decodeList<Timer>()
+            val db = androidx.room.Room.databaseBuilder(
+                context,
+                com.example.timerapp.data.AppDatabase::class.java,
+                "timer_database"
+            ).build()
 
-            // Sortiere nach Zeit
-            val sortedTimers = response.sortedBy {
-                try {
-                    ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                        .toInstant()
-                        .toEpochMilli()
-                } catch (e: Exception) {
-                    Long.MAX_VALUE
-                }
-            }
-
-            val klasseFilter = SettingsManager.getInstance(context).klasseFilter
-            Log.d(TAG, "✅ ${sortedTimers.size} Timer von Server geladen (Filter: ${klasseFilter ?: "Alle"})")
+            val timers = db.timerDao().getActiveTimersForWidget()
+            Log.d(TAG, "✅ ${timers.size} Timer aus Room geladen")
 
             // In Cache speichern (cacheTimers filtert auch nach Klasse)
-            cacheTimers(context, sortedTimers)
+            cacheTimers(context, timers)
 
-            // Widget direkt aktualisieren (refreshFromServer ist suspend — properly awaited)
+            // Widget aktualisieren
             TimerWidget().updateAll(context)
 
             true
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Fehler beim Laden von Supabase: ${e.message}", e)
+            Log.e(TAG, "❌ Fehler beim Laden aus Room: ${e.message}", e)
             false
         }
     }

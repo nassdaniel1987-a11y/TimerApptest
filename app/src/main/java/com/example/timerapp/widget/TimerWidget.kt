@@ -18,15 +18,11 @@ import androidx.glance.layout.*
 import androidx.glance.text.*
 import androidx.glance.unit.ColorProvider
 import com.example.timerapp.MainActivity
-import com.example.timerapp.SupabaseClient
-import com.example.timerapp.models.Timer
 import com.example.timerapp.utils.DateTimeUtils
-import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
 /**
  * Timer Widget - Zeigt die nächsten anstehenden Timer als Liste an.
@@ -65,7 +61,7 @@ class TimerWidget : GlanceAppWidget() {
 
 /**
  * ActionCallback für den Aktualisieren-Button.
- * Lädt Daten DIREKT von Supabase und aktualisiert das Widget.
+ * Liest Timer aus der lokalen Room-Datenbank.
  */
 class RefreshWidgetAction : ActionCallback {
     override suspend fun onAction(
@@ -73,56 +69,30 @@ class RefreshWidgetAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters
     ) {
-        Log.d("TimerWidget", "🔄 Refresh-Button gedrückt - lade direkt von Supabase...")
+        Log.d("TimerWidget", "🔄 Refresh-Button gedrückt — lade aus Room...")
 
         try {
-            // 1. Daten direkt von Supabase laden (im IO-Thread)
+            val db = androidx.room.Room.databaseBuilder(
+                context, com.example.timerapp.data.AppDatabase::class.java, "timer_database"
+            ).build()
+
             val timers = withContext(Dispatchers.IO) {
-                try {
-                    val client = SupabaseClient.client
-                    val response = client.from("timers")
-                        .select()
-                        .decodeList<Timer>()
-
-                    // Sortiere nach Zeit
-                    response.sortedBy {
-                        try {
-                            ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                                .toInstant()
-                                .toEpochMilli()
-                        } catch (e: Exception) {
-                            Long.MAX_VALUE
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("TimerWidget", "❌ Supabase-Fehler: ${e.message}", e)
-                    null
-                }
+                db.timerDao().getActiveTimersForWidget()
             }
 
-            if (timers != null) {
-                Log.d("TimerWidget", "✅ ${timers.size} Timer von Supabase geladen")
-
-                // 2. Cache aktualisieren
-                WidgetDataCache.cacheTimers(context, timers)
-
-                // 3. ALLE Widgets aktualisieren
-                TimerWidget().updateAll(context)
-
-                Log.d("TimerWidget", "✅ Widget aktualisiert!")
-            } else {
-                Log.w("TimerWidget", "⚠️ Keine Daten erhalten")
-                // Trotzdem Widget aktualisieren mit Cache-Daten
-                TimerWidget().updateAll(context)
-            }
+            Log.d("TimerWidget", "✅ ${timers.size} Timer aus Room geladen")
+            WidgetDataCache.cacheTimers(context, timers)
+            TimerWidget().updateAll(context)
         } catch (e: Exception) {
             Log.e("TimerWidget", "❌ Refresh fehlgeschlagen: ${e.message}", e)
+            TimerWidget().updateAll(context)
         }
     }
 }
 
 /**
  * ActionCallback: Timer direkt im Widget als erledigt markieren.
+ * Schreibt in Room + Sync-Queue (kein direkter Supabase-Zugriff).
  */
 class CompleteTimerAction : ActionCallback {
 
@@ -139,15 +109,33 @@ class CompleteTimerAction : ActionCallback {
         Log.d("TimerWidget", "✅ Timer erledigt markiert: $timerId")
 
         try {
+            val db = androidx.room.Room.databaseBuilder(
+                context, com.example.timerapp.data.AppDatabase::class.java, "timer_database"
+            ).build()
+
             withContext(Dispatchers.IO) {
-                SupabaseClient.client.from("timers")
-                    .update({ set("is_completed", true) }) {
-                        filter { eq("id", timerId) }
-                    }
+                db.timerDao().markCompleted(timerId)
+
+                // Sync-Queue: Update an Server senden wenn online
+                val updatedTimer = db.timerDao().getTimerById(timerId)
+                if (updatedTimer != null) {
+                    val json = kotlinx.serialization.json.Json { encodeDefaults = true; ignoreUnknownKeys = true }
+                    db.pendingSyncDao().insert(
+                        com.example.timerapp.data.entity.PendingSyncEntity(
+                            entity_type = "timer",
+                            operation = "UPDATE",
+                            entity_id = timerId,
+                            payload = json.encodeToString(kotlinx.serialization.serializer(), updatedTimer)
+                        )
+                    )
+                }
             }
 
-            // Cache aktualisieren und Widget refreshen
-            WidgetDataCache.refreshFromServer(context)
+            // Widget-Cache aus Room aktualisieren
+            val timers = withContext(Dispatchers.IO) {
+                db.timerDao().getActiveTimersForWidget()
+            }
+            WidgetDataCache.cacheTimers(context, timers)
             TimerWidget().updateAll(context)
         } catch (e: Exception) {
             Log.e("TimerWidget", "❌ Fehler beim Erledigen: ${e.message}", e)

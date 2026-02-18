@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -59,6 +60,11 @@ fun HomeScreen(
     val timers = allTimers.filter { it.id !in pendingDeleteIds }
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+
+    // Sync-Status
+    val pendingSyncCount by viewModel.pendingSyncCount.collectAsState(initial = 0)
+    val isOnline by viewModel.isOnline.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
 
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -216,6 +222,50 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    // Sync-Status Indikator
+                    val syncColor = when {
+                        isOnline && pendingSyncCount == 0 -> Color(0xFF4CAF50) // Grün — synced
+                        isOnline && pendingSyncCount > 0 || isSyncing -> Color(0xFF2196F3) // Blau — syncing
+                        !isOnline && pendingSyncCount > 0 -> Color(0xFFFF9800) // Orange — offline mit pending
+                        else -> Color(0xFF9E9E9E) // Grau — offline
+                    }
+                    val syncTooltip = when {
+                        isSyncing -> "Synchronisiere..."
+                        isOnline && pendingSyncCount == 0 -> "Synchronisiert"
+                        isOnline && pendingSyncCount > 0 -> "$pendingSyncCount ausstehend"
+                        !isOnline && pendingSyncCount > 0 -> "Offline ($pendingSyncCount ausstehend)"
+                        else -> "Offline"
+                    }
+
+                    if (!isOnline || pendingSyncCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .size(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (pendingSyncCount > 0) {
+                                BadgedBox(
+                                    badge = {
+                                        Badge { Text("$pendingSyncCount") }
+                                    }
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .background(syncColor, CircleShape)
+                                    )
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(syncColor, CircleShape)
+                                )
+                            }
+                        }
+                    }
+
                     IconButton(onClick = { showFilterDialog = true }) {
                         Icon(
                             if (filterCategory != null) Icons.Default.FilterAltOff else Icons.Default.FilterAlt,

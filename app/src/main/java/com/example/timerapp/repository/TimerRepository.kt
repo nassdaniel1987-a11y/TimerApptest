@@ -1,23 +1,42 @@
 package com.example.timerapp.repository
 
 import android.util.Log
+import com.example.timerapp.data.dao.CategoryDao
+import com.example.timerapp.data.dao.PendingSyncDao
+import com.example.timerapp.data.dao.QRCodeDao
+import com.example.timerapp.data.dao.TimerDao
+import com.example.timerapp.data.dao.TimerTemplateDao
+import com.example.timerapp.data.entity.PendingSyncEntity
 import com.example.timerapp.models.Category
 import com.example.timerapp.models.QRCodeData
 import com.example.timerapp.models.Result
 import com.example.timerapp.models.Timer
 import com.example.timerapp.models.TimerTemplate
-import com.example.timerapp.utils.retry
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 class TimerRepository(
-    private val client: io.github.jan.supabase.SupabaseClient
+    private val client: io.github.jan.supabase.SupabaseClient,
+    private val timerDao: TimerDao,
+    private val categoryDao: CategoryDao,
+    private val templateDao: TimerTemplateDao,
+    private val qrCodeDao: QRCodeDao,
+    private val pendingSyncDao: PendingSyncDao
 ) {
+    private val TAG = "TimerRepository"
+    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
 
+    // StateFlows — gleiche Interface wie vorher, ViewModel ändert sich nicht
     private val _timers = MutableStateFlow<List<Timer>>(emptyList())
     val timers: StateFlow<List<Timer>> = _timers.asStateFlow()
 
@@ -30,134 +49,255 @@ class TimerRepository(
     private val _qrCodes = MutableStateFlow<List<QRCodeData>>(emptyList())
     val qrCodes: StateFlow<List<QRCodeData>> = _qrCodes.asStateFlow()
 
-    // Timer Operations
-    suspend fun refreshTimers(): Result<Unit> = retry {
-        val response = client.from("timers")
-            .select()
-            .decodeList<Timer>()
-        _timers.value = response.sortedBy {
-            ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                .toInstant()
-                .toEpochMilli()
+    // Sync-Status für UI
+    val pendingSyncCount: Flow<Int> = pendingSyncDao.getPendingCount()
+
+    /**
+     * Startet das Beobachten der Room-Flows.
+     * Room-Änderungen werden automatisch in die StateFlows propagiert.
+     */
+    fun observeAll(scope: CoroutineScope) {
+        scope.launch {
+            timerDao.getAllTimers().collect { list ->
+                _timers.value = list.sortedBy { timer ->
+                    try {
+                        ZonedDateTime.parse(timer.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                            .toInstant().toEpochMilli()
+                    } catch (e: Exception) { Long.MAX_VALUE }
+                }
+            }
         }
-        Log.d("TimerRepository", "✅ ${response.size} Timer geladen")
+        scope.launch {
+            categoryDao.getAllCategories().collect { _categories.value = it }
+        }
+        scope.launch {
+            templateDao.getAllTemplates().collect { _templates.value = it }
+        }
+        scope.launch {
+            qrCodeDao.getAllQRCodes().collect { _qrCodes.value = it }
+        }
     }
 
-    suspend fun createTimer(timer: Timer): Result<Timer> = retry {
-        val response = client.from("timers").insert(timer) { select() }.decodeSingle<Timer>()
-        Log.d("TimerRepository", "✅ Timer erstellt: ${response.name}")
-        response
+    // ── Timer Operations (Room-First) ──
+
+    suspend fun createTimer(timer: Timer): Result<Timer> {
+        return try {
+            val newTimer = if (timer.id.isBlank()) {
+                timer.copy(
+                    id = UUID.randomUUID().toString(),
+                    created_at = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                )
+            } else timer
+
+            timerDao.insertTimer(newTimer)
+            enqueueSyncOperation("timer", "CREATE", newTimer.id, json.encodeToString(newTimer))
+            Log.d(TAG, "✅ Timer erstellt (lokal): ${newTimer.name}")
+            Result.Success(newTimer)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Fehler beim Erstellen: ${e.message}", e)
+            Result.Error(e, userMessage = "Fehler beim Erstellen des Timers")
+        }
+    }
+
+    suspend fun updateTimer(id: String, timer: Timer): Result<Unit> {
+        return try {
+            timerDao.updateTimer(timer)
+            enqueueSyncOperation("timer", "UPDATE", id, json.encodeToString(timer))
+            Log.d(TAG, "✅ Timer aktualisiert (lokal): $id")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Fehler beim Aktualisieren: ${e.message}", e)
+            Result.Error(e, userMessage = "Fehler beim Aktualisieren")
+        }
+    }
+
+    suspend fun deleteTimer(id: String): Result<Unit> {
+        return try {
+            timerDao.deleteTimer(id)
+            enqueueSyncOperation("timer", "DELETE", id, "")
+            Log.d(TAG, "✅ Timer gelöscht (lokal): $id")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Fehler beim Löschen: ${e.message}", e)
+            Result.Error(e, userMessage = "Fehler beim Löschen")
+        }
+    }
+
+    suspend fun markTimerCompleted(id: String): Result<Unit> {
+        return try {
+            timerDao.markCompleted(id)
+            val updatedTimer = timerDao.getTimerById(id)
+            if (updatedTimer != null) {
+                enqueueSyncOperation("timer", "UPDATE", id, json.encodeToString(updatedTimer))
+            }
+            Log.d(TAG, "✅ Timer abgeschlossen (lokal): $id")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Fehler beim Abschließen: ${e.message}", e)
+            Result.Error(e, userMessage = "Fehler beim Abschließen")
+        }
     }
 
     /**
-     * Fügt einen Timer sofort zur lokalen Liste hinzu (optimistisches Update).
-     * Widget wird sofort aktualisiert, ohne auf Server-Refresh zu warten.
+     * Pull vom Server — ersetzt lokale Daten mit Server-Daten.
+     * Bei Netzwerk-Fehler bleiben die Room-Daten erhalten.
      */
-    fun addTimerToLocalList(timer: Timer) {
-        _timers.value = (_timers.value + timer).sortedBy {
-            try {
-                ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                    .toInstant().toEpochMilli()
-            } catch (e: Exception) { Long.MAX_VALUE }
+    suspend fun refreshTimers(): Result<Unit> {
+        return try {
+            val response = client.from("timers").select().decodeList<Timer>()
+            timerDao.deleteAllTimers()
+            timerDao.insertTimers(response)
+            Log.d(TAG, "✅ ${response.size} Timer vom Server geladen")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Server-Refresh fehlgeschlagen (offline?): ${e.message}")
+            Result.Error(e, retryable = true, userMessage = "Offline — zeige lokale Daten")
         }
-        Log.d("TimerRepository", "⚡ Timer lokal hinzugefügt: ${timer.name}")
     }
 
-    /**
-     * Entfernt einen Timer sofort aus der lokalen Liste (optimistisches Update).
-     */
-    fun removeTimerFromLocalList(id: String) {
-        _timers.value = _timers.value.filter { it.id != id }
-        Log.d("TimerRepository", "⚡ Timer lokal entfernt: $id")
-    }
+    // Optimistic-Update-Methoden — jetzt No-Ops (Room-Flow macht das automatisch)
+    fun addTimerToLocalList(timer: Timer) { /* Room-Flow aktualisiert UI automatisch */ }
+    fun removeTimerFromLocalList(id: String) { /* Room-Flow aktualisiert UI automatisch */ }
+    fun markTimerCompletedLocally(id: String) { /* Room-Flow aktualisiert UI automatisch */ }
 
-    /**
-     * Markiert einen Timer lokal als erledigt (optimistisches Update).
-     */
-    fun markTimerCompletedLocally(id: String) {
-        _timers.value = _timers.value.map { timer ->
-            if (timer.id == id) timer.copy(is_completed = true) else timer
+    // ── Category Operations ──
+
+    suspend fun refreshCategories(): Result<Unit> {
+        return try {
+            val response = client.from("categories").select().decodeList<Category>()
+            categoryDao.deleteAllCategories()
+            categoryDao.insertCategories(response)
+            Log.d(TAG, "✅ ${response.size} Kategorien vom Server geladen")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Kategorien-Refresh fehlgeschlagen: ${e.message}")
+            Result.Error(e, retryable = true)
         }
-        Log.d("TimerRepository", "⚡ Timer lokal als erledigt markiert: $id")
     }
 
-    suspend fun deleteTimer(id: String): Result<Unit> = retry {
-        client.from("timers").delete { filter { eq("id", id) } }
-        refreshTimers()
-        Log.d("TimerRepository", "✅ Timer gelöscht: $id")
+    suspend fun createCategory(category: Category): Result<Unit> {
+        return try {
+            val newCategory = if (category.id.isBlank()) {
+                category.copy(id = UUID.randomUUID().toString())
+            } else category
+
+            categoryDao.insertCategory(newCategory)
+            enqueueSyncOperation("category", "CREATE", newCategory.id, json.encodeToString(newCategory))
+            Log.d(TAG, "✅ Kategorie erstellt (lokal): ${newCategory.name}")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e, userMessage = "Fehler beim Erstellen der Kategorie")
+        }
     }
 
-    suspend fun updateTimer(id: String, timer: Timer): Result<Unit> = retry {
-        client.from("timers").update(timer) { filter { eq("id", id) } }
-        refreshTimers()
-        Log.d("TimerRepository", "✅ Timer aktualisiert: $id")
+    suspend fun deleteCategory(id: String): Result<Unit> {
+        return try {
+            categoryDao.deleteCategory(id)
+            enqueueSyncOperation("category", "DELETE", id, "")
+            Log.d(TAG, "✅ Kategorie gelöscht (lokal): $id")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e, userMessage = "Fehler beim Löschen der Kategorie")
+        }
     }
 
-    suspend fun markTimerCompleted(id: String): Result<Unit> = retry {
-        client.from("timers").update(mapOf("is_completed" to true)) { filter { eq("id", id) } }
-        refreshTimers()
-        Log.d("TimerRepository", "✅ Timer abgeschlossen: $id")
+    // ── Template Operations ──
+
+    suspend fun refreshTemplates(): Result<Unit> {
+        return try {
+            val response = client.from("timer_templates").select().decodeList<TimerTemplate>()
+            templateDao.deleteAllTemplates()
+            templateDao.insertTemplates(response)
+            Log.d(TAG, "✅ ${response.size} Templates vom Server geladen")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Templates-Refresh fehlgeschlagen: ${e.message}")
+            Result.Error(e, retryable = true)
+        }
     }
 
-    // Category Operations
-    suspend fun refreshCategories(): Result<Unit> = retry {
-        val response = client.from("categories").select().decodeList<Category>()
-        _categories.value = response
-        Log.d("TimerRepository", "✅ ${response.size} Kategorien geladen")
+    suspend fun createTemplate(template: TimerTemplate): Result<Unit> {
+        return try {
+            val newTemplate = if (template.id.isBlank()) {
+                template.copy(id = UUID.randomUUID().toString())
+            } else template
+
+            templateDao.insertTemplate(newTemplate)
+            enqueueSyncOperation("template", "CREATE", newTemplate.id, json.encodeToString(newTemplate))
+            Log.d(TAG, "✅ Template erstellt (lokal): ${newTemplate.name}")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e, userMessage = "Fehler beim Erstellen des Templates")
+        }
     }
 
-    suspend fun createCategory(category: Category): Result<Unit> = retry {
-        client.from("categories").insert(category)
-        refreshCategories()
-        Log.d("TimerRepository", "✅ Kategorie erstellt: ${category.name}")
+    suspend fun deleteTemplate(id: String): Result<Unit> {
+        return try {
+            templateDao.deleteTemplate(id)
+            enqueueSyncOperation("template", "DELETE", id, "")
+            Log.d(TAG, "✅ Template gelöscht (lokal): $id")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e, userMessage = "Fehler beim Löschen des Templates")
+        }
     }
 
-    suspend fun deleteCategory(id: String): Result<Unit> = retry {
-        client.from("categories").delete { filter { eq("id", id) } }
-        refreshCategories()
-        Log.d("TimerRepository", "✅ Kategorie gelöscht: $id")
+    // ── QR Code Operations ──
+
+    suspend fun refreshQRCodes(): Result<Unit> {
+        return try {
+            val response = client.from("qr_codes").select().decodeList<QRCodeData>()
+            qrCodeDao.deleteAllQRCodes()
+            qrCodeDao.insertQRCodes(response)
+            Log.d(TAG, "✅ ${response.size} QR-Codes vom Server geladen")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ QR-Codes-Refresh fehlgeschlagen: ${e.message}")
+            Result.Error(e, retryable = true)
+        }
     }
 
-    // Template Operations
-    suspend fun refreshTemplates(): Result<Unit> = retry {
-        val response = client.from("timer_templates").select().decodeList<TimerTemplate>()
-        _templates.value = response
-        Log.d("TimerRepository", "✅ ${response.size} Templates geladen")
+    suspend fun createQRCode(qrCode: QRCodeData): Result<QRCodeData> {
+        return try {
+            val newQR = if (qrCode.id.isBlank()) {
+                qrCode.copy(id = UUID.randomUUID().toString())
+            } else qrCode
+
+            qrCodeDao.insertQRCode(newQR)
+            enqueueSyncOperation("qr_code", "CREATE", newQR.id, json.encodeToString(newQR))
+            Log.d(TAG, "✅ QR-Code erstellt (lokal): ${newQR.name}")
+            Result.Success(newQR)
+        } catch (e: Exception) {
+            Result.Error(e, userMessage = "Fehler beim Erstellen des QR-Codes")
+        }
     }
 
-    suspend fun createTemplate(template: TimerTemplate): Result<Unit> = retry {
-        client.from("timer_templates").insert(template)
-        refreshTemplates()
-        Log.d("TimerRepository", "✅ Template erstellt: ${template.name}")
+    fun addQRCodeToLocalList(qrCode: QRCodeData) { /* Room-Flow aktualisiert UI automatisch */ }
+
+    suspend fun deleteQRCode(id: String): Result<Unit> {
+        return try {
+            qrCodeDao.deleteQRCode(id)
+            enqueueSyncOperation("qr_code", "DELETE", id, "")
+            Log.d(TAG, "✅ QR-Code gelöscht (lokal): $id")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e, userMessage = "Fehler beim Löschen des QR-Codes")
+        }
     }
 
-    suspend fun deleteTemplate(id: String): Result<Unit> = retry {
-        client.from("timer_templates").delete { filter { eq("id", id) } }
-        refreshTemplates()
-        Log.d("TimerRepository", "✅ Template gelöscht: $id")
-    }
+    // ── Sync-Queue ──
 
-    // QR Code Operations
-    suspend fun refreshQRCodes(): Result<Unit> = retry {
-        val response = client.from("qr_codes").select().decodeList<QRCodeData>()
-        _qrCodes.value = response
-        Log.d("TimerRepository", "✅ ${response.size} QR-Codes geladen")
-    }
-
-    suspend fun createQRCode(qrCode: QRCodeData): Result<QRCodeData> = retry {
-        val response = client.from("qr_codes").insert(qrCode) { select() }.decodeSingle<QRCodeData>()
-        Log.d("TimerRepository", "✅ QR-Code in DB erstellt: ${response.name}")
-        response
-    }
-
-    fun addQRCodeToLocalList(qrCode: QRCodeData) {
-        _qrCodes.value = _qrCodes.value + qrCode
-        Log.d("TimerRepository", "✅ QR-Code zur lokalen Liste hinzugefügt.")
-    }
-
-    suspend fun deleteQRCode(id: String): Result<Unit> = retry {
-        client.from("qr_codes").delete { filter { eq("id", id) } }
-        refreshQRCodes()
-        Log.d("TimerRepository", "✅ QR-Code gelöscht: $id")
+    private suspend fun enqueueSyncOperation(
+        entityType: String, operation: String, entityId: String, payload: String
+    ) {
+        pendingSyncDao.insert(
+            PendingSyncEntity(
+                entity_type = entityType,
+                operation = operation,
+                entity_id = entityId,
+                payload = payload
+            )
+        )
+        Log.d(TAG, "📤 Sync-Operation eingereiht: $operation $entityType $entityId")
     }
 }

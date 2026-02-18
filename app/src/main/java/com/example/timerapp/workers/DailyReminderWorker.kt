@@ -12,7 +12,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.timerapp.MainActivity
 import com.example.timerapp.R
-import com.example.timerapp.repository.TimerRepository
+import com.example.timerapp.data.AppDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -39,10 +39,13 @@ class DailyReminderWorker(
         try {
             Log.d("DailyReminderWorker", "🔔 Starte tägliche Erinnerung...")
 
-            // Hole alle aktiven Timer
-            val repository = TimerRepository(com.example.timerapp.SupabaseClient.client)
-            repository.refreshTimers()
-            val allTimers = repository.timers.value.filter { !it.is_completed }
+            // Hole alle aktiven Timer aus Room-Datenbank (offline-fähig)
+            val db = androidx.room.Room.databaseBuilder(
+                applicationContext,
+                AppDatabase::class.java,
+                "timer_database"
+            ).build()
+            val allTimers = db.timerDao().getActiveTimersForWidget()
 
             // Filtere Timer für morgen (nutzt System-Timezone)
             val userZone = ZoneId.systemDefault()
