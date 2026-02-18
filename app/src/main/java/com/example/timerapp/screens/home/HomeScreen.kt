@@ -222,10 +222,15 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    // Sync-Status Indikator
+                    // Sync-Status Indikator (immer sichtbar)
+                    val syncIcon = when {
+                        !isOnline -> Icons.Default.WifiOff
+                        isSyncing || pendingSyncCount > 0 -> Icons.Default.Sync
+                        else -> Icons.Default.Wifi
+                    }
                     val syncColor = when {
-                        isOnline && pendingSyncCount == 0 -> Color(0xFF4CAF50) // Grün — synced
-                        isOnline && pendingSyncCount > 0 || isSyncing -> Color(0xFF2196F3) // Blau — syncing
+                        isOnline && pendingSyncCount == 0 && !isSyncing -> Color(0xFF4CAF50) // Grün — synced
+                        isSyncing || (isOnline && pendingSyncCount > 0) -> Color(0xFF2196F3) // Blau — syncing
                         !isOnline && pendingSyncCount > 0 -> Color(0xFFFF9800) // Orange — offline mit pending
                         else -> Color(0xFF9E9E9E) // Grau — offline
                     }
@@ -237,33 +242,29 @@ fun HomeScreen(
                         else -> "Offline"
                     }
 
-                    if (!isOnline || pendingSyncCount > 0) {
-                        Box(
+                    if (pendingSyncCount > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge { Text("$pendingSyncCount") }
+                            },
+                            modifier = Modifier.padding(end = 4.dp)
+                        ) {
+                            Icon(
+                                syncIcon,
+                                contentDescription = syncTooltip,
+                                tint = syncColor,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    } else {
+                        Icon(
+                            syncIcon,
+                            contentDescription = syncTooltip,
+                            tint = syncColor,
                             modifier = Modifier
                                 .padding(horizontal = 4.dp)
-                                .size(32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (pendingSyncCount > 0) {
-                                BadgedBox(
-                                    badge = {
-                                        Badge { Text("$pendingSyncCount") }
-                                    }
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .background(syncColor, CircleShape)
-                                    )
-                                }
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .background(syncColor, CircleShape)
-                                )
-                            }
-                        }
+                                .size(22.dp)
+                        )
                     }
 
                     IconButton(onClick = { showFilterDialog = true }) {
