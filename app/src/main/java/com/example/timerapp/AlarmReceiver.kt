@@ -194,8 +194,10 @@ class AlarmReceiver : BroadcastReceiver() {
         val isPreReminder = intent.getBooleanExtra("IS_PRE_REMINDER", false)
 
         if (timerIds != null && timerNames != null && timerCategories != null) {
-            // ✅ WICHTIG: Prüfe ob Timer noch existieren
-            // Verhindert Alarme von gelöschten Timern
+            // ✅ KRITISCH: goAsync() hält den BroadcastReceiver am Leben
+            // Ohne goAsync() killt Android den Prozess bevor die Coroutine fertig ist!
+            val pendingResult = goAsync()
+
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     // Timer aus Room-Datenbank laden (offline-fähig)
@@ -211,6 +213,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
                     if (validIndices.isEmpty()) {
                         Log.d("AlarmReceiver", "⏭️ Alle Timer wurden gelöscht - Alarm wird ignoriert")
+                        pendingResult.finish()
                         return@launch
                     }
 
@@ -220,27 +223,21 @@ class AlarmReceiver : BroadcastReceiver() {
 
                     Log.d("AlarmReceiver", "🔔 Gruppen-Alarm ausgelöst für ${validTimerIds.size} Timer (${timerIds.size - validTimerIds.size} gelöscht)")
 
-                    // ✅ KRITISCH: Starte Sound & Vibration SOFORT (nicht erst in Activity!)
-                    // Dadurch funktioniert der Alarm IMMER, auch wenn Fullscreen blockiert wird
                     withContext(Dispatchers.Main) {
                         if (!isPreReminder) {
-                            // Hole Settings
                             val settingsManager = SettingsManager.getInstance(context)
 
-                            // Starte Sound wenn aktiviert
                             if (settingsManager.isSoundEnabled) {
                                 playAlarmSound(context, escalate = settingsManager.isEscalatingAlarmEnabled)
                                 Log.d("AlarmReceiver", "🔊 Alarm-Sound gestartet")
                             }
 
-                            // Starte Vibration wenn aktiviert
                             if (settingsManager.isVibrationEnabled) {
                                 startVibration(context, intense = false)
                                 Log.d("AlarmReceiver", "📳 Vibration gestartet")
                             }
                         }
 
-                        // Zeige Benachrichtigung (mit Fullscreen-Intent als Bonus)
                         NotificationHelper.showGroupedTimerNotification(
                             context = context,
                             timerIds = validTimerIds,
@@ -250,9 +247,9 @@ class AlarmReceiver : BroadcastReceiver() {
                         )
                     }
                 } catch (e: Exception) {
-                    Log.e("AlarmReceiver", "❌ KRITISCH: Fehler beim Validieren der Timer: ${e.message} - Alarm wird NICHT angezeigt!")
-                    // WICHTIG: Bei Fehler KEINEN Alarm anzeigen!
-                    // Lieber einen Alarm verpassen als einen gelöschten Timer anzeigen
+                    Log.e("AlarmReceiver", "❌ KRITISCH: Fehler beim Validieren der Timer: ${e.message}")
+                } finally {
+                    pendingResult.finish()
                 }
             }
         } else {
@@ -261,10 +258,10 @@ class AlarmReceiver : BroadcastReceiver() {
             val timerName = intent.getStringExtra("TIMER_NAME") ?: "Timer"
             val timerCategory = intent.getStringExtra("TIMER_CATEGORY") ?: "Allgemein"
 
-            // ✅ Prüfe ob Timer noch existiert
+            val pendingResult = goAsync()
+
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    // Timer aus Room-Datenbank prüfen (offline-fähig)
                     val db = androidx.room.Room.databaseBuilder(
                         context,
                         com.example.timerapp.data.AppDatabase::class.java,
@@ -274,31 +271,27 @@ class AlarmReceiver : BroadcastReceiver() {
 
                     if (!timerExists) {
                         Log.d("AlarmReceiver", "⏭️ Timer wurde gelöscht - Alarm wird ignoriert: $timerId")
+                        pendingResult.finish()
                         return@launch
                     }
 
                     Log.d("AlarmReceiver", "🔔 Einzelner Alarm ausgelöst: $timerName")
 
-                    // ✅ KRITISCH: Starte Sound & Vibration SOFORT (nicht erst in Activity!)
                     withContext(Dispatchers.Main) {
                         if (!isPreReminder) {
-                            // Hole Settings
                             val settingsManager = SettingsManager.getInstance(context)
 
-                            // Starte Sound wenn aktiviert
                             if (settingsManager.isSoundEnabled) {
                                 playAlarmSound(context, escalate = settingsManager.isEscalatingAlarmEnabled)
                                 Log.d("AlarmReceiver", "🔊 Alarm-Sound gestartet")
                             }
 
-                            // Starte Vibration wenn aktiviert
                             if (settingsManager.isVibrationEnabled) {
                                 startVibration(context, intense = false)
                                 Log.d("AlarmReceiver", "📳 Vibration gestartet")
                             }
                         }
 
-                        // Zeige Benachrichtigung (mit Fullscreen-Intent als Bonus)
                         NotificationHelper.showTimerNotification(
                             context = context,
                             timerId = timerId,
@@ -308,9 +301,9 @@ class AlarmReceiver : BroadcastReceiver() {
                         )
                     }
                 } catch (e: Exception) {
-                    Log.e("AlarmReceiver", "❌ KRITISCH: Fehler beim Validieren des Timers: ${e.message} - Alarm wird NICHT angezeigt!")
-                    // WICHTIG: Bei Fehler KEINEN Alarm anzeigen!
-                    // Lieber einen Alarm verpassen als einen gelöschten Timer anzeigen
+                    Log.e("AlarmReceiver", "❌ KRITISCH: Fehler beim Validieren des Timers: ${e.message}")
+                } finally {
+                    pendingResult.finish()
                 }
             }
         }

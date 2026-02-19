@@ -7,8 +7,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -701,8 +700,11 @@ fun CreateTimerScreen(
                     )
 
                     // Visual Category Grid
+                    // ✅ FIX: Kein LazyVerticalGrid in verticalScroll!
+                    // LazyGrid fängt Touch-Events ab → Kategorie-Klicks werden verschluckt
                     val categoryIcons = mapOf(
                         "Wird abgeholt" to Icons.Default.DirectionsCar,
+                        "Geht alleine" to Icons.Default.DirectionsWalk,
                         "Arzt" to Icons.Default.LocalHospital,
                         "Einkaufen" to Icons.Default.ShoppingCart,
                         "Meeting" to Icons.Default.Groups,
@@ -710,20 +712,29 @@ fun CreateTimerScreen(
                         "Kochen" to Icons.Default.Restaurant
                     )
 
-                    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.height(180.dp)
+                    val chunkedCategories = categories.chunked(3)
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        categories.forEach { category ->
-                            item {
-                                CategoryButton(
-                                    category = category.name,
-                                    icon = categoryIcons[category.name] ?: Icons.Default.Category,
-                                    isSelected = selectedCategory == category.name,
-                                    onClick = { selectedCategory = category.name }
-                                )
+                        chunkedCategories.forEach { rowCategories ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                rowCategories.forEach { category ->
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        CategoryButton(
+                                            category = category.name,
+                                            icon = categoryIcons[category.name] ?: Icons.Default.Category,
+                                            isSelected = selectedCategory == category.name,
+                                            onClick = { selectedCategory = category.name }
+                                        )
+                                    }
+                                }
+                                // Leere Platzhalter für unvollständige Reihen
+                                repeat(3 - rowCategories.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
                             }
                         }
                     }

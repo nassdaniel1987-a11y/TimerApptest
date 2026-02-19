@@ -40,7 +40,7 @@ object WidgetDataCache {
 
             // Konvertiere Timer zu WidgetTimer - nur nicht abgeschlossene + Klassen-Filter
             val widgetTimers = timers
-                .filter { !it.is_completed && (klasseFilter == null || it.klasse == klasseFilter) }
+                .filter { !it.is_completed && (klasseFilter.isEmpty() || it.klasse in klasseFilter) }
                 .sortedBy { it.target_time }
                 .take(10)
                 .map { timer ->

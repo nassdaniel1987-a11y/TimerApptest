@@ -98,8 +98,8 @@ fun HomeScreen(
     val filteredTimers = remember(timers, filterCategory, sortBy, searchQuery, timeFilter, klasseFilter) {
         var filtered = timers.filter { !it.is_completed }
 
-        if (klasseFilter != null) {
-            filtered = filtered.filter { it.klasse == klasseFilter }
+        if (klasseFilter.isNotEmpty()) {
+            filtered = filtered.filter { it.klasse in klasseFilter }
         }
 
         if (searchQuery.isNotBlank()) {
@@ -165,7 +165,7 @@ fun HomeScreen(
         }
     }
 
-    val completedTimers = timers.filter { it.is_completed && (klasseFilter == null || it.klasse == klasseFilter) }
+    val completedTimers = timers.filter { it.is_completed && (klasseFilter.isEmpty() || it.klasse in klasseFilter) }
 
     fun checkPermission() {
         hasExactAlarmPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -485,32 +485,37 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    // Klassen-Filter Chips
+                    // Klassen-Filter Chips (Multi-Select)
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
-                                selected = klasseFilter == null,
+                                selected = klasseFilter.isEmpty(),
                                 onClick = {
-                                    klasseFilter = null
-                                    viewModel.updateKlasseFilter(null)
+                                    klasseFilter = emptySet()
+                                    viewModel.updateKlasseFilter(emptySet())
                                 },
                                 label = { Text("Alle") },
-                                leadingIcon = if (klasseFilter == null) {
+                                leadingIcon = if (klasseFilter.isEmpty()) {
                                     { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                 } else null
                             )
                             SettingsManager.KLASSE_OPTIONS.forEach { klasse ->
+                                val isSelected = klasse in klasseFilter
                                 FilterChip(
-                                    selected = klasseFilter == klasse,
+                                    selected = isSelected,
                                     onClick = {
-                                        klasseFilter = klasse
-                                        viewModel.updateKlasseFilter(klasse)
+                                        klasseFilter = if (isSelected) {
+                                            klasseFilter - klasse
+                                        } else {
+                                            klasseFilter + klasse
+                                        }
+                                        viewModel.updateKlasseFilter(klasseFilter)
                                     },
                                     label = { Text(klasse.removePrefix("Klasse ")) },
-                                    leadingIcon = if (klasseFilter == klasse) {
+                                    leadingIcon = if (isSelected) {
                                         { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                     } else null
                                 )

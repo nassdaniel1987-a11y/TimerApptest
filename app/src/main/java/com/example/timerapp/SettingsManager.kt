@@ -82,10 +82,10 @@ class SettingsManager private constructor(context: Context) {
         get() = prefs.getString(KEY_MY_KLASSE, KLASSE_OPTIONS[0]) ?: KLASSE_OPTIONS[0]
         set(value) = prefs.edit().putString(KEY_MY_KLASSE, value).apply()
 
-    // Klassen-Filter auf dem HomeScreen (null = "Alle")
-    var klasseFilter: String?
-        get() = prefs.getString(KEY_KLASSE_FILTER, null)
-        set(value) = prefs.edit().putString(KEY_KLASSE_FILTER, value).apply()
+    // Klassen-Filter auf dem HomeScreen (leer = "Alle")
+    var klasseFilter: Set<String>
+        get() = prefs.getStringSet(KEY_KLASSE_FILTER, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_KLASSE_FILTER, value).apply()
 
     // Auto-Aufräumen abgeschlossener Timer
     var isAutoCleanupEnabled: Boolean
