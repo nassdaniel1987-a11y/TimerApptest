@@ -82,9 +82,24 @@ class SettingsManager private constructor(context: Context) {
         get() = prefs.getString(KEY_MY_KLASSE, KLASSE_OPTIONS[0]) ?: KLASSE_OPTIONS[0]
         set(value) = prefs.edit().putString(KEY_MY_KLASSE, value).apply()
 
-    // Klassen-Filter auf dem HomeScreen (leer = "Alle")
+    // Klassen-Filter auf dem HomeScreen (leer = "Alle", Multi-Select)
     var klasseFilter: Set<String>
-        get() = prefs.getStringSet(KEY_KLASSE_FILTER, emptySet()) ?: emptySet()
+        get() {
+            return try {
+                prefs.getStringSet(KEY_KLASSE_FILTER, emptySet()) ?: emptySet()
+            } catch (e: ClassCastException) {
+                // Migration: Alter Wert war ein einzelner String, konvertiere zu Set
+                val oldValue = prefs.getString(KEY_KLASSE_FILTER, null)
+                prefs.edit().remove(KEY_KLASSE_FILTER).apply()
+                if (oldValue != null) {
+                    val newSet = setOf(oldValue)
+                    prefs.edit().putStringSet(KEY_KLASSE_FILTER, newSet).apply()
+                    newSet
+                } else {
+                    emptySet()
+                }
+            }
+        }
         set(value) = prefs.edit().putStringSet(KEY_KLASSE_FILTER, value).apply()
 
     // Auto-Aufräumen abgeschlossener Timer
