@@ -140,9 +140,11 @@ object NotificationHelper {
             builder.setPriority(NotificationCompat.PRIORITY_MAX)
             builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-            // ✅ FIX: Sound wird komplett über AlarmReceiver.playAlarmSound() (MediaPlayer) gesteuert.
-            // Notification selbst ist lautlos, um doppelte Sounds und Interferenz zu vermeiden.
-            builder.setSilent(true)
+            // ✅ Sound wird über AlarmReceiver.playAlarmSound() (MediaPlayer) gesteuert.
+            // Notification-Sound ist deaktiviert (Channel hat setSound(null)),
+            // aber setSilent(true) darf NICHT verwendet werden - das blockiert den Fullscreen-Intent!
+            builder.setSound(null)
+            builder.setVibrate(longArrayOf(0L))
 
             // ✅ KRITISCH: Dismiss-Action zum Stoppen des Alarms
             val dismissIntent = Intent(context, com.example.timerapp.AlarmReceiver::class.java).apply {

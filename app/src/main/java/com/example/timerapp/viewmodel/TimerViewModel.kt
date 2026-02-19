@@ -107,23 +107,23 @@ class TimerViewModel @Inject constructor(
             try {
                 val allActive = timers.value.filter { !it.is_completed }
                 val klasseFilter = settingsManager.klasseFilter
-                val toSchedule = if (klasseFilter != null) {
-                    allActive.filter { it.klasse == klasseFilter }
+                val toSchedule = if (klasseFilter.isNotEmpty()) {
+                    allActive.filter { it.klasse in klasseFilter }
                 } else {
                     allActive
                 }
                 alarmScheduler.rescheduleAllAlarms(allActive, toSchedule)
-                Log.d("TimerViewModel", "✅ Alarme neu geplant: ${toSchedule.size}/${allActive.size} (Filter: ${klasseFilter ?: "Alle"})")
+                Log.d("TimerViewModel", "✅ Alarme neu geplant: ${toSchedule.size}/${allActive.size} (Filter: ${klasseFilter.ifEmpty { setOf("Alle") }})")
             } catch (e: Exception) {
                 Log.e("TimerViewModel", "❌ Fehler beim Reschedule: ${e.message}")
             }
         }
     }
 
-    fun updateKlasseFilter(klasse: String?) {
-        settingsManager.klasseFilter = klasse
+    fun updateKlasseFilter(klassen: Set<String>) {
+        settingsManager.klasseFilter = klassen
         debouncedRescheduleAlarms()
-        Log.d("TimerViewModel", "🔄 Klassen-Filter geändert: ${klasse ?: "Alle"}")
+        Log.d("TimerViewModel", "🔄 Klassen-Filter geändert: ${klassen.ifEmpty { setOf("Alle") }}")
     }
 
     fun sync() {
@@ -157,13 +157,13 @@ class TimerViewModel @Inject constructor(
 
             val allActive = timers.value.filter { !it.is_completed }
             val klasseFilter = settingsManager.klasseFilter
-            val toSchedule = if (klasseFilter != null) {
-                allActive.filter { it.klasse == klasseFilter }
+            val toSchedule = if (klasseFilter.isNotEmpty()) {
+                allActive.filter { it.klasse in klasseFilter }
             } else {
                 allActive
             }
             alarmScheduler.rescheduleAllAlarms(allActive, toSchedule)
-            Log.d("TimerViewModel", "🔔 Alarme geplant: ${toSchedule.size}/${allActive.size} (Filter: ${klasseFilter ?: "Alle"})")
+            Log.d("TimerViewModel", "🔔 Alarme geplant: ${toSchedule.size}/${allActive.size} (Filter: ${klasseFilter.ifEmpty { setOf("Alle") }})")
 
             if (settingsManager.isAutoCleanupEnabled) {
                 cleanupCompletedTimers()
