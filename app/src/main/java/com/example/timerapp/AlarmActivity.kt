@@ -15,6 +15,9 @@ import java.time.ZonedDateTime
 
 class AlarmActivity : ComponentActivity() {
 
+    // Nur stoppen wenn User explizit dismissed hat (nicht bei Activity-Replace)
+    private var userDismissed = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -61,11 +64,13 @@ class AlarmActivity : ComponentActivity() {
                     timerNames = names,
                     timerCategories = categories,
                     onDismiss = {
+                        userDismissed = true
                         AlarmReceiver.stopAlarmSound()
                         AlarmReceiver.stopVibration()
                         finish()
                     },
                     onSnooze = {
+                        userDismissed = true
                         AlarmReceiver.stopAlarmSound()
                         AlarmReceiver.stopVibration()
 
@@ -80,9 +85,13 @@ class AlarmActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Stellt sicher, dass alles gestoppt wird, wenn die Activity zerstört wird.
-        AlarmReceiver.stopAlarmSound()
-        AlarmReceiver.stopVibration()
+        // ✅ FIX: Sound NUR stoppen wenn User explizit dismissed/gesnoozed hat.
+        // Wenn eine neue AlarmActivity diese ersetzt (FLAG_ACTIVITY_CLEAR_TASK),
+        // darf der Sound NICHT gestoppt werden, sonst ist der neue Alarm stumm!
+        if (userDismissed) {
+            AlarmReceiver.stopAlarmSound()
+            AlarmReceiver.stopVibration()
+        }
     }
 
     // ✅ Snooze-Funktion: Plant Alarm in X Minuten neu

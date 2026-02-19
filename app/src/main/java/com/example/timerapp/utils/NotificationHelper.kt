@@ -5,13 +5,13 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
+
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.timerapp.AlarmActivity
 import com.example.timerapp.MainActivity
-import com.example.timerapp.SettingsManager
+
 
 object NotificationHelper {
 
@@ -20,21 +20,6 @@ object NotificationHelper {
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // ✅ KRITISCH: AudioAttributes für ALARM-Stream
-            // Dies garantiert, dass der Alarm auch im Vibrationsmodus klingelt!
-            val audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-
-            // Custom-Sound-URI verwenden falls gesetzt
-            val settingsManager = SettingsManager.getInstance(context)
-            val alarmUri = settingsManager.alarmSoundUri?.let { uriString ->
-                try {
-                    android.net.Uri.parse(uriString)
-                } catch (e: Exception) { null }
-            } ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
-
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
@@ -45,8 +30,10 @@ object NotificationHelper {
                 enableLights(true)
                 setBypassDnd(true) // Bypass "Nicht stören" Modus
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-                // ✅ KRITISCH: Verwende ALARM-Stream für Notification Channel
-                setSound(alarmUri, audioAttributes)
+                // ✅ FIX: Kein Sound auf dem Channel!
+                // Sound wird über AlarmReceiver.playAlarmSound() (MediaPlayer) gesteuert.
+                // Channel-Sound würde zu doppeltem Audio und Interferenz führen.
+                setSound(null, null)
             }
 
             val notificationManager =
@@ -153,25 +140,15 @@ object NotificationHelper {
             builder.setPriority(NotificationCompat.PRIORITY_MAX)
             builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-            // ✅ KRITISCH: Sound wird vom NotificationChannel mit USAGE_ALARM gehandhabt!
-            // Der Channel (erstellt in createNotificationChannel) verwendet bereits AudioAttributes
-            // mit USAGE_ALARM, was garantiert dass der Alarm auch im Vibrationsmodus klingelt.
-            // Für Android O+ (API 26+) übernimmt der Channel die Sound-Konfiguration vollständig.
-
-            // Nur für Pre-O Geräte (< API 26) setzen wir den Sound direkt
-            val settingsManager = SettingsManager.getInstance(context)
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O && settingsManager.isSoundEnabled) {
-                val alarmUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
-                builder.setSound(alarmUri)
-            }
-
-            if (settingsManager.isVibrationEnabled) {
-                builder.setVibrate(longArrayOf(0, 1000, 1000))
-            }
+            // ✅ FIX: Sound wird komplett über AlarmReceiver.playAlarmSound() (MediaPlayer) gesteuert.
+            // Notification selbst ist lautlos, um doppelte Sounds und Interferenz zu vermeiden.
+            builder.setSilent(true)
 
             // ✅ KRITISCH: Dismiss-Action zum Stoppen des Alarms
             val dismissIntent = Intent(context, com.example.timerapp.AlarmReceiver::class.java).apply {
                 action = "DISMISS_ALARM"
+                // ✅ FIX: Timer-IDs mitgeben damit nur die spezifische Notification gecancelt wird
+                putExtra("DISMISS_TIMER_IDS", timerIds.toTypedArray())
             }
             val dismissPendingIntent = PendingIntent.getBroadcast(
                 context,
