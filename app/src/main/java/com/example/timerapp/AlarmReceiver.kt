@@ -48,7 +48,13 @@ class AlarmReceiver : BroadcastReceiver() {
 
         fun playAlarmSound(context: Context, escalate: Boolean = false) {
             try {
-                stopAlarmSound() // Falls noch läuft
+                // ✅ FIX: Wenn Sound bereits läuft, NICHT neu starten!
+                // Verhindert Unterbrechungen bei gruppierten Timern
+                if (mediaPlayer?.isPlaying == true) {
+                    Log.d("AlarmReceiver", "🔊 Sound läuft bereits - überspringe Neustart")
+                    return
+                }
+                stopAlarmSound() // Nur stoppen wenn nicht mehr aktiv (z.B. Fehler-Zustand)
 
                 val settingsManager = SettingsManager.getInstance(context)
 
@@ -159,9 +165,18 @@ class AlarmReceiver : BroadcastReceiver() {
             stopAlarmSound()
             stopVibration()
 
-            // Entferne Notification
+            // ✅ FIX: Entferne nur die spezifische Notification, nicht ALLE
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            notificationManager.cancelAll()
+            val dismissTimerIds = intent.getStringArrayExtra("DISMISS_TIMER_IDS")
+            if (dismissTimerIds != null) {
+                val groupId = dismissTimerIds.joinToString("_")
+                notificationManager.cancel(groupId.hashCode())
+                Log.d("AlarmReceiver", "🔕 Notification gecancelt: ${groupId.hashCode()}")
+            } else {
+                // Fallback: Alle canceln wenn keine spezifische ID vorhanden
+                notificationManager.cancelAll()
+                Log.d("AlarmReceiver", "🔕 Alle Notifications gecancelt (Fallback)")
+            }
             return
         }
 
