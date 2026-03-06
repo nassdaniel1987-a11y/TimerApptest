@@ -130,48 +130,52 @@ class TimerViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
 
-            val oldTimerIds = timers.value.map { it.id }.toSet()
+            try {
+                val oldTimerIds = timers.value.map { it.id }.toSet()
 
-            // Zuerst ausstehende Sync-Operationen hochladen
-            syncManager.processPendingSync()
+                // Zuerst ausstehende Sync-Operationen hochladen
+                syncManager.processPendingSync()
 
-            // Dann Server-Daten laden (bei Offline-Fehler bleiben Room-Daten erhalten)
-            repository.refreshTimers()
-                .onError { exception, _ ->
-                    if (timers.value.isEmpty()) {
-                        setError(exception.message ?: "Fehler beim Laden der Timer")
+                // Dann Server-Daten laden (bei Offline-Fehler bleiben Room-Daten erhalten)
+                repository.refreshTimers()
+                    .onError { exception, _ ->
+                        if (timers.value.isEmpty()) {
+                            setError(exception.message ?: "Fehler beim Laden der Timer")
+                        }
+                        // Wenn Room-Daten vorhanden, kein Fehler anzeigen (Offline ok)
                     }
-                    // Wenn Room-Daten vorhanden, kein Fehler anzeigen (Offline ok)
+
+                repository.refreshCategories()
+                repository.refreshTemplates()
+                repository.refreshQRCodes()
+
+                val newTimerIds = timers.value.map { it.id }.toSet()
+                val deletedTimerIds = oldTimerIds - newTimerIds
+
+                deletedTimerIds.forEach { timerId ->
+                    alarmScheduler.cancelAlarm(timerId)
                 }
 
-            repository.refreshCategories()
-            repository.refreshTemplates()
-            repository.refreshQRCodes()
+                val allActive = timers.value.filter { !it.is_completed }
+                val klasseFilter = settingsManager.klasseFilter
+                val toSchedule = if (klasseFilter.isNotEmpty()) {
+                    allActive.filter { it.klasse in klasseFilter }
+                } else {
+                    allActive
+                }
+                alarmScheduler.rescheduleAllAlarms(allActive, toSchedule)
+                Log.d("TimerViewModel", "🔔 Alarme geplant: ${toSchedule.size}/${allActive.size} (Filter: ${klasseFilter.ifEmpty { setOf("Alle") }})")
 
-            val newTimerIds = timers.value.map { it.id }.toSet()
-            val deletedTimerIds = oldTimerIds - newTimerIds
+                if (settingsManager.isAutoCleanupEnabled) {
+                    cleanupCompletedTimers()
+                }
 
-            deletedTimerIds.forEach { timerId ->
-                alarmScheduler.cancelAlarm(timerId)
+                updateWidgetCache()
+            } catch (e: Exception) {
+                Log.e("TimerViewModel", "❌ Sync fehlgeschlagen: ${e.message}")
+            } finally {
+                _isLoading.value = false
             }
-
-            val allActive = timers.value.filter { !it.is_completed }
-            val klasseFilter = settingsManager.klasseFilter
-            val toSchedule = if (klasseFilter.isNotEmpty()) {
-                allActive.filter { it.klasse in klasseFilter }
-            } else {
-                allActive
-            }
-            alarmScheduler.rescheduleAllAlarms(allActive, toSchedule)
-            Log.d("TimerViewModel", "🔔 Alarme geplant: ${toSchedule.size}/${allActive.size} (Filter: ${klasseFilter.ifEmpty { setOf("Alle") }})")
-
-            if (settingsManager.isAutoCleanupEnabled) {
-                cleanupCompletedTimers()
-            }
-
-            updateWidgetCache()
-
-            _isLoading.value = false
         }
     }
 
@@ -214,6 +218,7 @@ class TimerViewModel @Inject constructor(
                         // Room-Flow aktualisiert UI automatisch
                         updateWidgetCache()
                         debouncedRescheduleAlarms()
+                        syncManager.triggerSyncIfOnline()
                         Log.d("TimerViewModel", "✅ Timer erstellt: ${createdTimer.name}")
                     }
                     .onError { exception, _ ->
@@ -230,6 +235,7 @@ class TimerViewModel @Inject constructor(
                     .onSuccess {
                         updateWidgetCache()
                         debouncedRescheduleAlarms()
+                        syncManager.triggerSyncIfOnline()
                         Log.d("TimerViewModel", "✅ Timer aktualisiert: $id")
                     }
                     .onError { exception, _ ->
@@ -271,6 +277,7 @@ class TimerViewModel @Inject constructor(
                     .onSuccess {
                         updateWidgetCache()
                         debouncedRescheduleAlarms()
+                        syncManager.triggerSyncIfOnline()
                         Log.d("TimerViewModel", "✅ Timer gelöscht: $id")
                     }
                     .onError { exception, _ ->
@@ -351,6 +358,7 @@ class TimerViewModel @Inject constructor(
                         }
 
                         debouncedRescheduleAlarms()
+                        syncManager.triggerSyncIfOnline()
                         Log.d("TimerViewModel", "✅ Timer abgeschlossen: $id")
                     }
                     .onError { exception, _ ->
@@ -365,6 +373,7 @@ class TimerViewModel @Inject constructor(
         viewModelScope.launch {
             repository.createCategory(category)
                 .onSuccess {
+                    syncManager.triggerSyncIfOnline()
                     Log.d("TimerViewModel", "✅ Kategorie erstellt")
                 }
                 .onError { exception, _ ->
@@ -377,6 +386,7 @@ class TimerViewModel @Inject constructor(
         viewModelScope.launch {
             repository.deleteCategory(id)
                 .onSuccess {
+                    syncManager.triggerSyncIfOnline()
                     Log.d("TimerViewModel", "✅ Kategorie gelöscht")
                 }
                 .onError { exception, _ ->
@@ -390,6 +400,7 @@ class TimerViewModel @Inject constructor(
         viewModelScope.launch {
             repository.createTemplate(template)
                 .onSuccess {
+                    syncManager.triggerSyncIfOnline()
                     Log.d("TimerViewModel", "✅ Template erstellt")
                 }
                 .onError { exception, _ ->
@@ -402,6 +413,7 @@ class TimerViewModel @Inject constructor(
         viewModelScope.launch {
             repository.deleteTemplate(id)
                 .onSuccess {
+                    syncManager.triggerSyncIfOnline()
                     Log.d("TimerViewModel", "✅ Template gelöscht")
                 }
                 .onError { exception, _ ->
@@ -415,6 +427,7 @@ class TimerViewModel @Inject constructor(
         viewModelScope.launch {
             repository.createQRCode(qrCode)
                 .onSuccess { createdQRCode ->
+                    syncManager.triggerSyncIfOnline()
                     Log.d("TimerViewModel", "✅ QR-Code erstellt")
                 }
                 .onError { exception, _ ->
@@ -427,6 +440,7 @@ class TimerViewModel @Inject constructor(
         viewModelScope.launch {
             repository.deleteQRCode(id)
                 .onSuccess {
+                    syncManager.triggerSyncIfOnline()
                     Log.d("TimerViewModel", "✅ QR-Code gelöscht")
                 }
                 .onError { exception, _ ->
