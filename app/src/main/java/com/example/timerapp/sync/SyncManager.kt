@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 
 class SyncManager(
@@ -69,32 +70,49 @@ class SyncManager(
     }
 
     /**
+     * Triggert Sync im Hintergrund, falls online.
+     * Wird nach jeder CRUD-Operation aufgerufen.
+     */
+    fun triggerSyncIfOnline() {
+        if (_isOnline.value && !_isSyncing.value) {
+            scope.launch { processPendingSync() }
+        }
+    }
+
+    /**
      * Verarbeitet die Sync-Queue FIFO.
      * Bei Fehler wird gestoppt — nächster Versuch bei nächstem Trigger.
+     * Timeout: 30s pro Operation, 120s gesamt.
      */
     suspend fun processPendingSync() {
         if (_isSyncing.value) return
         _isSyncing.value = true
 
         try {
-            val pending = pendingSyncDao.getAllPending()
-            if (pending.isEmpty()) {
-                Log.d(TAG, "✅ Keine ausstehenden Sync-Operationen")
-                return
-            }
+            withTimeout(120_000L) {
+                val pending = pendingSyncDao.getAllPending()
+                if (pending.isEmpty()) {
+                    Log.d(TAG, "✅ Keine ausstehenden Sync-Operationen")
+                    return@withTimeout
+                }
 
-            Log.d(TAG, "🔄 Verarbeite ${pending.size} Sync-Operationen...")
+                Log.d(TAG, "🔄 Verarbeite ${pending.size} Sync-Operationen...")
 
-            for (op in pending) {
-                try {
-                    executeSyncOperation(op)
-                    pendingSyncDao.delete(op)
-                    Log.d(TAG, "✅ Sync erfolgreich: ${op.operation} ${op.entity_type} ${op.entity_id}")
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ Sync fehlgeschlagen bei ${op.entity_type}/${op.operation}: ${e.message}")
-                    break // Bei Fehler stoppen, nächstes Mal erneut versuchen
+                for (op in pending) {
+                    try {
+                        withTimeout(30_000L) {
+                            executeSyncOperation(op)
+                        }
+                        pendingSyncDao.delete(op)
+                        Log.d(TAG, "✅ Sync erfolgreich: ${op.operation} ${op.entity_type} ${op.entity_id}")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Sync fehlgeschlagen bei ${op.entity_type}/${op.operation}: ${e.message}")
+                        break // Bei Fehler stoppen, nächstes Mal erneut versuchen
+                    }
                 }
             }
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            Log.e(TAG, "⏱️ Sync-Timeout — wird beim nächsten Trigger erneut versucht")
         } finally {
             _isSyncing.value = false
         }
