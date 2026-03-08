@@ -38,6 +38,12 @@ CREATE TRIGGER fcm_tokens_updated_at
 
 
 -- =====================================================
+-- 1b. source_device_id Spalte zur timers-Tabelle hinzufügen
+-- =====================================================
+-- Damit das eigene Gerät keinen Push bekommt wenn es selbst einen Timer erstellt/ändert
+ALTER TABLE timers ADD COLUMN IF NOT EXISTS source_device_id TEXT DEFAULT NULL;
+
+-- =====================================================
 -- 2. Webhook/Trigger für Timer-Änderungen
 -- =====================================================
 -- Dieser Trigger ruft eine Supabase Edge Function auf,
@@ -76,6 +82,7 @@ BEGIN
     END IF;
 
     -- Edge Function aufrufen (asynchron via pg_net)
+    -- source_device_id wird mitgesendet damit das eigene Gerät keinen Push bekommt
     PERFORM net.http_post(
         url := supabase_url || '/functions/v1/send-push-notification',
         headers := jsonb_build_object(
@@ -85,7 +92,8 @@ BEGIN
         body := jsonb_build_object(
             'event_type', event_type,
             'timer_name', timer_name,
-            'timer_data', timer_data
+            'timer_data', timer_data,
+            'source_device_id', timer_data->>'source_device_id'
         )
     );
 

@@ -39,7 +39,8 @@ object AppModule {
             context,
             AppDatabase::class.java,
             "timer_database"
-        ).build()
+        ).addMigrations(AppDatabase.MIGRATION_1_2)
+        .build()
     }
 
     @Provides
@@ -71,9 +72,10 @@ object AppModule {
         categoryDao: CategoryDao,
         templateDao: TimerTemplateDao,
         qrCodeDao: QRCodeDao,
-        pendingSyncDao: PendingSyncDao
+        pendingSyncDao: PendingSyncDao,
+        fcmTokenManager: FcmTokenManager
     ): TimerRepository {
-        return TimerRepository(supabaseClient, timerDao, categoryDao, templateDao, qrCodeDao, pendingSyncDao)
+        return TimerRepository(supabaseClient, timerDao, categoryDao, templateDao, qrCodeDao, pendingSyncDao, fcmTokenManager)
     }
 
     @Provides
