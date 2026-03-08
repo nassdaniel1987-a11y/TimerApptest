@@ -11,6 +11,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.timerapp.sync.SyncManager
 import com.example.timerapp.sync.SyncWorker
+import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -35,6 +36,15 @@ class TimerApplication : Application(), Configuration.Provider {
         // Netzwerk-Monitoring starten
         syncManager.startMonitoring()
         Log.d("TimerApplication", "✅ SyncManager gestartet")
+
+        // FCM Token abrufen (zum Testen)
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                Log.d("TimerApplication", "FCM Token: ${task.result}")
+            } else {
+                Log.w("TimerApplication", "FCM Token abrufen fehlgeschlagen", task.exception)
+            }
+        }
 
         // Periodischen Sync-Worker schedulen (alle 15 Minuten, nur mit Netzwerk)
         scheduleSyncWorker()
