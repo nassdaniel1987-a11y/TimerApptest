@@ -129,6 +129,9 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
 
+    // Coroutines Play Services (für Firebase await())
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
     // Core
     implementation("androidx.core:core-ktx:1.13.1")
 
