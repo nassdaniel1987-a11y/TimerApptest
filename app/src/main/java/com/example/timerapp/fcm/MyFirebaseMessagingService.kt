@@ -8,15 +8,27 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.timerapp.MainActivity
 import com.example.timerapp.R
+import com.example.timerapp.SupabaseClient
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d(TAG, "FCM Token: $token")
-        // TODO: Token an Supabase senden wenn User-Auth implementiert wird
+        Log.d(TAG, "Neuer FCM Token: $token")
+
+        // Token sofort in Supabase aktualisieren
+        val tokenManager = FcmTokenManager(applicationContext, SupabaseClient.client)
+        serviceScope.launch {
+            tokenManager.registerToken()
+        }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
@@ -41,15 +53,26 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     private fun handleDataMessage(data: Map<String, String>) {
         val type = data["type"] ?: return
         when (type) {
-            "timer_reminder" -> {
+            "timer_created" -> {
                 showNotification(
-                    title = data["title"] ?: "Timer Erinnerung",
-                    body = data["body"] ?: "Ein Timer wartet auf dich!"
+                    title = data["title"] ?: "Neuer Timer",
+                    body = data["body"] ?: "Ein neuer Timer wurde erstellt"
+                )
+            }
+            "timer_deleted" -> {
+                showNotification(
+                    title = data["title"] ?: "Timer gelöscht",
+                    body = data["body"] ?: "Ein Timer wurde gelöscht"
+                )
+            }
+            "timer_expired" -> {
+                showNotification(
+                    title = data["title"] ?: "Timer abgelaufen",
+                    body = data["body"] ?: "Ein Timer ist abgelaufen!"
                 )
             }
             "sync" -> {
                 Log.d(TAG, "Sync-Nachricht empfangen")
-                // Kann später SyncManager triggern
             }
         }
     }
@@ -64,7 +87,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             "Push-Benachrichtigungen",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "Benachrichtigungen von Firebase"
+            description = "Benachrichtigungen von anderen Geräten"
         }
         notificationManager.createNotificationChannel(channel)
 

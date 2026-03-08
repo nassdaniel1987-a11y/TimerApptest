@@ -9,10 +9,14 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.example.timerapp.fcm.FcmTokenManager
 import com.example.timerapp.sync.SyncManager
 import com.example.timerapp.sync.SyncWorker
-import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -24,6 +28,11 @@ class TimerApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
+
+    @Inject
+    lateinit var fcmTokenManager: FcmTokenManager
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -37,13 +46,9 @@ class TimerApplication : Application(), Configuration.Provider {
         syncManager.startMonitoring()
         Log.d("TimerApplication", "✅ SyncManager gestartet")
 
-        // FCM Token abrufen (zum Testen)
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                Log.d("TimerApplication", "FCM Token: ${task.result}")
-            } else {
-                Log.w("TimerApplication", "FCM Token abrufen fehlgeschlagen", task.exception)
-            }
+        // FCM Token bei Supabase registrieren
+        appScope.launch {
+            fcmTokenManager.registerToken()
         }
 
         // Periodischen Sync-Worker schedulen (alle 15 Minuten, nur mit Netzwerk)

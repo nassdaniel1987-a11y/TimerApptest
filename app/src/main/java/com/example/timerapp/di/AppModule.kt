@@ -10,6 +10,7 @@ import com.example.timerapp.data.dao.PendingSyncDao
 import com.example.timerapp.data.dao.QRCodeDao
 import com.example.timerapp.data.dao.TimerDao
 import com.example.timerapp.data.dao.TimerTemplateDao
+import com.example.timerapp.fcm.FcmTokenManager
 import com.example.timerapp.repository.TimerRepository
 import com.example.timerapp.sync.SyncManager
 import com.example.timerapp.utils.AlarmScheduler
@@ -89,5 +90,14 @@ object AppModule {
     @Singleton
     fun provideAlarmScheduler(@ApplicationContext context: Context): AlarmScheduler {
         return AlarmScheduler(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFcmTokenManager(
+        @ApplicationContext context: Context,
+        supabaseClient: SupabaseClientType
+    ): FcmTokenManager {
+        return FcmTokenManager(context, supabaseClient)
     }
 }
