@@ -14,11 +14,18 @@ import com.example.timerapp.models.Result
 import com.example.timerapp.models.Timer
 import com.example.timerapp.models.TimerTemplate
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.PostgresAction
+import io.github.jan.supabase.realtime.RealtimeChannel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -54,6 +61,10 @@ class TimerRepository(
     // Sync-Status für UI
     val pendingSyncCount: Flow<Int> = pendingSyncDao.getPendingCount()
 
+    // Realtime
+    private var realtimeChannel: RealtimeChannel? = null
+    private var realtimeJob: Job? = null
+
     /**
      * Startet das Beobachten der Room-Flows.
      * Room-Änderungen werden automatisch in die StateFlows propagiert.
@@ -78,6 +89,43 @@ class TimerRepository(
         scope.launch {
             qrCodeDao.getAllQRCodes().collect { _qrCodes.value = it }
         }
+    }
+
+    /**
+     * Startet Supabase Realtime — lauscht auf Änderungen in der timers-Tabelle.
+     * Bei jeder Änderung wird ein vollständiger Refresh aus Supabase gemacht.
+     */
+    fun startRealtime(scope: CoroutineScope) {
+        if (realtimeChannel != null) return // Bereits aktiv
+
+        scope.launch {
+            try {
+                val channel = client.channel("timer-realtime")
+                val changeFlow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                    table = "timers"
+                }
+
+                realtimeJob = changeFlow.onEach { action ->
+                    Log.d(TAG, "Realtime-Event: ${action::class.simpleName}")
+                    // Vollständiger Refresh bei jeder Änderung
+                    refreshTimers()
+                    refreshCategories()
+                }.launchIn(scope)
+
+                channel.subscribe()
+                realtimeChannel = channel
+                Log.d(TAG, "Realtime-Subscription aktiv für timers-Tabelle")
+            } catch (e: Exception) {
+                Log.e(TAG, "Realtime-Subscription fehlgeschlagen: ${e.message}")
+            }
+        }
+    }
+
+    fun stopRealtime() {
+        realtimeJob?.cancel()
+        realtimeJob = null
+        realtimeChannel = null
+        Log.d(TAG, "Realtime-Subscription gestoppt")
     }
 
     // ── Timer Operations (Room-First) ──

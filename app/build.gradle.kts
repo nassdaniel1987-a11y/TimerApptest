@@ -80,6 +80,7 @@ dependencies {
 
     // Supabase
     implementation("io.github.jan-tennert.supabase:postgrest-kt:2.0.0")
+    implementation("io.github.jan-tennert.supabase:realtime-kt:2.0.0")
     implementation("io.ktor:ktor-client-android:2.3.7")
 
     // Kotlinx Serialization

@@ -9,8 +9,13 @@ import androidx.core.app.NotificationCompat
 import com.example.timerapp.MainActivity
 import com.example.timerapp.R
 import com.example.timerapp.SupabaseClient
+import com.example.timerapp.repository.TimerRepository
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,7 +23,20 @@ import kotlinx.coroutines.launch
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface FcmServiceEntryPoint {
+        fun timerRepository(): TimerRepository
+    }
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val repository: TimerRepository by lazy {
+        EntryPointAccessors.fromApplication(
+            applicationContext,
+            FcmServiceEntryPoint::class.java
+        ).timerRepository()
+    }
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
@@ -52,6 +70,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     private fun handleDataMessage(data: Map<String, String>) {
         val type = data["type"] ?: return
+
+        // Hintergrund-Sync: Lokale Daten aktualisieren bei jeder Änderung
+        serviceScope.launch {
+            try {
+                repository.refreshTimers()
+                repository.refreshCategories()
+                Log.d(TAG, "Hintergrund-Sync nach FCM abgeschlossen")
+            } catch (e: Exception) {
+                Log.e(TAG, "Hintergrund-Sync fehlgeschlagen: ${e.message}")
+            }
+        }
+
         when (type) {
             "timer_created" -> {
                 showNotification(
