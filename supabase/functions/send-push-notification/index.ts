@@ -13,6 +13,7 @@ interface PushPayload {
   event_type: "timer_created" | "timer_deleted" | "timer_expired";
   timer_name: string;
   timer_data: Record<string, unknown>;
+  source_device_id?: string; // Gerät das die Aktion ausgelöst hat (wird gefiltert)
 }
 
 // --- Google OAuth2 Token holen (für FCM V1 API) ---
@@ -154,13 +155,26 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Eigenes Gerät rausfiltern — kein Push an das Gerät das die Aktion ausgelöst hat
+    const sourceDeviceId = payload.source_device_id || payload.timer_data?.source_device_id;
+    const filteredTokens = sourceDeviceId
+      ? tokens.filter((t) => t.device_id !== sourceDeviceId)
+      : tokens;
+
+    if (filteredTokens.length === 0) {
+      console.log("Alle Geräte gefiltert (nur eigenes Gerät registriert)");
+      return new Response(JSON.stringify({ message: "Keine anderen Geräte", filtered: tokens.length }), {
+        status: 200,
+      });
+    }
+
     const message = buildMessage(payload);
     const projectId = serviceAccount.project_id;
-    console.log(`Sende Push an ${tokens.length} Geräte:`, message.title);
+    console.log(`Sende Push an ${filteredTokens.length}/${tokens.length} Geräte (${sourceDeviceId ? 'eigenes Gerät gefiltert' : 'kein Filter'}):`, message.title);
 
-    // Push an jedes Gerät senden (FCM V1 API)
+    // Push an jedes Gerät senden (FCM V1 API) — eigenes Gerät bereits gefiltert
     const results = await Promise.allSettled(
-      tokens.map(async (token) => {
+      filteredTokens.map(async (token) => {
         const response = await fetch(
           `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
           {
@@ -212,12 +226,13 @@ Deno.serve(async (req) => {
     const successful = results.filter(
       (r) => r.status === "fulfilled" && r.value.status === 200
     ).length;
-    console.log(`Push gesendet: ${successful}/${tokens.length} erfolgreich`);
+    console.log(`Push gesendet: ${successful}/${filteredTokens.length} erfolgreich`);
 
     return new Response(
       JSON.stringify({
         sent: successful,
-        total: tokens.length,
+        total: filteredTokens.length,
+        filtered: sourceDeviceId ? 1 : 0,
         event: payload.event_type,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }

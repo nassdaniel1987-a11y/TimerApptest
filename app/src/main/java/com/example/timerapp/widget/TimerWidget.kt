@@ -74,7 +74,7 @@ class RefreshWidgetAction : ActionCallback {
         try {
             val db = androidx.room.Room.databaseBuilder(
                 context, com.example.timerapp.data.AppDatabase::class.java, "timer_database"
-            ).build()
+            ).addMigrations(com.example.timerapp.data.AppDatabase.MIGRATION_1_2).build()
 
             val timers = withContext(Dispatchers.IO) {
                 db.timerDao().getActiveTimersForWidget()
@@ -111,7 +111,7 @@ class CompleteTimerAction : ActionCallback {
         try {
             val db = androidx.room.Room.databaseBuilder(
                 context, com.example.timerapp.data.AppDatabase::class.java, "timer_database"
-            ).build()
+            ).addMigrations(com.example.timerapp.data.AppDatabase.MIGRATION_1_2).build()
 
             withContext(Dispatchers.IO) {
                 db.timerDao().markCompleted(timerId)

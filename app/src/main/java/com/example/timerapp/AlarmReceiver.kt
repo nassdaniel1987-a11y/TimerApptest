@@ -205,7 +205,7 @@ class AlarmReceiver : BroadcastReceiver() {
                         context,
                         com.example.timerapp.data.AppDatabase::class.java,
                         "timer_database"
-                    ).build()
+                    ).addMigrations(com.example.timerapp.data.AppDatabase.MIGRATION_1_2).build()
                     val currentTimerIds = db.timerDao().getActiveTimersForWidget().map { it.id }.toSet()
 
                     // Filtere nur noch existierende Timer
@@ -266,7 +266,7 @@ class AlarmReceiver : BroadcastReceiver() {
                         context,
                         com.example.timerapp.data.AppDatabase::class.java,
                         "timer_database"
-                    ).build()
+                    ).addMigrations(com.example.timerapp.data.AppDatabase.MIGRATION_1_2).build()
                     val timerExists = db.timerDao().getTimerById(timerId) != null
 
                     if (!timerExists) {

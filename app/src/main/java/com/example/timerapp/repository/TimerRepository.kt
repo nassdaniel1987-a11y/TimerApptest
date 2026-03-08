@@ -7,6 +7,7 @@ import com.example.timerapp.data.dao.QRCodeDao
 import com.example.timerapp.data.dao.TimerDao
 import com.example.timerapp.data.dao.TimerTemplateDao
 import com.example.timerapp.data.entity.PendingSyncEntity
+import com.example.timerapp.fcm.FcmTokenManager
 import com.example.timerapp.models.Category
 import com.example.timerapp.models.QRCodeData
 import com.example.timerapp.models.Result
@@ -31,7 +32,8 @@ class TimerRepository(
     private val categoryDao: CategoryDao,
     private val templateDao: TimerTemplateDao,
     private val qrCodeDao: QRCodeDao,
-    private val pendingSyncDao: PendingSyncDao
+    private val pendingSyncDao: PendingSyncDao,
+    private val fcmTokenManager: FcmTokenManager
 ) {
     private val TAG = "TimerRepository"
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
@@ -82,12 +84,14 @@ class TimerRepository(
 
     suspend fun createTimer(timer: Timer): Result<Timer> {
         return try {
+            val deviceId = fcmTokenManager.getDeviceId()
             val newTimer = if (timer.id.isBlank()) {
                 timer.copy(
                     id = UUID.randomUUID().toString(),
-                    created_at = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    created_at = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                    source_device_id = deviceId
                 )
-            } else timer
+            } else timer.copy(source_device_id = deviceId)
 
             timerDao.insertTimer(newTimer)
             enqueueSyncOperation("timer", "CREATE", newTimer.id, json.encodeToString(newTimer))
@@ -101,8 +105,9 @@ class TimerRepository(
 
     suspend fun updateTimer(id: String, timer: Timer): Result<Unit> {
         return try {
-            timerDao.updateTimer(timer)
-            enqueueSyncOperation("timer", "UPDATE", id, json.encodeToString(timer))
+            val timerWithDevice = timer.copy(source_device_id = fcmTokenManager.getDeviceId())
+            timerDao.updateTimer(timerWithDevice)
+            enqueueSyncOperation("timer", "UPDATE", id, json.encodeToString(timerWithDevice))
             Log.d(TAG, "✅ Timer aktualisiert (lokal): $id")
             Result.Success(Unit)
         } catch (e: Exception) {
@@ -113,6 +118,14 @@ class TimerRepository(
 
     suspend fun deleteTimer(id: String): Result<Unit> {
         return try {
+            // Vor dem Löschen: source_device_id setzen, damit der DB-Trigger
+            // das richtige Gerät kennt und keinen Push an dieses Gerät sendet
+            val deviceId = fcmTokenManager.getDeviceId()
+            val existingTimer = timerDao.getTimerById(id)
+            if (existingTimer != null) {
+                val updatedTimer = existingTimer.copy(source_device_id = deviceId)
+                enqueueSyncOperation("timer", "UPDATE", id, json.encodeToString(updatedTimer))
+            }
             timerDao.deleteTimer(id)
             enqueueSyncOperation("timer", "DELETE", id, "")
             Log.d(TAG, "✅ Timer gelöscht (lokal): $id")
@@ -128,7 +141,8 @@ class TimerRepository(
             timerDao.markCompleted(id)
             val updatedTimer = timerDao.getTimerById(id)
             if (updatedTimer != null) {
-                enqueueSyncOperation("timer", "UPDATE", id, json.encodeToString(updatedTimer))
+                val timerWithDevice = updatedTimer.copy(source_device_id = fcmTokenManager.getDeviceId())
+                enqueueSyncOperation("timer", "UPDATE", id, json.encodeToString(timerWithDevice))
             }
             Log.d(TAG, "✅ Timer abgeschlossen (lokal): $id")
             Result.Success(Unit)
