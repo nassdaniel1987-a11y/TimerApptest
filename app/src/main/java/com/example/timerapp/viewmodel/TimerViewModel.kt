@@ -69,8 +69,15 @@ class TimerViewModel @Inject constructor(
     init {
         // Room-Flows → StateFlows (automatische Updates bei DB-Änderungen)
         repository.observeAll(viewModelScope)
+        // Realtime-Subscription starten (Live-Updates wenn App offen)
+        repository.startRealtime(viewModelScope)
         // Server-Daten laden (falls online — falls offline bleiben Room-Daten erhalten)
         sync()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        repository.stopRealtime()
     }
 
     private fun setError(message: String) {

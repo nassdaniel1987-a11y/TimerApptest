@@ -2,6 +2,7 @@ package com.example.timerapp
 
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.realtime.Realtime
 
 object SupabaseClient {
 
@@ -14,8 +15,6 @@ object SupabaseClient {
         supabaseKey = SUPABASE_ANON_KEY
     ) {
         install(Postgrest)
-
-        // ℹ️ Note: Timeout-Handling erfolgt über RetryUtils mit Exponential Backoff
-        // Supabase-Client nutzt eigene Default-Timeouts, Retry-Logik fängt Timeouts ab
+        install(Realtime)
     }
 }
