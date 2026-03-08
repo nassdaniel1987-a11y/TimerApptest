@@ -6,9 +6,11 @@ import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
-import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 @Serializable
 data class FcmTokenEntry(
@@ -24,21 +26,19 @@ class FcmTokenManager(
 ) {
     private val TAG = "FcmTokenManager"
 
-    /**
-     * Generiert eine stabile Device-ID basierend auf ANDROID_ID.
-     * Bleibt gleich solange die App installiert ist.
-     */
     fun getDeviceId(): String {
         return Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
     }
 
-    /**
-     * Holt den aktuellen FCM Token und speichert ihn in Supabase.
-     * Nutzt UPSERT - existierender Eintrag wird aktualisiert, neuer wird erstellt.
-     */
+    private suspend fun getFcmToken(): String = suspendCoroutine { cont ->
+        FirebaseMessaging.getInstance().token
+            .addOnSuccessListener { token -> cont.resume(token) }
+            .addOnFailureListener { e -> cont.resumeWithException(e) }
+    }
+
     suspend fun registerToken() {
         try {
-            val token = FirebaseMessaging.getInstance().token.await()
+            val token = getFcmToken()
             val deviceId = getDeviceId()
             val deviceName = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
 
@@ -48,9 +48,7 @@ class FcmTokenManager(
                 deviceName = deviceName
             )
 
-            supabaseClient.from("fcm_tokens").upsert(entry) {
-                onConflict = "device_id"
-            }
+            supabaseClient.from("fcm_tokens").upsert(entry)
 
             Log.d(TAG, "FCM Token registriert für Gerät: $deviceName ($deviceId)")
         } catch (e: Exception) {
@@ -58,9 +56,6 @@ class FcmTokenManager(
         }
     }
 
-    /**
-     * Entfernt den Token (z.B. wenn User sich abmeldet oder App deinstalliert).
-     */
     suspend fun unregisterToken() {
         try {
             val deviceId = getDeviceId()
