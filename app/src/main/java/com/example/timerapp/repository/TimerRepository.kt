@@ -20,6 +20,7 @@ import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.RealtimeChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.ZonedDateTime
@@ -64,6 +67,10 @@ class TimerRepository(
     // Realtime
     private var realtimeChannel: RealtimeChannel? = null
     private var realtimeJob: Job? = null
+    private var realtimeDebounceJob: Job? = null
+
+    // Mutex verhindert gleichzeitige Refreshes (FCM + Realtime + manuell)
+    private val refreshMutex = Mutex()
 
     /**
      * Startet das Beobachten der Room-Flows.
@@ -93,7 +100,8 @@ class TimerRepository(
 
     /**
      * Startet Supabase Realtime — lauscht auf Änderungen in der timers-Tabelle.
-     * Bei jeder Änderung wird ein vollständiger Refresh aus Supabase gemacht.
+     * Bei jeder Änderung wird ein debounced Refresh gemacht (300ms),
+     * damit mehrere schnelle Events zu einem Refresh zusammengefasst werden.
      */
     fun startRealtime(scope: CoroutineScope) {
         if (realtimeChannel != null) return // Bereits aktiv
@@ -107,9 +115,12 @@ class TimerRepository(
 
                 realtimeJob = changeFlow.onEach { action ->
                     Log.d(TAG, "Realtime-Event: ${action::class.simpleName}")
-                    // Vollständiger Refresh bei jeder Änderung
-                    refreshTimers()
-                    refreshCategories()
+                    // Debounce: Mehrere Events innerhalb 300ms → ein Refresh
+                    realtimeDebounceJob?.cancel()
+                    realtimeDebounceJob = scope.launch {
+                        delay(300)
+                        refreshTimers()
+                    }
                 }.launchIn(scope)
 
                 channel.subscribe()
@@ -123,7 +134,9 @@ class TimerRepository(
 
     fun stopRealtime() {
         realtimeJob?.cancel()
+        realtimeDebounceJob?.cancel()
         realtimeJob = null
+        realtimeDebounceJob = null
         realtimeChannel = null
         Log.d(TAG, "Realtime-Subscription gestoppt")
     }
@@ -202,18 +215,20 @@ class TimerRepository(
 
     /**
      * Pull vom Server — ersetzt lokale Daten mit Server-Daten.
-     * Bei Netzwerk-Fehler bleiben die Room-Daten erhalten.
+     * Nutzt @Transaction damit die UI keinen Zwischenzustand (leere Liste) sieht.
+     * Mutex verhindert gleichzeitige Refreshes von FCM/Realtime/manuell.
      */
     suspend fun refreshTimers(): Result<Unit> {
-        return try {
-            val response = client.from("timers").select().decodeList<Timer>()
-            timerDao.deleteAllTimers()
-            timerDao.insertTimers(response)
-            Log.d(TAG, "✅ ${response.size} Timer vom Server geladen")
-            Result.Success(Unit)
-        } catch (e: Exception) {
-            Log.w(TAG, "⚠️ Server-Refresh fehlgeschlagen (offline?): ${e.message}")
-            Result.Error(e, retryable = true, userMessage = "Offline — zeige lokale Daten")
+        return refreshMutex.withLock {
+            try {
+                val response = client.from("timers").select().decodeList<Timer>()
+                timerDao.replaceAllTimers(response)
+                Log.d(TAG, "✅ ${response.size} Timer vom Server geladen")
+                Result.Success(Unit)
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ Server-Refresh fehlgeschlagen (offline?): ${e.message}")
+                Result.Error(e, retryable = true, userMessage = "Offline — zeige lokale Daten")
+            }
         }
     }
 
@@ -227,8 +242,7 @@ class TimerRepository(
     suspend fun refreshCategories(): Result<Unit> {
         return try {
             val response = client.from("categories").select().decodeList<Category>()
-            categoryDao.deleteAllCategories()
-            categoryDao.insertCategories(response)
+            categoryDao.replaceAllCategories(response)
             Log.d(TAG, "✅ ${response.size} Kategorien vom Server geladen")
             Result.Success(Unit)
         } catch (e: Exception) {

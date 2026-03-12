@@ -69,24 +69,37 @@ class SyncManager(
         Log.d(TAG, "✅ Netzwerk-Monitoring gestartet (online: ${_isOnline.value})")
     }
 
+    // Flag: Sync erneut starten nachdem aktueller Durchlauf fertig ist
+    private var syncAgainAfterCurrent = false
+
     /**
      * Triggert Sync im Hintergrund, falls online.
      * Wird nach jeder CRUD-Operation aufgerufen.
+     * Wenn bereits ein Sync läuft, wird ein erneuter Durchlauf nach Abschluss geplant.
      */
     fun triggerSyncIfOnline() {
-        if (_isOnline.value && !_isSyncing.value) {
-            scope.launch { processPendingSync() }
+        if (!_isOnline.value) return
+
+        if (_isSyncing.value) {
+            // Sync läuft bereits — markiere für erneuten Durchlauf
+            syncAgainAfterCurrent = true
+            Log.d(TAG, "🔄 Sync läuft bereits — erneuter Durchlauf geplant")
+            return
         }
+
+        scope.launch { processPendingSync() }
     }
 
     /**
      * Verarbeitet die Sync-Queue FIFO.
      * Bei Fehler wird gestoppt — nächster Versuch bei nächstem Trigger.
      * Timeout: 30s pro Operation, 120s gesamt.
+     * Nach Abschluss wird geprüft, ob neue Operationen hinzugekommen sind.
      */
     suspend fun processPendingSync() {
         if (_isSyncing.value) return
         _isSyncing.value = true
+        syncAgainAfterCurrent = false
 
         try {
             withTimeout(120_000L) {
@@ -115,6 +128,13 @@ class SyncManager(
             Log.e(TAG, "⏱️ Sync-Timeout — wird beim nächsten Trigger erneut versucht")
         } finally {
             _isSyncing.value = false
+
+            // Prüfe ob während des Syncs neue Operationen hinzugekommen sind
+            if (syncAgainAfterCurrent) {
+                syncAgainAfterCurrent = false
+                Log.d(TAG, "🔄 Starte erneuten Sync-Durchlauf (neue Operationen während Sync)")
+                scope.launch { processPendingSync() }
+            }
         }
     }
 

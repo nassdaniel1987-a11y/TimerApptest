@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.example.timerapp.models.Timer
 import kotlinx.coroutines.flow.Flow
@@ -37,4 +38,10 @@ interface TimerDao {
 
     @Query("SELECT * FROM timers WHERE is_completed = 0 ORDER BY target_time ASC LIMIT 10")
     suspend fun getActiveTimersForWidget(): List<Timer>
+
+    @Transaction
+    suspend fun replaceAllTimers(timers: List<Timer>) {
+        deleteAllTimers()
+        insertTimers(timers)
+    }
 }

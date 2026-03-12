@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.example.timerapp.models.Category
 import kotlinx.coroutines.flow.Flow
 
@@ -24,4 +25,10 @@ interface CategoryDao {
 
     @Query("DELETE FROM categories")
     suspend fun deleteAllCategories()
+
+    @Transaction
+    suspend fun replaceAllCategories(categories: List<Category>) {
+        deleteAllCategories()
+        insertCategories(categories)
+    }
 }
