@@ -225,13 +225,14 @@ class TimerViewModel @Inject constructor(
                         // Room-Flow aktualisiert UI automatisch
                         updateWidgetCache()
                         debouncedRescheduleAlarms()
-                        syncManager.triggerSyncIfOnline()
                         Log.d("TimerViewModel", "✅ Timer erstellt: ${createdTimer.name}")
                     }
                     .onError { exception, _ ->
                         setError("Fehler beim Erstellen des Timers: ${exception.message}")
                     }
             }
+            // Sync NACH dem Mutex-Lock starten, damit der Sync nicht blockiert wird
+            syncManager.triggerSyncIfOnline()
         }
     }
 
@@ -242,13 +243,13 @@ class TimerViewModel @Inject constructor(
                     .onSuccess {
                         updateWidgetCache()
                         debouncedRescheduleAlarms()
-                        syncManager.triggerSyncIfOnline()
                         Log.d("TimerViewModel", "✅ Timer aktualisiert: $id")
                     }
                     .onError { exception, _ ->
                         setError("Fehler beim Aktualisieren: ${exception.message}")
                     }
             }
+            syncManager.triggerSyncIfOnline()
         }
     }
 
@@ -284,13 +285,13 @@ class TimerViewModel @Inject constructor(
                     .onSuccess {
                         updateWidgetCache()
                         debouncedRescheduleAlarms()
-                        syncManager.triggerSyncIfOnline()
                         Log.d("TimerViewModel", "✅ Timer gelöscht: $id")
                     }
                     .onError { exception, _ ->
                         setError("Fehler beim Löschen: ${exception.message}")
                     }
             }
+            syncManager.triggerSyncIfOnline()
         }
     }
 
@@ -365,13 +366,13 @@ class TimerViewModel @Inject constructor(
                         }
 
                         debouncedRescheduleAlarms()
-                        syncManager.triggerSyncIfOnline()
                         Log.d("TimerViewModel", "✅ Timer abgeschlossen: $id")
                     }
                     .onError { exception, _ ->
                         setError("Fehler beim Abschließen: ${exception.message}")
                     }
             }
+            syncManager.triggerSyncIfOnline()
         }
     }
 
