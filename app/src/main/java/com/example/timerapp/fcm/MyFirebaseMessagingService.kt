@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.timerapp.MainActivity
 import com.example.timerapp.R
+import com.example.timerapp.SettingsManager
 import com.example.timerapp.SupabaseClient
 import com.example.timerapp.repository.TimerRepository
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -53,22 +54,28 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(message)
         Log.d(TAG, "FCM Message from: ${message.from}")
 
+        val settingsManager = SettingsManager.getInstance(applicationContext)
+
         // Notification-Payload (wenn App im Vordergrund)
-        message.notification?.let { notification ->
-            showNotification(
-                title = notification.title ?: "TimerApp",
-                body = notification.body ?: ""
-            )
+        if (!settingsManager.isAppPaused) {
+            message.notification?.let { notification ->
+                showNotification(
+                    title = notification.title ?: "TimerApp",
+                    body = notification.body ?: ""
+                )
+            }
+        } else {
+            Log.d(TAG, "Push-Benachrichtigung unterdrückt (Alarme pausiert)")
         }
 
-        // Data-Payload (immer verfügbar)
+        // Data-Payload: Hintergrund-Sync immer ausführen (auch wenn pausiert)
         if (message.data.isNotEmpty()) {
             Log.d(TAG, "FCM Data: ${message.data}")
-            handleDataMessage(message.data)
+            handleDataMessage(message.data, settingsManager)
         }
     }
 
-    private fun handleDataMessage(data: Map<String, String>) {
+    private fun handleDataMessage(data: Map<String, String>, settingsManager: SettingsManager) {
         val type = data["type"] ?: return
 
         // Hintergrund-Sync: Lokale Daten aktualisieren bei jeder Änderung
@@ -80,6 +87,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             } catch (e: Exception) {
                 Log.e(TAG, "Hintergrund-Sync fehlgeschlagen: ${e.message}")
             }
+        }
+
+        // Keine Push-Benachrichtigungen anzeigen wenn Alarme pausiert sind
+        if (settingsManager.isAppPaused) {
+            Log.d(TAG, "Push-Benachrichtigung unterdrückt (Alarme pausiert): $type")
+            return
         }
 
         when (type) {
