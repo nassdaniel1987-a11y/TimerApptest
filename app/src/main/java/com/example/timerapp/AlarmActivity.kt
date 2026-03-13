@@ -1,6 +1,7 @@
 package com.example.timerapp
 
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -14,9 +15,6 @@ import com.example.timerapp.ui.theme.TimerAppTheme
 import java.time.ZonedDateTime
 
 class AlarmActivity : ComponentActivity() {
-
-    // Nur stoppen wenn User explizit dismissed hat (nicht bei Activity-Replace)
-    private var userDismissed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,17 +62,16 @@ class AlarmActivity : ComponentActivity() {
                     timerNames = names,
                     timerCategories = categories,
                     onDismiss = {
-                        userDismissed = true
                         AlarmReceiver.stopAlarmSound()
                         AlarmReceiver.stopVibration()
+                        cancelOngoingNotification(ids)
                         finish()
                     },
                     onSnooze = {
-                        userDismissed = true
                         AlarmReceiver.stopAlarmSound()
                         AlarmReceiver.stopVibration()
+                        cancelOngoingNotification(ids)
 
-                        // ✅ Snooze implementiert
                         scheduleSnooze(ids, names, categories, settingsManager.snoozeMinutes)
                         finish()
                     }
@@ -85,16 +82,26 @@ class AlarmActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // ✅ FIX: Sound NUR stoppen wenn User explizit dismissed/gesnoozed hat.
-        // Wenn eine neue AlarmActivity diese ersetzt (FLAG_ACTIVITY_CLEAR_TASK),
-        // darf der Sound NICHT gestoppt werden, sonst ist der neue Alarm stumm!
-        if (userDismissed) {
-            AlarmReceiver.stopAlarmSound()
-            AlarmReceiver.stopVibration()
+        // IMMER Sound und Vibration stoppen wenn Activity zerstört wird.
+        // Egal ob User dismissed, zurück gewischt, oder Activity vom System beendet.
+        // Falls eine neue AlarmActivity diese ersetzt (FLAG_ACTIVITY_CLEAR_TASK),
+        // startet die neue Activity den Sound automatisch neu (siehe onCreate).
+        AlarmReceiver.stopAlarmSound()
+        AlarmReceiver.stopVibration()
+    }
+
+    // Ongoing-Notification entfernen (da sie nicht wegwischbar ist)
+    private fun cancelOngoingNotification(timerIds: List<String>) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (timerIds.isNotEmpty()) {
+            val groupId = timerIds.joinToString("_")
+            notificationManager.cancel(groupId.hashCode())
+        } else {
+            notificationManager.cancelAll()
         }
     }
 
-    // ✅ Snooze-Funktion: Plant Alarm in X Minuten neu
+    // Snooze-Funktion: Plant Alarm in X Minuten neu
     private fun scheduleSnooze(
         timerIds: List<String>,
         timerNames: List<String>,

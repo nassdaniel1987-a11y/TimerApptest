@@ -87,14 +87,27 @@ object NotificationHelper {
         Log.d("NotificationHelper", "📱 Erstelle Benachrichtigung für ${timerIds.size} Timer (Pre-Reminder: $isPreReminder)")
 
         // Intent für Tap auf Benachrichtigung
-        val contentIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        // Hauptalarme: AlarmActivity öffnen (damit User Dismiss/Snooze drücken kann)
+        // Pre-Reminder: MainActivity öffnen
+        val contentIntent = if (!isPreReminder) {
+            Intent(context, AlarmActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TASK or
+                        Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                putExtra("TIMER_IDS", timerIds.toTypedArray())
+                putExtra("TIMER_NAMES", timerNames.toTypedArray())
+                putExtra("TIMER_CATEGORIES", timerCategories.toTypedArray())
+            }
+        } else {
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
         }
         val contentPendingIntent = PendingIntent.getActivity(
             context,
             groupId.hashCode() + 1,
             contentIntent,
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         // Titel und Text basierend auf Anzahl der Timer
@@ -117,7 +130,6 @@ object NotificationHelper {
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
 
         // Erweiterte Ansicht mit allen Timer-Namen
@@ -133,23 +145,26 @@ object NotificationHelper {
         }
 
         if (!isPreReminder) {
-            // ✅ Vollbild-Intent nur für Haupt-Alarme
+            // Vollbild-Intent nur für Haupt-Alarme
             builder.setFullScreenIntent(fullscreenPendingIntent, true)
-            // WICHTIG: Diese Flags sind kritisch für Fullscreen-Funktionalität
             builder.setCategory(NotificationCompat.CATEGORY_ALARM)
             builder.setPriority(NotificationCompat.PRIORITY_MAX)
             builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-            // ✅ Sound wird über AlarmReceiver.playAlarmSound() (MediaPlayer) gesteuert.
+            // Ongoing: Notification kann nicht weggewischt werden
+            // User muss "Beenden" drücken oder in AlarmActivity dismissen
+            builder.setOngoing(true)
+            builder.setAutoCancel(false)
+
+            // Sound wird über AlarmReceiver.playAlarmSound() (MediaPlayer) gesteuert.
             // Notification-Sound ist deaktiviert (Channel hat setSound(null)),
             // aber setSilent(true) darf NICHT verwendet werden - das blockiert den Fullscreen-Intent!
             builder.setSound(null)
             builder.setVibrate(longArrayOf(0L))
 
-            // ✅ KRITISCH: Dismiss-Action zum Stoppen des Alarms
+            // Dismiss-Action zum Stoppen des Alarms
             val dismissIntent = Intent(context, com.example.timerapp.AlarmReceiver::class.java).apply {
                 action = "DISMISS_ALARM"
-                // ✅ FIX: Timer-IDs mitgeben damit nur die spezifische Notification gecancelt wird
                 putExtra("DISMISS_TIMER_IDS", timerIds.toTypedArray())
             }
             val dismissPendingIntent = PendingIntent.getBroadcast(
@@ -164,15 +179,13 @@ object NotificationHelper {
                 dismissPendingIntent
             )
 
-            // ✅ KRITISCH: Stoppe Alarm auch beim Weg-Swipen der Notification
-            builder.setDeleteIntent(dismissPendingIntent)
-
             Log.d("NotificationHelper", "🚨 Fullscreen-Intent gesetzt + Notification Sound/Vibration als Fallback")
         } else {
-            // Pre-Reminder: Nur sanfte Benachrichtigung
+            // Pre-Reminder: Nur sanfte Benachrichtigung, normal wegwischbar
+            builder.setAutoCancel(true)
             builder.setSound(null)
             builder.setVibrate(longArrayOf(0L))
-            Log.d("NotificationHelper", "⏰ Pre-Reminder Benachrichtigung (kein Fullscreen)")
+            Log.d("NotificationHelper", "Pre-Reminder Benachrichtigung (kein Fullscreen)")
         }
 
         val notificationManager =
