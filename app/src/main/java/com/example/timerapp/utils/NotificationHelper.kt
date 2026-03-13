@@ -87,14 +87,27 @@ object NotificationHelper {
         Log.d("NotificationHelper", "📱 Erstelle Benachrichtigung für ${timerIds.size} Timer (Pre-Reminder: $isPreReminder)")
 
         // Intent für Tap auf Benachrichtigung
-        val contentIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        // Hauptalarme: AlarmActivity öffnen (damit User Dismiss/Snooze drücken kann)
+        // Pre-Reminder: MainActivity öffnen
+        val contentIntent = if (!isPreReminder) {
+            Intent(context, AlarmActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TASK or
+                        Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                putExtra("TIMER_IDS", timerIds.toTypedArray())
+                putExtra("TIMER_NAMES", timerNames.toTypedArray())
+                putExtra("TIMER_CATEGORIES", timerCategories.toTypedArray())
+            }
+        } else {
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
         }
         val contentPendingIntent = PendingIntent.getActivity(
             context,
             groupId.hashCode() + 1,
             contentIntent,
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         // Titel und Text basierend auf Anzahl der Timer

@@ -24,20 +24,32 @@ class AlarmReceiver : BroadcastReceiver() {
         var vibrator: Vibrator? = null
         private var escalationHandler: android.os.Handler? = null
         private var escalationRunnable: Runnable? = null
+        private var autoStopHandler: android.os.Handler? = null
+        private var autoStopRunnable: Runnable? = null
+
+        // Safety-Timeout: Alarm stoppt automatisch nach 5 Minuten
+        private const val AUTO_STOP_DELAY_MS = 5 * 60 * 1000L
 
         fun stopAlarmSound() {
             mediaPlayer?.let {
-                if (it.isPlaying) {
-                    it.stop()
+                try {
+                    if (it.isPlaying) {
+                        it.stop()
+                    }
+                    it.release()
+                } catch (e: Exception) {
+                    Log.e("AlarmReceiver", "Fehler beim Stoppen des MediaPlayer: ${e.message}")
                 }
-                it.release()
                 mediaPlayer = null
             }
-            // ✅ WICHTIG: Stoppe Eskalation und räume Handler auf
+            // Stoppe Eskalation und Auto-Stop
             escalationHandler?.removeCallbacksAndMessages(null)
             escalationHandler = null
             escalationRunnable = null
-            Log.d("AlarmReceiver", "🔇 Sound gestoppt")
+            autoStopHandler?.removeCallbacksAndMessages(null)
+            autoStopHandler = null
+            autoStopRunnable = null
+            Log.d("AlarmReceiver", "Sound gestoppt")
         }
 
         fun stopVibration() {
@@ -93,19 +105,28 @@ class AlarmReceiver : BroadcastReceiver() {
 
                 Log.d("AlarmReceiver", "🔊 Sound gestartet mit ALARM-Stream (Lautstärke: ${if (escalate) "50%" else "100%"})")
 
-                // ✅ Eskalierender Alarm: Nach 60 Sekunden lauter
+                // Eskalierender Alarm: Nach 60 Sekunden lauter
                 if (escalate) {
                     if (settingsManager.isEscalatingAlarmEnabled) {
                         escalationHandler = android.os.Handler(android.os.Looper.getMainLooper())
                         escalationRunnable = Runnable {
                             mediaPlayer?.setVolume(1.0f, 1.0f)
-                            // Intensivere Vibration
                             startVibration(context, intense = true)
-                            Log.d("AlarmReceiver", "📈 Alarm eskaliert (100% Lautstärke)")
+                            Log.d("AlarmReceiver", "Alarm eskaliert (100% Lautstärke)")
                         }
-                        escalationHandler?.postDelayed(escalationRunnable!!, 60000) // 60 Sekunden
+                        escalationHandler?.postDelayed(escalationRunnable!!, 60000)
                     }
                 }
+
+                // Safety-Timeout: Alarm automatisch nach 5 Minuten stoppen
+                autoStopHandler?.removeCallbacksAndMessages(null)
+                autoStopHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                autoStopRunnable = Runnable {
+                    Log.w("AlarmReceiver", "Auto-Stop: Alarm nach 5 Minuten automatisch gestoppt")
+                    stopAlarmSound()
+                    stopVibration()
+                }
+                autoStopHandler?.postDelayed(autoStopRunnable!!, AUTO_STOP_DELAY_MS)
             } catch (e: Exception) {
                 Log.e("AlarmReceiver", "❌ Fehler beim Sound: ${e.message}")
                 // Fallback: System-Default versuchen falls Custom-Sound fehlschlägt
