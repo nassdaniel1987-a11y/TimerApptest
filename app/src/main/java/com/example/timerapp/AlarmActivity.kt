@@ -1,6 +1,7 @@
 package com.example.timerapp
 
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -63,13 +64,14 @@ class AlarmActivity : ComponentActivity() {
                     onDismiss = {
                         AlarmReceiver.stopAlarmSound()
                         AlarmReceiver.stopVibration()
+                        cancelOngoingNotification(ids)
                         finish()
                     },
                     onSnooze = {
                         AlarmReceiver.stopAlarmSound()
                         AlarmReceiver.stopVibration()
+                        cancelOngoingNotification(ids)
 
-                        // ✅ Snooze implementiert
                         scheduleSnooze(ids, names, categories, settingsManager.snoozeMinutes)
                         finish()
                     }
@@ -80,15 +82,26 @@ class AlarmActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // ✅ FIX: IMMER Sound und Vibration stoppen wenn Activity zerstört wird.
+        // IMMER Sound und Vibration stoppen wenn Activity zerstört wird.
         // Egal ob User dismissed, zurück gewischt, oder Activity vom System beendet.
         // Falls eine neue AlarmActivity diese ersetzt (FLAG_ACTIVITY_CLEAR_TASK),
-        // startet die neue Activity den Sound automatisch neu (siehe onCreate Zeile 54-58).
+        // startet die neue Activity den Sound automatisch neu (siehe onCreate).
         AlarmReceiver.stopAlarmSound()
         AlarmReceiver.stopVibration()
     }
 
-    // ✅ Snooze-Funktion: Plant Alarm in X Minuten neu
+    // Ongoing-Notification entfernen (da sie nicht wegwischbar ist)
+    private fun cancelOngoingNotification(timerIds: List<String>) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (timerIds.isNotEmpty()) {
+            val groupId = timerIds.joinToString("_")
+            notificationManager.cancel(groupId.hashCode())
+        } else {
+            notificationManager.cancelAll()
+        }
+    }
+
+    // Snooze-Funktion: Plant Alarm in X Minuten neu
     private fun scheduleSnooze(
         timerIds: List<String>,
         timerNames: List<String>,
