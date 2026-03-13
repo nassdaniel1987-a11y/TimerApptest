@@ -308,6 +308,51 @@ fun SettingsScreen(
                             )
                         }
                     )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    // Test-Alarm Button
+                    ListItem(
+                        headlineContent = { Text("Test-Alarm", fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text("Alarm sofort lokal auslösen (nur auf diesem Gerät)") },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.BugReport,
+                                contentDescription = "Test-Alarm",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        trailingContent = {
+                            FilledTonalButton(
+                                onClick = {
+                                    // Sound + Vibration direkt starten (wie AlarmReceiver)
+                                    if (settingsManager.isSoundEnabled) {
+                                        com.example.timerapp.AlarmReceiver.playAlarmSound(
+                                            context,
+                                            escalate = settingsManager.isEscalatingAlarmEnabled
+                                        )
+                                    }
+                                    if (settingsManager.isVibrationEnabled) {
+                                        com.example.timerapp.AlarmReceiver.startVibration(context)
+                                    }
+
+                                    // Notification + Fullscreen-Intent auslösen
+                                    NotificationHelper.showTimerNotification(
+                                        context = context,
+                                        timerId = "test_alarm",
+                                        timerName = "Test-Alarm",
+                                        timerCategory = "Test",
+                                        isPreReminder = false
+                                    )
+                                },
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            ) {
+                                Text("Testen")
+                            }
+                        }
+                    )
                 }
 
                 // ═══════════ ERINNERUNGEN ═══════════
