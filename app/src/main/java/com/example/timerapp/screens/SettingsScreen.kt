@@ -324,18 +324,21 @@ fun SettingsScreen(
                         trailingContent = {
                             FilledTonalButton(
                                 onClick = {
-                                    // Sound + Vibration direkt starten (wie AlarmReceiver)
-                                    if (settingsManager.isSoundEnabled) {
-                                        com.example.timerapp.AlarmReceiver.playAlarmSound(
-                                            context,
-                                            escalate = settingsManager.isEscalatingAlarmEnabled
-                                        )
+                                    // AlarmActivity direkt starten (Fullscreen-Alarm)
+                                    // Sound + Vibration werden in AlarmActivity.onCreate gestartet
+                                    val alarmIntent = android.content.Intent(
+                                        context,
+                                        com.example.timerapp.AlarmActivity::class.java
+                                    ).apply {
+                                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                        putExtra("TIMER_IDS", arrayOf("test_alarm"))
+                                        putExtra("TIMER_NAMES", arrayOf("Test-Alarm"))
+                                        putExtra("TIMER_CATEGORIES", arrayOf("Test"))
                                     }
-                                    if (settingsManager.isVibrationEnabled) {
-                                        com.example.timerapp.AlarmReceiver.startVibration(context)
-                                    }
+                                    context.startActivity(alarmIntent)
 
-                                    // Notification + Fullscreen-Intent auslösen
+                                    // Notification anzeigen (ongoing, nicht wegwischbar)
                                     NotificationHelper.showTimerNotification(
                                         context = context,
                                         timerId = "test_alarm",

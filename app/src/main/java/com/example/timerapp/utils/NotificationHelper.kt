@@ -180,6 +180,20 @@ object NotificationHelper {
                 dismissPendingIntent
             )
 
+            // Delete-Intent: Falls Notification trotzdem weggewischt wird (Android 14+),
+            // Sound und Vibration stoppen
+            val deleteIntent = Intent(context, com.example.timerapp.AlarmReceiver::class.java).apply {
+                action = "DISMISS_ALARM"
+                putExtra("DISMISS_TIMER_IDS", timerIds.toTypedArray())
+            }
+            val deletePendingIntent = PendingIntent.getBroadcast(
+                context,
+                groupId.hashCode() + 3,
+                deleteIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            builder.setDeleteIntent(deletePendingIntent)
+
             Log.d("NotificationHelper", "🚨 Fullscreen-Intent gesetzt + Notification Sound/Vibration als Fallback")
         } else {
             // Pre-Reminder: Nur sanfte Benachrichtigung, normal wegwischbar
