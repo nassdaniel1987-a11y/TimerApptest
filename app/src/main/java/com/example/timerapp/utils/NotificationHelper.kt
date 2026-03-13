@@ -1,5 +1,6 @@
 package com.example.timerapp.utils
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -210,8 +211,17 @@ object NotificationHelper {
             }
         }
 
-        notificationManager.notify(groupId.hashCode(), builder.build())
-        Log.d("NotificationHelper", "✅ Benachrichtigung angezeigt (ID: ${groupId.hashCode()})")
+        val notification = builder.build()
+
+        // Für Hauptalarme: Flags nochmal direkt setzen als Absicherung
+        if (!isPreReminder) {
+            notification.flags = notification.flags or
+                    Notification.FLAG_ONGOING_EVENT or
+                    Notification.FLAG_NO_CLEAR
+        }
+
+        notificationManager.notify(groupId.hashCode(), notification)
+        Log.d("NotificationHelper", "Benachrichtigung angezeigt (ID: ${groupId.hashCode()}, ongoing: ${!isPreReminder})")
     }
 
     // ✅ ALTE METHODE: Für Rückwärtskompatibilität
