@@ -1,5 +1,6 @@
 package com.example.timerapp.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -33,6 +34,9 @@ fun AlarmFullscreenScreen(
     onDismiss: () -> Unit,
     onSnooze: () -> Unit
 ) {
+    // Zurück-Button blockieren — Alarm muss über Ausschalten/Schlummern beendet werden
+    BackHandler { /* Absichtlich leer — Back-Button deaktiviert */ }
+
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
 
     LaunchedEffect(Unit) {
