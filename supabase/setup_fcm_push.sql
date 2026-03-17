@@ -67,6 +67,10 @@ BEGIN
         timer_name := NEW.name;
         timer_data := to_jsonb(NEW);
     ELSIF TG_OP = 'DELETE' THEN
+        -- Keine Push-Benachrichtigung für abgelaufene/abgeschlossene Timer
+        IF OLD.is_completed = true THEN
+            RETURN OLD;
+        END IF;
         event_type := 'timer_deleted';
         timer_name := OLD.name;
         timer_data := to_jsonb(OLD);

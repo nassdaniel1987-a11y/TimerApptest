@@ -122,6 +122,15 @@ Deno.serve(async (req) => {
     const payload: PushPayload = await req.json();
     console.log("Event empfangen:", payload.event_type, payload.timer_name);
 
+    // Keine Push-Benachrichtigung für gelöschte Timer die bereits abgelaufen/abgeschlossen waren
+    if (payload.event_type === "timer_deleted" && payload.timer_data?.is_completed === true) {
+      console.log("Timer war bereits abgeschlossen — kein Push für Löschung");
+      return new Response(
+        JSON.stringify({ message: "Abgeschlossener Timer gelöscht, kein Push nötig" }),
+        { status: 200 }
+      );
+    }
+
     // Service Account aus Secret laden
     const saJson = Deno.env.get("FCM_SERVICE_ACCOUNT");
     if (!saJson) {
