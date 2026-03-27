@@ -73,6 +73,21 @@ class TimerViewModel @Inject constructor(
         repository.startRealtime(viewModelScope)
         // Server-Daten laden (falls online — falls offline bleiben Room-Daten erhalten)
         sync()
+
+        // Auto-Sync, sobald die Verbindung (wieder)hergestellt wird
+        viewModelScope.launch {
+            var isFirstEmission = true
+            syncManager.isOnline.collect { online ->
+                if (isFirstEmission) {
+                    isFirstEmission = false
+                    return@collect
+                }
+                if (online) {
+                    Log.d("TimerViewModel", "🌐 Verbindung wieder da — starte automatischen Sync")
+                    sync()
+                }
+            }
+        }
     }
 
     override fun onCleared() {

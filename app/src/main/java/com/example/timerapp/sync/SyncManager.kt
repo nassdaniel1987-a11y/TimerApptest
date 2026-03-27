@@ -49,11 +49,7 @@ class SyncManager(
         val capabilities = cm.getNetworkCapabilities(cm.activeNetwork)
         _isOnline.value = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
 
-        val request = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
-
-        cm.registerNetworkCallback(request, object : ConnectivityManager.NetworkCallback() {
+        cm.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 Log.d(TAG, "🌐 Netzwerk verfügbar — starte Sync")
                 _isOnline.value = true
