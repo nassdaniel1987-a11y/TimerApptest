@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -77,6 +78,7 @@ fun HomeScreen(
     var showFilterDialog by remember { mutableStateOf(false) }
 
     var isAppPaused by remember { mutableStateOf(settingsManager.isAppPaused) }
+    var isDashboardLayoutEnabled by remember { mutableStateOf(settingsManager.isDashboardLayoutEnabled) }
 
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
@@ -179,6 +181,8 @@ fun HomeScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
                 checkPermission()
+                isAppPaused = settingsManager.isAppPaused
+                isDashboardLayoutEnabled = settingsManager.isDashboardLayoutEnabled
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -383,13 +387,15 @@ fun HomeScreen(
                     onCtaClick = onCreateTimer
                 )
             } else {
-                LazyColumn(
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(if (isDashboardLayoutEnabled) 2 else 1),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // SearchBar
-                    item {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         androidx.compose.material3.SearchBar(
                             inputField = {
                                 SearchBarDefaults.InputField(
@@ -462,7 +468,7 @@ fun HomeScreen(
                     }
 
                     // SegmentedButton für Zeitfilter
-                    item {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         SingleChoiceSegmentedButtonRow(
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -486,7 +492,7 @@ fun HomeScreen(
                     }
 
                     // Klassen-Filter Chips (Multi-Select)
-                    item {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -525,7 +531,7 @@ fun HomeScreen(
                     }
 
                     // Carousel mit Timer-Vorlagen
-                    item {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         val colorPrimary = MaterialTheme.colorScheme.primary
                         val colorSecondary = MaterialTheme.colorScheme.secondary
                         val colorTertiary = MaterialTheme.colorScheme.tertiary
@@ -581,7 +587,7 @@ fun HomeScreen(
 
                     // Aktive Timer
                     if (filteredTimers.isEmpty() && completedTimers.isEmpty()) {
-                        item {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             EmptyStateView(
                                 icon = Icons.Default.SearchOff,
                                 title = "Keine Timer gefunden",
@@ -593,7 +599,7 @@ fun HomeScreen(
                     }
 
                     if (filteredTimers.isNotEmpty()) {
-                        item {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             ListHeader(
                                 title = "Aktive Timer${if (filterCategory != null) " · $filterCategory" else ""}",
                                 count = filteredTimers.size
@@ -621,50 +627,80 @@ fun HomeScreen(
                                     animationSpec = tween(200)
                                 )
                             ) {
-                                TimerCard(
-                                    modifier = Modifier
-                                        .animateItem(
-                                            placementSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            )
-                                        )
-                                        .animateContentSize(),
-                                    timer = timer,
-                                onComplete = {
-                                    performHaptic(haptic, settingsManager)
-                                    viewModel.markTimerCompleted(timer.id)
-                                    showSnackbar(snackbarHostState, "Timer abgeschlossen")
-                                },
-                                onDelete = {
-                                    performHaptic(haptic, settingsManager)
-                                    viewModel.softDeleteTimer(timer.id)
-                                    CoroutineScope(Dispatchers.Main).launch {
-                                        val result = snackbarHostState.showSnackbar(
-                                            message = "'${timer.name}' gelöscht",
-                                            actionLabel = "Rückgängig",
-                                            duration = SnackbarDuration.Long
-                                        )
-                                        if (result == SnackbarResult.ActionPerformed) {
-                                            viewModel.undoDeleteTimer(timer.id)
-                                        }
-                                    }
-                                },
-                                onEdit = { editedTimer ->
-                                    performHaptic(haptic, settingsManager)
-                                    viewModel.updateTimer(timer.id, editedTimer)
-                                    showSnackbar(snackbarHostState, "Timer aktualisiert")
-                                },
-                                settingsManager = settingsManager,
-                                haptic = haptic
-                            )
+                                if (isDashboardLayoutEnabled) {
+                                    CompactTimerCard(
+                                        modifier = Modifier
+                                            .animateItem()
+                                            .animateContentSize(),
+                                        timer = timer,
+                                        onComplete = {
+                                            performHaptic(haptic, settingsManager)
+                                            viewModel.markTimerCompleted(timer.id)
+                                            showSnackbar(snackbarHostState, "Timer abgeschlossen")
+                                        },
+                                        onDelete = {
+                                            performHaptic(haptic, settingsManager)
+                                            viewModel.softDeleteTimer(timer.id)
+                                            CoroutineScope(Dispatchers.Main).launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = "'${timer.name}' gelöscht",
+                                                    actionLabel = "Rückgängig",
+                                                    duration = SnackbarDuration.Long
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    viewModel.undoDeleteTimer(timer.id)
+                                                }
+                                            }
+                                        },
+                                        onEdit = { editedTimer ->
+                                            performHaptic(haptic, settingsManager)
+                                            viewModel.updateTimer(timer.id, editedTimer)
+                                            showSnackbar(snackbarHostState, "Timer aktualisiert")
+                                        },
+                                        settingsManager = settingsManager,
+                                        haptic = haptic
+                                    )
+                                } else {
+                                    TimerCard(
+                                        modifier = Modifier
+                                            .animateItem()
+                                            .animateContentSize(),
+                                        timer = timer,
+                                        onComplete = {
+                                            performHaptic(haptic, settingsManager)
+                                            viewModel.markTimerCompleted(timer.id)
+                                            showSnackbar(snackbarHostState, "Timer abgeschlossen")
+                                        },
+                                        onDelete = {
+                                            performHaptic(haptic, settingsManager)
+                                            viewModel.softDeleteTimer(timer.id)
+                                            CoroutineScope(Dispatchers.Main).launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = "'${timer.name}' gelöscht",
+                                                    actionLabel = "Rückgängig",
+                                                    duration = SnackbarDuration.Long
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    viewModel.undoDeleteTimer(timer.id)
+                                                }
+                                            }
+                                        },
+                                        onEdit = { editedTimer ->
+                                            performHaptic(haptic, settingsManager)
+                                            viewModel.updateTimer(timer.id, editedTimer)
+                                            showSnackbar(snackbarHostState, "Timer aktualisiert")
+                                        },
+                                        settingsManager = settingsManager,
+                                        haptic = haptic
+                                    )
+                                }
                             }
                         }
                     }
 
                     // Abgeschlossene Timer
                     if (completedTimers.isNotEmpty()) {
-                        item {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             Spacer(modifier = Modifier.height(16.dp))
                             ListHeader("Abgeschlossen", completedTimers.size)
                         }
@@ -690,28 +726,53 @@ fun HomeScreen(
                                     animationSpec = tween(200)
                                 )
                             ) {
-                                TimerCard(
-                                    modifier = Modifier.animateItem(),
-                                    timer = timer,
-                                    onComplete = { },
-                                    onDelete = {
-                                        performHaptic(haptic, settingsManager)
-                                        viewModel.softDeleteTimer(timer.id)
-                                        CoroutineScope(Dispatchers.Main).launch {
-                                            val result = snackbarHostState.showSnackbar(
-                                                message = "'${timer.name}' gelöscht",
-                                                actionLabel = "Rückgängig",
-                                                duration = SnackbarDuration.Long
-                                            )
-                                            if (result == SnackbarResult.ActionPerformed) {
-                                                viewModel.undoDeleteTimer(timer.id)
+                                if (isDashboardLayoutEnabled) {
+                                    CompactTimerCard(
+                                        modifier = Modifier.animateItem(),
+                                        timer = timer,
+                                        onComplete = { },
+                                        onDelete = {
+                                            performHaptic(haptic, settingsManager)
+                                            viewModel.softDeleteTimer(timer.id)
+                                            CoroutineScope(Dispatchers.Main).launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = "'${timer.name}' gelöscht",
+                                                    actionLabel = "Rückgängig",
+                                                    duration = SnackbarDuration.Long
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    viewModel.undoDeleteTimer(timer.id)
+                                                }
                                             }
-                                        }
-                                    },
-                                    onEdit = { },
-                                    settingsManager = settingsManager,
-                                    haptic = haptic
-                                )
+                                        },
+                                        onEdit = { },
+                                        settingsManager = settingsManager,
+                                        haptic = haptic
+                                    )
+                                } else {
+                                    TimerCard(
+                                        modifier = Modifier.animateItem(),
+                                        timer = timer,
+                                        onComplete = { },
+                                        onDelete = {
+                                            performHaptic(haptic, settingsManager)
+                                            viewModel.softDeleteTimer(timer.id)
+                                            CoroutineScope(Dispatchers.Main).launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = "'${timer.name}' gelöscht",
+                                                    actionLabel = "Rückgängig",
+                                                    duration = SnackbarDuration.Long
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    viewModel.undoDeleteTimer(timer.id)
+                                                }
+                                            }
+                                        },
+                                        onEdit = { },
+                                        settingsManager = settingsManager,
+                                        haptic = haptic
+                                    )
+                                }
                             }
                         }
                     }

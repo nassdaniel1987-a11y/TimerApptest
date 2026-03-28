@@ -42,6 +42,10 @@ class SettingsManager private constructor(context: Context) {
         get() = prefs.getBoolean(KEY_ESCALATING_ALARM_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_ESCALATING_ALARM_ENABLED, value).apply()
 
+    var isDashboardLayoutEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DASHBOARD_LAYOUT_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_DASHBOARD_LAYOUT_ENABLED, value).apply()
+
     var isAppPaused: Boolean
         get() = prefs.getBoolean(KEY_APP_PAUSED, false)
         set(value) = prefs.edit().putBoolean(KEY_APP_PAUSED, value).apply()
@@ -124,6 +128,7 @@ class SettingsManager private constructor(context: Context) {
         private const val KEY_DARK_MODE_ENABLED = "dark_mode_enabled"
         private const val KEY_HAPTIC_FEEDBACK_ENABLED = "haptic_feedback_enabled"
         private const val KEY_ESCALATING_ALARM_ENABLED = "escalating_alarm_enabled"
+        private const val KEY_DASHBOARD_LAYOUT_ENABLED = "dashboard_layout_enabled"
         private const val KEY_APP_PAUSED = "app_paused"
         private const val KEY_ALARM_SOUND_URI = "alarm_sound_uri"
         private const val KEY_ALARM_SOUND_NAME = "alarm_sound_name"

@@ -50,6 +50,7 @@ fun SettingsScreen(
     var snoozeMinutes by remember { mutableStateOf(settingsManager.snoozeMinutes) }
     var isDarkModeEnabled by remember { mutableStateOf(settingsManager.isDarkModeEnabled) }
     var isHapticFeedbackEnabled by remember { mutableStateOf(settingsManager.isHapticFeedbackEnabled) }
+    var isDashboardLayoutEnabled by remember { mutableStateOf(settingsManager.isDashboardLayoutEnabled) }
     var isEscalatingAlarmEnabled by remember { mutableStateOf(settingsManager.isEscalatingAlarmEnabled) }
 
     var showPreReminderDialog by remember { mutableStateOf(false) }
@@ -475,6 +476,29 @@ fun SettingsScreen(
                                 onCheckedChange = {
                                     isHapticFeedbackEnabled = it
                                     settingsManager.isHapticFeedbackEnabled = it
+                                }
+                            )
+                        }
+                    )
+                    
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    ListItem(
+                        headlineContent = { Text("Dashboard-Ansicht (Kacheln)", fontWeight = FontWeight.Medium) },
+                        supportingContent = { Text("Timer im modernen Raster anzeigen anstatt als Liste") },
+                        leadingContent = {
+                            Icon(
+                                Icons.Default.GridView,
+                                contentDescription = "Dashboard-Ansicht",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isDashboardLayoutEnabled,
+                                onCheckedChange = {
+                                    isDashboardLayoutEnabled = it
+                                    settingsManager.isDashboardLayoutEnabled = it
                                 }
                             )
                         }

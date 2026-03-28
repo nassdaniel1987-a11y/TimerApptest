@@ -1,0 +1,42 @@
+﻿> Task :app:clean
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :app:generateDebugResValues
+> Task :app:mapDebugSourceSetPaths FAILED
+> Task :app:checkDebugAarMetadata
+
+[Incubating] Problems report is available at: file:///C:/TimerApptest/build/reports/problems/problems-report.html
+.\gradlew.bat : 
+In Zeile:1 Zeichen:1
++ .\gradlew.bat clean compileDebugKotlin -x processDebugGoogleServices  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:mapDebugSourceSetPaths'.
+> Error while evaluating property 'allGeneratedRes' of task ':app:mapDebugSourceSetPaths'.
+   > Failed to calculate the value of task ':app:mapDebugSourceSetPaths' property 
+'allGeneratedRes'.
+      > Querying the mapped value of map(flatmap(provider(task 'processDebugGoogleServices', 
+class com.google.gms.googleservices.GoogleServicesTask))) before task 
+':app:processDebugGoogleServices' has completed is not supported
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+5 actionable tasks: 5 executed
+BUILD FAILED in 2s
