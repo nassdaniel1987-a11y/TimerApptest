@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.util.Log
 import com.example.timerapp.data.dao.PendingSyncDao
 import com.example.timerapp.data.entity.PendingSyncEntity
@@ -16,6 +15,7 @@ import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +38,21 @@ class SyncManager(
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
+    // Conflated Channel: Stellt sicher, dass Sync-Trigger nicht 'verloren' gehen,
+    // führt aber nicht zu Warteschlangen aus hunderten gleichen Sync-Requests.
+    private val syncChannel = Channel<Unit>(Channel.CONFLATED)
+
+    init {
+        // Consumer-Coroutine, die den Sync-Channel sicher sequentiell abarbeitet
+        scope.launch {
+            for (trigger in syncChannel) {
+                if (_isOnline.value) {
+                    processPendingSyncInternal()
+                }
+            }
+        }
+    }
+
     /**
      * Startet Netzwerk-Monitoring via ConnectivityManager.
      * Bei Verbindungswiederherstellung wird automatisch synchronisiert.
@@ -53,7 +68,7 @@ class SyncManager(
             override fun onAvailable(network: Network) {
                 Log.d(TAG, "🌐 Netzwerk verfügbar — starte Sync")
                 _isOnline.value = true
-                scope.launch { processPendingSync() }
+                triggerSyncIfOnline()
             }
 
             override fun onLost(network: Network) {
@@ -65,37 +80,27 @@ class SyncManager(
         Log.d(TAG, "✅ Netzwerk-Monitoring gestartet (online: ${_isOnline.value})")
     }
 
-    // Flag: Sync erneut starten nachdem aktueller Durchlauf fertig ist
-    private var syncAgainAfterCurrent = false
-
     /**
      * Triggert Sync im Hintergrund, falls online.
      * Wird nach jeder CRUD-Operation aufgerufen.
-     * Wenn bereits ein Sync läuft, wird ein erneuter Durchlauf nach Abschluss geplant.
+     * Nutzt den sicheren Channel (keine Data-Races).
      */
     fun triggerSyncIfOnline() {
         if (!_isOnline.value) return
-
-        if (_isSyncing.value) {
-            // Sync läuft bereits — markiere für erneuten Durchlauf
-            syncAgainAfterCurrent = true
-            Log.d(TAG, "🔄 Sync läuft bereits — erneuter Durchlauf geplant")
-            return
-        }
-
-        scope.launch { processPendingSync() }
+        syncChannel.trySend(Unit)
     }
 
     /**
-     * Verarbeitet die Sync-Queue FIFO.
-     * Bei Fehler wird gestoppt — nächster Versuch bei nächstem Trigger.
-     * Timeout: 30s pro Operation, 120s gesamt.
-     * Nach Abschluss wird geprüft, ob neue Operationen hinzugekommen sind.
+     * Direkter Aufruf für den WorkManager (SyncWorker).
+     * Sichert ab, dass der Sync getriggert wird, auch wenn wir die Status-Änderung von UI ignorieren.
      */
     suspend fun processPendingSync() {
-        if (_isSyncing.value) return
+        if (!_isOnline.value) return
+        processPendingSyncInternal()
+    }
+
+    private suspend fun processPendingSyncInternal() {
         _isSyncing.value = true
-        syncAgainAfterCurrent = false
 
         try {
             withTimeout(120_000L) {
@@ -105,71 +110,84 @@ class SyncManager(
                     return@withTimeout
                 }
 
-                Log.d(TAG, "🔄 Verarbeite ${pending.size} Sync-Operationen...")
+                Log.d(TAG, "🔄 Verarbeite ${pending.size} Sync-Operationen als Bulk-Upload...")
 
-                for (op in pending) {
+                // Gruppieren nach Table (Entity-Type)
+                val byType = pending.groupBy { it.entity_type }
+
+                for ((type, ops) in byType) {
+                    val table = when (type) {
+                        "timer" -> "timers"
+                        "category" -> "categories"
+                        "template" -> "timer_templates"
+                        "qr_code" -> "qr_codes"
+                        else -> {
+                            Log.w(TAG, "Unbekannter Entity-Typ übersprungen: $type")
+                            continue
+                        }
+                    }
+
+                    // Für jede Entity die finale Operation bestimmen (Upsert vs. Delete)
+                    val opsByEntity = ops.groupBy { it.entity_id }
+                    val deletes = mutableListOf<String>()
+                    val upserts = mutableListOf<PendingSyncEntity>()
+
+                    opsByEntity.forEach { (entityId, entityOps) ->
+                        val finalOp = entityOps.last()
+                        if (finalOp.operation == "DELETE") {
+                            deletes.add(entityId)
+                        } else {
+                            upserts.add(finalOp)
+                        }
+                    }
+
                     try {
                         withTimeout(30_000L) {
-                            executeSyncOperation(op)
+                            // 1. Bulk Upsert anwenden
+                            if (upserts.isNotEmpty()) {
+                                when (type) {
+                                    "timer" -> {
+                                        val items = upserts.map { json.decodeFromString<Timer>(it.payload) }
+                                        supabaseClient.from(table).upsert(items)
+                                    }
+                                    "category" -> {
+                                        val items = upserts.map { json.decodeFromString<Category>(it.payload) }
+                                        supabaseClient.from(table).upsert(items)
+                                    }
+                                    "template" -> {
+                                        val items = upserts.map { json.decodeFromString<TimerTemplate>(it.payload) }
+                                        supabaseClient.from(table).upsert(items)
+                                    }
+                                    "qr_code" -> {
+                                        val items = upserts.map { json.decodeFromString<QRCodeData>(it.payload) }
+                                        supabaseClient.from(table).upsert(items)
+                                    }
+                                }
+                            }
+
+                            // 2. Bulk Delete anwenden
+                            if (deletes.isNotEmpty()) {
+                                supabaseClient.from(table).delete {
+                                    filter { isIn("id", deletes) }
+                                }
+                            }
                         }
-                        pendingSyncDao.delete(op)
-                        Log.d(TAG, "✅ Sync erfolgreich: ${op.operation} ${op.entity_type} ${op.entity_id}")
+
+                        // Bei Erfolg die Operationen löschen
+                        ops.forEach { pendingSyncDao.delete(it) }
+                        Log.d(TAG, "✅ Sync Tabellen-Batch erfolgreich: $table (${upserts.size} Upserts, ${deletes.size} Deletes)")
+
                     } catch (e: Exception) {
-                        Log.e(TAG, "❌ Sync fehlgeschlagen bei ${op.entity_type}/${op.operation}: ${e.message}")
-                        break // Bei Fehler stoppen, nächstes Mal erneut versuchen
+                        Log.e(TAG, "❌ Sync Tabellen-Batch fehlgeschlagen bei $table: ${e.message}")
+                        // Bei Fehlern dieser Tabelle brechen wir den Block ab — Retry beim nächsten Sync
+                        throw e
                     }
                 }
             }
-        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-            Log.e(TAG, "⏱️ Sync-Timeout — wird beim nächsten Trigger erneut versucht")
+        } catch (e: Exception) {
+            Log.e(TAG, "⏱️ Sync-Prozess unterbrochen/Timeout — erneuter Versuch beim nächsten Trigger: ${e.message}")
         } finally {
             _isSyncing.value = false
-
-            // Prüfe ob während des Syncs neue Operationen hinzugekommen sind
-            if (syncAgainAfterCurrent) {
-                syncAgainAfterCurrent = false
-                Log.d(TAG, "🔄 Starte erneuten Sync-Durchlauf (neue Operationen während Sync)")
-                scope.launch { processPendingSync() }
-            }
-        }
-    }
-
-    private suspend fun executeSyncOperation(op: PendingSyncEntity) {
-        val table = when (op.entity_type) {
-            "timer" -> "timers"
-            "category" -> "categories"
-            "template" -> "timer_templates"
-            "qr_code" -> "qr_codes"
-            else -> throw IllegalArgumentException("Unbekannter Entity-Typ: ${op.entity_type}")
-        }
-
-        when (op.operation) {
-            "CREATE", "UPDATE" -> {
-                // Upsert: Last-Write-Wins
-                when (op.entity_type) {
-                    "timer" -> {
-                        val timer = json.decodeFromString<Timer>(op.payload)
-                        supabaseClient.from(table).upsert(timer)
-                    }
-                    "category" -> {
-                        val category = json.decodeFromString<Category>(op.payload)
-                        supabaseClient.from(table).upsert(category)
-                    }
-                    "template" -> {
-                        val template = json.decodeFromString<TimerTemplate>(op.payload)
-                        supabaseClient.from(table).upsert(template)
-                    }
-                    "qr_code" -> {
-                        val qrCode = json.decodeFromString<QRCodeData>(op.payload)
-                        supabaseClient.from(table).upsert(qrCode)
-                    }
-                }
-            }
-            "DELETE" -> {
-                supabaseClient.from(table).delete {
-                    filter { eq("id", op.entity_id) }
-                }
-            }
         }
     }
 }

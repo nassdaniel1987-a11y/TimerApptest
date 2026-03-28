@@ -33,6 +33,12 @@ interface TimerDao {
     @Query("DELETE FROM timers WHERE id = :id")
     suspend fun deleteTimer(id: String)
 
+    @Query("DELETE FROM timers WHERE is_completed = 1 AND target_time < :cutoffTimeStr")
+    suspend fun deleteOldCompletedTimers(cutoffTimeStr: String): Int
+
+    @Query("SELECT id FROM timers WHERE is_completed = 1 AND target_time < :cutoffTimeStr")
+    suspend fun getOldCompletedTimerIds(cutoffTimeStr: String): List<String>
+
     @Query("DELETE FROM timers")
     suspend fun deleteAllTimers()
 

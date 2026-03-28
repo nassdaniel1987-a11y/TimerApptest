@@ -205,26 +205,9 @@ class TimerViewModel @Inject constructor(
         try {
             val days = settingsManager.autoCleanupDays
             val cutoff = java.time.ZonedDateTime.now().minusDays(days.toLong())
-            val completedTimers = timers.value.filter { it.is_completed }
-
-            var deletedCount = 0
-            for (timer in completedTimers) {
-                try {
-                    val targetTime = java.time.ZonedDateTime.parse(
-                        timer.target_time,
-                        java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
-                    )
-                    if (targetTime.isBefore(cutoff)) {
-                        repository.deleteTimer(timer.id)
-                        deletedCount++
-                    }
-                } catch (e: Exception) {
-                    Log.w("TimerViewModel", "⚠️ Fehler beim Cleanup von Timer ${timer.id}: ${e.message}")
-                }
-            }
-            if (deletedCount > 0) {
-                Log.d("TimerViewModel", "🧹 Auto-Cleanup: $deletedCount abgeschlossene Timer gelöscht (älter als $days Tage)")
-            }
+            val cutoffStr = cutoff.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            
+            repository.cleanupOldTimers(cutoffStr)
         } catch (e: Exception) {
             Log.e("TimerViewModel", "❌ Fehler beim Auto-Cleanup: ${e.message}")
         }

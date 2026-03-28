@@ -197,6 +197,23 @@ class TimerRepository(
         }
     }
 
+    suspend fun cleanupOldTimers(cutoffTimeStr: String): Result<Int> {
+        return try {
+            val idsToDelete = timerDao.getOldCompletedTimerIds(cutoffTimeStr)
+            if (idsToDelete.isEmpty()) return Result.Success(0)
+
+            timerDao.deleteOldCompletedTimers(cutoffTimeStr)
+            idsToDelete.forEach { id ->
+                enqueueSyncOperation("timer", "DELETE", id, "")
+            }
+            Log.d(TAG, "🧹 Auto-Cleanup: ${idsToDelete.size} Timer gelöscht (älter als $cutoffTimeStr)")
+            Result.Success(idsToDelete.size)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Fehler beim Auto-Cleanup: ${e.message}", e)
+            Result.Error(e, userMessage = "Fehler beim Auto-Cleanup")
+        }
+    }
+
     suspend fun markTimerCompleted(id: String): Result<Unit> {
         return try {
             timerDao.markCompleted(id)
