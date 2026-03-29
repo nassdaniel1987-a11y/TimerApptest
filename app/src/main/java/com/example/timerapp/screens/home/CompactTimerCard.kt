@@ -33,7 +33,6 @@ import me.saket.swipe.SwipeableActionsBox
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.time.temporal.ChronoUnit
 import com.example.timerapp.utils.CategoryColors
 import com.example.timerapp.ui.theme.GlassColors
 

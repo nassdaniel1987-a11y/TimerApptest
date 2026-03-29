@@ -39,6 +39,8 @@ import com.example.timerapp.SettingsManager
 import com.example.timerapp.models.Timer
 import com.example.timerapp.screens.EmptyStateView
 import com.example.timerapp.ui.theme.GradientColors
+import com.example.timerapp.ui.theme.GlassColors
+import com.example.timerapp.ui.components.MeshGradientBackground
 import com.example.timerapp.viewmodel.TimerViewModel
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
