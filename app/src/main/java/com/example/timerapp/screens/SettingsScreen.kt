@@ -319,7 +319,7 @@ fun SettingsScreen(
                             )
                         },
                         trailingContent = {
-                            FilledTonalButton(
+                            Button(
                                 onClick = {
                                     // AlarmActivity direkt starten (Fullscreen-Alarm)
                                     // Sound + Vibration werden in AlarmActivity.onCreate gestartet
@@ -344,12 +344,28 @@ fun SettingsScreen(
                                         isPreReminder = false
                                     )
                                 },
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                )
+                                modifier = Modifier
+                                    .background(
+                                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                            colors = listOf(
+                                                androidx.compose.ui.graphics.Color(0xFFE11D48).copy(alpha = 0.5f), // Rot getöntes Glas
+                                                androidx.compose.ui.graphics.Color(0xFF9F1239).copy(alpha = 0.2f)
+                                            )
+                                        ),
+                                        shape = androidx.compose.foundation.shape.CircleShape
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.4f),
+                                        shape = androidx.compose.foundation.shape.CircleShape
+                                    ),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    contentColor = androidx.compose.ui.graphics.Color.White
+                                ),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                             ) {
-                                Text("Testen")
+                                Text("Testen", fontWeight = FontWeight.Bold)
                             }
                         }
                     )

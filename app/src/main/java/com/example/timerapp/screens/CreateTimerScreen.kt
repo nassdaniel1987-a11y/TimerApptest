@@ -263,7 +263,7 @@ fun CreateTimerScreen(
                         }
                     },
                     actions = {
-                    TextButton(
+                    Button(
                         onClick = {
                             // ✅ Validierung: Name
                             nameError = when {
@@ -290,7 +290,7 @@ fun CreateTimerScreen(
 
                             // Wenn Fehler existieren, nicht erstellen
                             if (nameError != null || dateError != null || weekdayError != null) {
-                                return@TextButton
+                                return@Button
                             }
 
                             val timer = Timer(
@@ -309,11 +309,35 @@ fun CreateTimerScreen(
                             viewModel.createTimer(timer)
                             onNavigateBack()
                         },
-                        enabled = name.isNotBlank() && name.length <= MAX_NAME_LENGTH
+                        enabled = name.isNotBlank() && name.length <= MAX_NAME_LENGTH,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.3f),
+                                        Color.White.copy(alpha = 0.1f)
+                                    )
+                                ),
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = Color.White.copy(alpha = 0.5f),
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            ),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            contentColor = Color.White,
+                            disabledContentColor = Color.White.copy(alpha = 0.4f)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                     ) {
                         Text(
                             "Erstellen",
-                            style = MaterialTheme.typography.labelLarge
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 },

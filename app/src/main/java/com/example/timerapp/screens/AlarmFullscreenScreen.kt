@@ -68,12 +68,23 @@ fun AlarmFullscreenScreen(
         label = "pulseAlpha"
     )
 
-    // 🎨 Gradient Background - Rot für Alarm
+    // 🎨 Pulsing animation for Button
+    val buttonPulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.03f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "buttonPulseScale"
+    )
+
+    // 🎨 Gradient Background - Rot für Alarm (etwas tiefer & satter für Glas)
     val backgroundGradient = Brush.radialGradient(
         colors = listOf(
-            Color(0xFFEF4444), // Red-500
-            Color(0xFFC81E1E), // Red-700
-            Color(0xFF7F1D1D)  // Red-900
+            Color(0xFFE11D48), // Rose-600
+            Color(0xFF9F1239), // Rose-800
+            Color(0xFF4C0519)  // Rose-950
         )
     )
 
@@ -198,60 +209,95 @@ fun AlarmFullscreenScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 🎨 Moderne Action Buttons
+            // 🎨 Moderne Action Buttons (Glassmorphism)
             Button(
                 onClick = onDismiss,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
+                    .height(72.dp)
+                    .scale(buttonPulseScale)
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.3f),
+                                Color.White.copy(alpha = 0.1f)
+                            )
+                        ),
+                        shape = CircleShape
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.6f),
+                        shape = CircleShape
+                    ),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color(0xFFEF4444)
+                    containerColor = Color.Transparent,
+                    contentColor = Color.White
                 ),
-                shape = MaterialTheme.shapes.large
+                shape = CircleShape
             ) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    "AUSSCHALTEN",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        "ALARM AUSSCHALTEN",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.5.sp
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             OutlinedButton(
                 onClick = onSnooze,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(60.dp)
+                    .background(
+                        color = Color.White.copy(alpha = 0.05f),
+                        shape = CircleShape
+                    ),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color.White
+                    containerColor = Color.Transparent,
+                    contentColor = Color.White.copy(alpha = 0.9f)
                 ),
-                shape = MaterialTheme.shapes.large,
+                shape = CircleShape,
                 border = ButtonDefaults.outlinedButtonBorder.copy(
-                    width = 2.dp,
+                    width = 1.5.dp,
                     brush = Brush.linearGradient(
-                        colors = listOf(Color.White, Color.White.copy(alpha = 0.8f))
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.4f), 
+                            Color.White.copy(alpha = 0.1f)
+                        )
                     )
                 )
             ) {
-                Icon(
-                    Icons.Default.Snooze,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    "SCHLUMMERN",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Snooze,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        "SCHLUMMERN",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                }
             }
         }
     }

@@ -80,10 +80,35 @@ fun ManageCategoriesScreen(
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    modifier = Modifier
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.4f),
+                                    Color.White.copy(alpha = 0.1f)
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.5f),
+                            shape = CircleShape
+                        ),
+                    containerColor = Color.Transparent,
+                    contentColor = Color.White,
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp
+                    ),
+                    shape = CircleShape
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Kategorie hinzufügen")
+                    Icon(
+                        Icons.Default.Add, 
+                        contentDescription = "Kategorie hinzufügen",
+                        modifier = Modifier.size(28.dp),
+                        tint = Color.White
+                    )
                 }
             }
         ) { padding ->
