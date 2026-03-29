@@ -10,8 +10,10 @@ data class TimerTemplate(
     @PrimaryKey
     val id: String = "",
     val name: String,
-    val defaultTime: String, // Format: "HH:mm"
+    val default_time: String, // Format: "HH:mm"
     val category: String,
     val note: String? = null,
-    val created_at: String = ""
+    val created_at: String = "",
+    val klasse: String? = null,
+    val source_device_id: String? = null
 )

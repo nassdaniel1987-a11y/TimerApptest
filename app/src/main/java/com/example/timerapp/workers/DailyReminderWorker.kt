@@ -44,7 +44,7 @@ class DailyReminderWorker(
                 applicationContext,
                 AppDatabase::class.java,
                 "timer_database"
-            ).addMigrations(AppDatabase.MIGRATION_1_2).build()
+            ).addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
             val allTimers = db.timerDao().getActiveTimersForWidget()
 
             // Filtere Timer für morgen (nutzt System-Timezone)

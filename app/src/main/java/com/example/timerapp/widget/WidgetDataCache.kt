@@ -113,7 +113,7 @@ object WidgetDataCache {
                 context,
                 com.example.timerapp.data.AppDatabase::class.java,
                 "timer_database"
-            ).addMigrations(com.example.timerapp.data.AppDatabase.MIGRATION_1_2).build()
+            ).addMigrations(com.example.timerapp.data.AppDatabase.MIGRATION_1_2, com.example.timerapp.data.AppDatabase.MIGRATION_2_3).build()
 
             val timers = db.timerDao().getActiveTimersForWidget()
             Log.d(TAG, "✅ ${timers.size} Timer aus Room geladen")
