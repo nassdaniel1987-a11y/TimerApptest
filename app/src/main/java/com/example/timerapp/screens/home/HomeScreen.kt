@@ -199,19 +199,12 @@ fun HomeScreen(
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
 
-    val backgroundGradient = Brush.verticalGradient(
-        colors = if (isSystemInDarkTheme()) {
-            GradientColors.BackgroundDark
-        } else {
-            GradientColors.BackgroundLight
-        }
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundGradient)
     ) {
+        // Neuer Animierter Mesh Background
+        com.example.timerapp.ui.components.MeshGradientBackground()
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
@@ -294,7 +287,7 @@ fun HomeScreen(
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                    scrolledContainerColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
                 ),
                 scrollBehavior = scrollBehavior
             )

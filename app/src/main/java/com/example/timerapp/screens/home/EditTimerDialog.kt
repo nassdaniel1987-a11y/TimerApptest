@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.timerapp.models.Timer
 import com.example.timerapp.screens.WheelTimePicker
+import com.example.timerapp.ui.theme.GlassColors
+import androidx.compose.foundation.isSystemInDarkTheme
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -39,6 +41,7 @@ internal fun EditTimerDialog(
     var showDatePicker by remember { mutableStateOf(false) }
 
     val userZone = ZoneId.systemDefault()
+    val glassColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -58,9 +61,12 @@ internal fun EditTimerDialog(
                     singleLine = true
                 )
 
-                OutlinedCard(
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    onClick = { showDatePicker = true }
+                    onClick = { showDatePicker = true },
+                    colors = CardDefaults.cardColors(
+                        containerColor = glassColor
+                    )
                 ) {
                     Row(
                         modifier = Modifier
@@ -89,7 +95,12 @@ internal fun EditTimerDialog(
                     }
                 }
 
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = glassColor
+                    )
+                ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally

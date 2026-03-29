@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.timerapp.models.Category
 import com.example.timerapp.ui.theme.GradientColors
+import com.example.timerapp.ui.theme.GlassColors
+import com.example.timerapp.ui.components.MeshGradientBackground
 import com.example.timerapp.viewmodel.TimerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,20 +46,14 @@ fun ManageCategoriesScreen(
         }
     }
 
-    // 🎨 Gradient Background
-    val backgroundGradient = Brush.verticalGradient(
-        colors = if (isSystemInDarkTheme()) {
-            GradientColors.BackgroundDark
-        } else {
-            GradientColors.BackgroundLight
-        }
-    )
+    // 🎨 Glassmorphism Background
+    val glassColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundGradient)
     ) {
+        MeshGradientBackground()
         Scaffold(
             containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -139,11 +135,13 @@ private fun CategoryItem(
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    val glassColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
+
     // 🎨 Glasmorphism Card
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+            containerColor = glassColor
         ),
         shape = MaterialTheme.shapes.extraLarge
     ) {

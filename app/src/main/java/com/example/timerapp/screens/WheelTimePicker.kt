@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.timerapp.ui.theme.GlassColors
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,7 +88,7 @@ fun WheelTimePicker(
 
 @Composable
 private fun PickerOverlay(modifier: Modifier = Modifier) {
-    val color = MaterialTheme.colorScheme.surface
+    val color = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark.copy(alpha=1f) else GlassColors.GlassSurfaceLight.copy(alpha=1f)
 
     Box(modifier = modifier) {
         Column(

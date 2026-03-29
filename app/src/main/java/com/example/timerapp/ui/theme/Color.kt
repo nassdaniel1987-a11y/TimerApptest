@@ -107,3 +107,22 @@ object GradientColors {
         Color(0xFFEC4899)
     )
 }
+
+// 🪟 Glassmorphism & Mesh Gradients
+object GlassColors {
+    // Transluzente Karten hintergründe (Frosted Glass)
+    val GlassSurfaceLight = Color(0xFFFFFFFF).copy(alpha = 0.6f)
+    val GlassSurfaceDark = Color(0xFF1E293B).copy(alpha = 0.5f)
+    
+    // Ränder für das Glass
+    val GlassBorderLight = Color(0xFFFFFFFF).copy(alpha = 0.8f)
+    val GlassBorderDark = Color(0xFFFFFFFF).copy(alpha = 0.2f)
+
+    // Animierte Mesh-Gradient Farben für den Hintergrund
+    val MeshGreen = Color(0xFF10B981)
+    val MeshCyan = Color(0xFF06B6D4)
+    val MeshBlue = Color(0xFF3B82F6)
+    val MeshPurple = Color(0xFF8B5CF6)
+    val MeshPink = Color(0xFFEC4899)
+    val MeshAmber = Color(0xFFF59E0B)
+}

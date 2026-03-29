@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.example.timerapp.BuildConfig
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.ui.theme.GradientColors
+import com.example.timerapp.ui.theme.GlassColors
+import com.example.timerapp.ui.components.MeshGradientBackground
 import com.example.timerapp.utils.NotificationHelper
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -85,19 +87,13 @@ fun SettingsScreen(
     }
 
     // 🎨 Gradient Background
-    val backgroundGradient = Brush.verticalGradient(
-        colors = if (isSystemInDarkTheme()) {
-            GradientColors.BackgroundDark
-        } else {
-            GradientColors.BackgroundLight
-        }
-    )
+    val glassColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundGradient)
     ) {
+        MeshGradientBackground()
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -143,7 +139,7 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        containerColor = glassColor
                     ),
                     shape = MaterialTheme.shapes.extraLarge
                 ) {
@@ -179,7 +175,7 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        containerColor = glassColor
                     ),
                     shape = MaterialTheme.shapes.extraLarge
                 ) {
@@ -218,7 +214,7 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        containerColor = glassColor
                     ),
                     shape = MaterialTheme.shapes.extraLarge
                 ) {
@@ -371,7 +367,7 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        containerColor = glassColor
                     ),
                     shape = MaterialTheme.shapes.extraLarge
                 ) {
@@ -456,7 +452,7 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        containerColor = glassColor
                     ),
                     shape = MaterialTheme.shapes.extraLarge
                 ) {
@@ -517,7 +513,7 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        containerColor = glassColor
                     ),
                     shape = MaterialTheme.shapes.extraLarge
                 ) {
@@ -593,7 +589,7 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        containerColor = glassColor
                     ),
                     shape = MaterialTheme.shapes.extraLarge
                 ) {
@@ -659,7 +655,7 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        containerColor = glassColor
                     ),
                     shape = MaterialTheme.shapes.extraLarge
                 ) {

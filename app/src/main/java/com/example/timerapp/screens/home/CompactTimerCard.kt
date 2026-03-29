@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +33,9 @@ import me.saket.swipe.SwipeableActionsBox
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.time.temporal.ChronoUnit
 import com.example.timerapp.utils.CategoryColors
+import com.example.timerapp.ui.theme.GlassColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,7 +146,10 @@ internal fun CompactTimerCard(
             )
         }
 
-        ElevatedCard(
+        val glassColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
+        val borderAlpha = if (isSystemInDarkTheme()) 0.2f else 0.8f
+
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .animateContentSize()
@@ -178,9 +184,9 @@ internal fun CompactTimerCard(
                     }
                 ),
             shape = MaterialTheme.shapes.extraLarge,
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation),
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = glassColor
             )
         ) {
             Column(

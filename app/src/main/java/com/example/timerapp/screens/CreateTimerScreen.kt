@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.models.Timer
 import com.example.timerapp.ui.theme.GradientColors
+import com.example.timerapp.ui.theme.GlassColors
+import com.example.timerapp.ui.components.MeshGradientBackground
 import com.example.timerapp.viewmodel.TimerViewModel
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -233,20 +235,14 @@ fun CreateTimerScreen(
         }
     }
 
-    // ✨ Gradient Background
-    val backgroundGradient = Brush.verticalGradient(
-        colors = if (isSystemInDarkTheme()) {
-            GradientColors.BackgroundDark
-        } else {
-            GradientColors.BackgroundLight
-        }
-    )
+    // ✨ Glassmorphism Colors
+    val glassColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundGradient)
     ) {
+        MeshGradientBackground()
         Scaffold(
             containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -341,7 +337,7 @@ fun CreateTimerScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    containerColor = glassColor
                 ),
                 shape = MaterialTheme.shapes.extraLarge
             ) {
@@ -464,7 +460,7 @@ fun CreateTimerScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    containerColor = glassColor
                 ),
                 shape = MaterialTheme.shapes.extraLarge
             ) {
@@ -568,7 +564,7 @@ fun CreateTimerScreen(
                     onClick = { showDatePicker = true },
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        containerColor = glassColor
                     )
                 ) {
                     Box(
@@ -618,7 +614,7 @@ fun CreateTimerScreen(
                     onClick = { showTimePicker = true },
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        containerColor = glassColor
                     )
                 ) {
                     Box(
@@ -684,7 +680,7 @@ fun CreateTimerScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    containerColor = glassColor
                 ),
                 shape = MaterialTheme.shapes.extraLarge
             ) {
@@ -742,10 +738,13 @@ fun CreateTimerScreen(
             }
 
             // ✅ Wiederholung
-            OutlinedCard(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { showRecurrenceDialog = true },
-                shape = MaterialTheme.shapes.large
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(
+                    containerColor = glassColor
+                )
             ) {
                 Row(
                     modifier = Modifier
@@ -867,10 +866,13 @@ fun CreateTimerScreen(
 
             // ✅ Wiederholungs-Enddatum (nur wenn Wiederholung aktiv)
             if (recurrence != null) {
-                OutlinedCard(
+                Card(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = { showRecurrenceEndDatePicker = true },
-                    shape = MaterialTheme.shapes.large
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor = glassColor
+                    )
                 ) {
                     Row(
                         modifier = Modifier

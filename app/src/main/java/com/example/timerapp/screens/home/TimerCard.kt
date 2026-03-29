@@ -28,6 +28,7 @@ import me.saket.swipe.SwipeableActionsBox
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import com.example.timerapp.ui.theme.GlassColors
 
 internal enum class TimerState {
     PENDING,
@@ -190,7 +191,9 @@ internal fun TimerCard(
                 )
             }
 
-            ElevatedCard(
+            val glassColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
+
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateContentSize()
@@ -222,9 +225,9 @@ internal fun TimerCard(
                         }
                     ),
                 shape = MaterialTheme.shapes.medium,
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = glassColor
                 )
             ) {
             Column {
