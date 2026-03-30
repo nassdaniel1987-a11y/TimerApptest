@@ -345,9 +345,16 @@ class TimerRepository(
 
     suspend fun createTemplate(template: TimerTemplate): Result<Unit> {
         return try {
-            val newTemplate = if (template.id.isBlank()) {
+            var newTemplate = if (template.id.isBlank()) {
                 template.copy(id = UUID.randomUUID().toString())
             } else template
+
+            // Auto-fill created_at if not set
+            if (newTemplate.created_at.isBlank()) {
+                newTemplate = newTemplate.copy(
+                    created_at = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                )
+            }
 
             templateDao.insertTemplate(newTemplate)
             enqueueSyncOperation("template", "CREATE", newTemplate.id, json.encodeToString(newTemplate))

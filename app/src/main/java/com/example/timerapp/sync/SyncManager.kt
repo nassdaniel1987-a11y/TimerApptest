@@ -155,7 +155,14 @@ class SyncManager(
                                         supabaseClient.from(table).upsert(items)
                                     }
                                     "template" -> {
-                                        val items = upserts.map { json.decodeFromString<TimerTemplate>(it.payload) }
+                                        val items = upserts.map {
+                                            val t = json.decodeFromString<TimerTemplate>(it.payload)
+                                            // Fix: auto-fill created_at if blank (prevents Supabase error)
+                                            if (t.created_at.isBlank()) t.copy(
+                                                created_at = java.time.ZonedDateTime.now()
+                                                    .format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                                            ) else t
+                                        }
                                         supabaseClient.from(table).upsert(items)
                                     }
                                     "qr_code" -> {
