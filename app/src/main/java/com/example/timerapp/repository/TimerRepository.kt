@@ -369,6 +369,17 @@ class TimerRepository(
         }
     }
 
+    suspend fun updateTemplate(template: TimerTemplate): Result<Unit> {
+        return try {
+            templateDao.updateTemplate(template)
+            enqueueSyncOperation("template", "UPDATE", template.id, json.encodeToString(template))
+            Log.d(TAG, "✅ Template aktualisiert (lokal): ${template.name}")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e, userMessage = "Fehler beim Aktualisieren des Templates")
+        }
+    }
+
     // ── QR Code Operations ──
 
     suspend fun refreshQRCodes(): Result<Unit> {

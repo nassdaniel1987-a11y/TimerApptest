@@ -133,7 +133,9 @@ fun ManageTemplatesScreen(
                         TemplateItem(
                             template = template,
                             glassColor = glassColor,
-                            onDelete = { viewModel.deleteTemplate(template.id) }
+                            categories = categories.map { it.name },
+                            onDelete = { viewModel.deleteTemplate(template.id) },
+                            onEdit = { editedTemplate -> viewModel.updateTemplate(editedTemplate) }
                         )
                     }
                 }
@@ -142,10 +144,12 @@ fun ManageTemplatesScreen(
     }
 
     if (showAddDialog) {
-        AddTemplateDialog(
+        TemplateDialog(
+            title = "Neue Vorlage",
+            confirmText = "Hinzufügen",
             categories = categories.map { it.name },
             onDismiss = { showAddDialog = false },
-            onAdd = { name, time, category, note ->
+            onConfirm = { name, time, category, note ->
                 val template = TimerTemplate(
                     id = UUID.randomUUID().toString(),
                     name = name,
@@ -164,9 +168,12 @@ fun ManageTemplatesScreen(
 private fun TemplateItem(
     template: TimerTemplate,
     glassColor: Color,
-    onDelete: () -> Unit
+    categories: List<String>,
+    onDelete: () -> Unit,
+    onEdit: (TimerTemplate) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -255,13 +262,23 @@ private fun TemplateItem(
                 }
             }
 
-            IconButton(onClick = { showDeleteDialog = true }) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Löschen",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(24.dp)
-                )
+            Row {
+                IconButton(onClick = { showEditDialog = true }) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Bearbeiten",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                IconButton(onClick = { showDeleteDialog = true }) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Löschen",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
     }
@@ -288,19 +305,54 @@ private fun TemplateItem(
             }
         )
     }
+
+    if (showEditDialog) {
+        TemplateDialog(
+            title = "Vorlage bearbeiten",
+            confirmText = "Speichern",
+            categories = categories,
+            initialName = template.name,
+            initialTime = template.default_time,
+            initialCategory = template.category,
+            initialNote = template.note ?: "",
+            onDismiss = { showEditDialog = false },
+            onConfirm = { name, time, category, note ->
+                onEdit(template.copy(
+                    name = name,
+                    default_time = time,
+                    category = category,
+                    note = note.ifBlank { null }
+                ))
+                showEditDialog = false
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddTemplateDialog(
+private fun TemplateDialog(
+    title: String,
+    confirmText: String,
     categories: List<String>,
+    initialName: String = "",
+    initialTime: String = "14:00",
+    initialCategory: String = categories.firstOrNull() ?: "Wird abgeholt",
+    initialNote: String = "",
     onDismiss: () -> Unit,
-    onAdd: (name: String, time: String, category: String, note: String) -> Unit
+    onConfirm: (name: String, time: String, category: String, note: String) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var selectedTime by remember { mutableStateOf(LocalTime.of(14, 0)) }
-    var selectedCategory by remember { mutableStateOf(categories.firstOrNull() ?: "Wird abgeholt") }
-    var note by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initialName) }
+    var selectedTime by remember {
+        mutableStateOf(
+            try {
+                val parts = initialTime.split(":")
+                LocalTime.of(parts[0].toInt(), parts[1].toInt())
+            } catch (_: Exception) { LocalTime.of(14, 0) }
+        )
+    }
+    var selectedCategory by remember { mutableStateOf(initialCategory) }
+    var note by remember { mutableStateOf(initialNote) }
     var expandedCategory by remember { mutableStateOf(false) }
 
     val glassColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
@@ -313,12 +365,12 @@ private fun AddTemplateDialog(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Icon(
-                    Icons.Default.PlaylistAdd,
+                    if (initialName.isEmpty()) Icons.Default.PlaylistAdd else Icons.Default.Edit,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(28.dp)
                 )
-                Text("Neue Vorlage")
+                Text(title)
             }
         },
         text = {
@@ -408,11 +460,11 @@ private fun AddTemplateDialog(
             TextButton(
                 onClick = {
                     val timeStr = String.format("%02d:%02d", selectedTime.hour, selectedTime.minute)
-                    onAdd(name.trim(), timeStr, selectedCategory, note.trim())
+                    onConfirm(name.trim(), timeStr, selectedCategory, note.trim())
                 },
                 enabled = name.isNotBlank()
             ) {
-                Text("Hinzufügen")
+                Text(confirmText)
             }
         },
         dismissButton = {

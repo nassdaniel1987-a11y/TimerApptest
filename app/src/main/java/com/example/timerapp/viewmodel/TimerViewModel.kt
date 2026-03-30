@@ -428,6 +428,19 @@ class TimerViewModel @Inject constructor(
         }
     }
 
+    fun updateTemplate(template: TimerTemplate) {
+        viewModelScope.launch {
+            repository.updateTemplate(template)
+                .onSuccess {
+                    syncManager.triggerSyncIfOnline()
+                    Log.d("TimerViewModel", "✅ Template aktualisiert")
+                }
+                .onError { exception, _ ->
+                    setError("Fehler beim Aktualisieren des Templates: ${exception.message}")
+                }
+        }
+    }
+
     // QR Code Operations
     fun createQRCode(qrCode: QRCodeData) {
         viewModelScope.launch {

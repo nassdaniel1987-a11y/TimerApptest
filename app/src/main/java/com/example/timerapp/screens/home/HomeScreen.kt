@@ -49,6 +49,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -120,7 +121,8 @@ fun HomeScreen(
                 val today = LocalDate.now()
                 filtered = filtered.filter {
                     try {
-                        val targetDate = ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDate()
+                        val targetDate = ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                            .withZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
                         targetDate == today
                     } catch (e: Exception) {
                         false
@@ -131,7 +133,8 @@ fun HomeScreen(
                 val tomorrow = LocalDate.now().plusDays(1)
                 filtered = filtered.filter {
                     try {
-                        val targetDate = ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDate()
+                        val targetDate = ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                            .withZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
                         targetDate == tomorrow
                     } catch (e: Exception) {
                         false
@@ -143,7 +146,8 @@ fun HomeScreen(
                 val endOfWeek = today.plusDays(7)
                 filtered = filtered.filter {
                     try {
-                        val targetDate = ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDate()
+                        val targetDate = ZonedDateTime.parse(it.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                            .withZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
                         targetDate >= today && targetDate <= endOfWeek
                     } catch (e: Exception) {
                         false

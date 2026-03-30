@@ -240,7 +240,8 @@ internal fun TimerCard(
                 ) {
                     if (!timer.is_completed && !isPast) {
                         val totalMinutes = ChronoUnit.MINUTES.between(
-                            ZonedDateTime.parse(timer.created_at, DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                            ZonedDateTime.parse(timer.created_at, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                                .withZoneSameInstant(java.time.ZoneId.systemDefault()),
                             targetTime
                         ).toFloat()
                         val remainingMinutes = minutesUntil.toFloat()
@@ -421,6 +422,7 @@ internal fun TimerCard(
                 if (!timer.is_completed) {
                     val createdAt = try {
                         ZonedDateTime.parse(timer.created_at, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                            .withZoneSameInstant(java.time.ZoneId.systemDefault())
                     } catch (e: Exception) {
                         null
                     }
@@ -486,6 +488,7 @@ internal fun TimerCard(
         val recurrenceEndDateText = timer.recurrence_end_date?.let {
             try {
                 val endDate = ZonedDateTime.parse(it, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    .withZoneSameInstant(java.time.ZoneId.systemDefault())
                 "Endet am: ${endDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}"
             } catch (e: Exception) {
                 null

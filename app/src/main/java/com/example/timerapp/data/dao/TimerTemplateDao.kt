@@ -19,6 +19,9 @@ interface TimerTemplateDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTemplates(templates: List<TimerTemplate>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun updateTemplate(template: TimerTemplate)
+
     @Query("DELETE FROM timer_templates WHERE id = :id")
     suspend fun deleteTemplate(id: String)
 

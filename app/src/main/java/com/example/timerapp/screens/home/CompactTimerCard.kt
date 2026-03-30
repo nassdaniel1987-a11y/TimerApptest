@@ -204,6 +204,7 @@ internal fun CompactTimerCard(
                     if (!timer.is_completed && !isPast) {
                         val createdAt = try {
                             ZonedDateTime.parse(timer.created_at, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                                .withZoneSameInstant(java.time.ZoneId.systemDefault())
                         } catch (e: Exception) { null }
                         
                         val totalMinutes = if (createdAt != null) ChronoUnit.MINUTES.between(createdAt, targetTime).toFloat() else 1f
