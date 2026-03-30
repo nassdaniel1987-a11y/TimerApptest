@@ -16,9 +16,11 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS timer_templates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
-    defaultTime TEXT NOT NULL, -- Format: "HH:mm"
+    default_time TEXT NOT NULL, -- Format: "HH:mm"
     category TEXT NOT NULL,
     note TEXT,
+    klasse TEXT,
+    source_device_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
