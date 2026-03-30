@@ -18,6 +18,9 @@ data object QRScanner
 data object Categories
 
 @Serializable
+data object ManageTemplates
+
+@Serializable
 data object ManageQRCodes
 
 @Serializable

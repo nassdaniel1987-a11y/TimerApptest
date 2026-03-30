@@ -20,7 +20,8 @@ fun DrawerContent(
     onNavigateToSettings: () -> Unit,
     onNavigateToQRScanner: () -> Unit,
     onNavigateToCategories: () -> Unit,
-    onNavigateToManageQRCodes: () -> Unit, // <-- HIER IST DER FEHLENDE PARAMETER
+    onNavigateToTemplates: () -> Unit,
+    onNavigateToManageQRCodes: () -> Unit,
     onCloseDrawer: () -> Unit
 ) {
     ModalDrawerSheet {
@@ -92,11 +93,22 @@ fun DrawerContent(
             )
 
             NavigationDrawerItem(
+                icon = { Icon(Icons.Default.PlaylistAdd, contentDescription = "Vorlagen") },
+                label = { Text("Vorlagen") },
+                selected = currentRoute.contains("ManageTemplates"),
+                onClick = {
+                    onNavigateToTemplates()
+                    onCloseDrawer()
+                },
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+
+            NavigationDrawerItem(
                 icon = { Icon(Icons.Default.QrCode, contentDescription = "QR-Codes verwalten") },
                 label = { Text("QR-Codes verwalten") },
                 selected = currentRoute.contains("ManageQRCodes"),
                 onClick = {
-                    onNavigateToManageQRCodes() // Und hier wird er verwendet
+                    onNavigateToManageQRCodes()
                     onCloseDrawer()
                 },
                 modifier = Modifier.padding(horizontal = 12.dp)

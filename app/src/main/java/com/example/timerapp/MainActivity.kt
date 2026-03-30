@@ -302,6 +302,9 @@ fun AppNavigation(
                 onNavigateToCategories = {
                     navController.navigate(Categories)
                 },
+                onNavigateToTemplates = {
+                    navController.navigate(ManageTemplates)
+                },
                 onNavigateToManageQRCodes = {
                     navController.navigate(ManageQRCodes)
                 },
@@ -356,6 +359,15 @@ fun AppNavigation(
 
             composable<Categories> {
                 ManageCategoriesScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            composable<ManageTemplates> {
+                ManageTemplatesScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
                         navController.popBackStack()

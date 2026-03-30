@@ -11,6 +11,7 @@ import com.example.timerapp.data.dao.QRCodeDao
 import com.example.timerapp.data.dao.TimerDao
 import com.example.timerapp.data.dao.TimerTemplateDao
 import com.example.timerapp.fcm.FcmTokenManager
+import com.example.timerapp.fcm.PushNotificationManager
 import com.example.timerapp.repository.TimerRepository
 import com.example.timerapp.sync.SyncManager
 import com.example.timerapp.utils.AlarmScheduler
@@ -66,6 +67,14 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun providePushNotificationManager(
+        supabaseClient: SupabaseClientType
+    ): PushNotificationManager {
+        return PushNotificationManager(supabaseClient)
+    }
+
+    @Provides
+    @Singleton
     fun provideTimerRepository(
         supabaseClient: SupabaseClientType,
         timerDao: TimerDao,
@@ -73,9 +82,10 @@ object AppModule {
         templateDao: TimerTemplateDao,
         qrCodeDao: QRCodeDao,
         pendingSyncDao: PendingSyncDao,
-        fcmTokenManager: FcmTokenManager
+        fcmTokenManager: FcmTokenManager,
+        pushNotificationManager: PushNotificationManager
     ): TimerRepository {
-        return TimerRepository(supabaseClient, timerDao, categoryDao, templateDao, qrCodeDao, pendingSyncDao, fcmTokenManager)
+        return TimerRepository(supabaseClient, timerDao, categoryDao, templateDao, qrCodeDao, pendingSyncDao, fcmTokenManager, pushNotificationManager)
     }
 
     @Provides

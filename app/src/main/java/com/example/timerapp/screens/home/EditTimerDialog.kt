@@ -31,6 +31,7 @@ internal fun EditTimerDialog(
     val targetTime = remember {
         try {
             ZonedDateTime.parse(timer.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .withZoneSameInstant(ZoneId.systemDefault())
         } catch (e: Exception) {
             ZonedDateTime.now()
         }

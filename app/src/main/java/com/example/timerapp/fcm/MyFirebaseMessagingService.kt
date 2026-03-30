@@ -128,7 +128,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val channel = NotificationChannel(
             channelId,
             "Push-Benachrichtigungen",
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Benachrichtigungen von anderen Geräten"
         }

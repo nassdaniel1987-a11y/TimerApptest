@@ -189,6 +189,7 @@ fun CreateTimerScreen(
     onNavigateBack: () -> Unit
 ) {
     val categories by viewModel.categories.collectAsState()
+    val templates by viewModel.templates.collectAsState()
     val error by viewModel.error.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -357,6 +358,54 @@ fun CreateTimerScreen(
                 .padding(top = 8.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // ✅ Vorlagen-Schnellauswahl (nur wenn Vorlagen vorhanden)
+            if (templates.isNotEmpty()) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Aus Vorlage",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(templates.size) { index ->
+                            val template = templates[index]
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    name = template.name
+                                    selectedCategory = template.category
+                                    note = template.note ?: ""
+                                    // Parse HH:mm → LocalTime
+                                    try {
+                                        val parts = template.default_time.split(":")
+                                        selectedTime = LocalTime.of(parts[0].toInt(), parts[1].toInt())
+                                    } catch (_: Exception) {}
+                                    nameError = null
+                                },
+                                label = {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.PlaylistAdd,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text("${template.name} (${template.default_time})")
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
             // 🎨 Hero Section - Timer Preview
             Card(
                 modifier = Modifier.fillMaxWidth(),

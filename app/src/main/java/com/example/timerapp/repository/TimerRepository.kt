@@ -8,6 +8,7 @@ import com.example.timerapp.data.dao.TimerDao
 import com.example.timerapp.data.dao.TimerTemplateDao
 import com.example.timerapp.data.entity.PendingSyncEntity
 import com.example.timerapp.fcm.FcmTokenManager
+import com.example.timerapp.fcm.PushNotificationManager
 import com.example.timerapp.models.Category
 import com.example.timerapp.models.QRCodeData
 import com.example.timerapp.models.Result
@@ -43,10 +44,12 @@ class TimerRepository(
     private val templateDao: TimerTemplateDao,
     private val qrCodeDao: QRCodeDao,
     private val pendingSyncDao: PendingSyncDao,
-    private val fcmTokenManager: FcmTokenManager
+    private val fcmTokenManager: FcmTokenManager,
+    private val pushNotificationManager: PushNotificationManager
 ) {
     private val TAG = "TimerRepository"
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+    private val pushScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
 
     // StateFlows — gleiche Interface wie vorher, ViewModel ändert sich nicht
     private val _timers = MutableStateFlow<List<Timer>>(emptyList())
@@ -156,6 +159,16 @@ class TimerRepository(
 
             timerDao.insertTimer(newTimer)
             enqueueSyncOperation("timer", "CREATE", newTimer.id, json.encodeToString(newTimer))
+
+            // ✅ Push SOFORT senden (parallel, non-blocking, unabhängig vom Sync)
+            pushScope.launch {
+                pushNotificationManager.sendPushNotification(
+                    eventType = "timer_created",
+                    timerName = newTimer.name,
+                    sourceDeviceId = deviceId
+                )
+            }
+
             Log.d(TAG, "✅ Timer erstellt (lokal): ${newTimer.name}")
             Result.Success(newTimer)
         } catch (e: Exception) {
@@ -186,6 +199,17 @@ class TimerRepository(
             if (existingTimer != null) {
                 val updatedTimer = existingTimer.copy(source_device_id = deviceId)
                 enqueueSyncOperation("timer", "UPDATE", id, json.encodeToString(updatedTimer))
+
+                // ✅ Push SOFORT senden (parallel, non-blocking)
+                if (!existingTimer.is_completed) {
+                    pushScope.launch {
+                        pushNotificationManager.sendPushNotification(
+                            eventType = "timer_deleted",
+                            timerName = existingTimer.name,
+                            sourceDeviceId = deviceId
+                        )
+                    }
+                }
             }
             timerDao.deleteTimer(id)
             enqueueSyncOperation("timer", "DELETE", id, "")

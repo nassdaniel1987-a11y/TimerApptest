@@ -53,7 +53,8 @@ internal fun TimerCard(
     var showEditDialog by remember { mutableStateOf(false) }
 
     val targetTime = remember(timer.target_time) {
-        try { ZonedDateTime.parse(timer.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME) }
+        try { ZonedDateTime.parse(timer.target_time, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            .withZoneSameInstant(java.time.ZoneId.systemDefault()) }
         catch (e: Exception) { null }
     }
 
