@@ -200,8 +200,16 @@ class TimerRepository(
                 val updatedTimer = existingTimer.copy(source_device_id = deviceId)
                 enqueueSyncOperation("timer", "UPDATE", id, json.encodeToString(updatedTimer))
 
-                // ✅ Push SOFORT senden (parallel, non-blocking)
-                if (!existingTimer.is_completed) {
+                // ✅ Push SOFORT senden — ABER NICHT für abgelaufene/abgeschlossene Timer
+                val isExpired = try {
+                    val targetTime = java.time.ZonedDateTime.parse(
+                        existingTimer.target_time,
+                        java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                    )
+                    targetTime.toInstant().isBefore(java.time.Instant.now())
+                } catch (e: Exception) { true }
+
+                if (!existingTimer.is_completed && !isExpired) {
                     pushScope.launch {
                         pushNotificationManager.sendPushNotification(
                             eventType = "timer_deleted",
@@ -209,6 +217,8 @@ class TimerRepository(
                             sourceDeviceId = deviceId
                         )
                     }
+                } else {
+                    Log.d(TAG, "🔕 Kein Push für gelöschten Timer (abgelaufen/abgeschlossen): ${existingTimer.name}")
                 }
             }
             timerDao.deleteTimer(id)
