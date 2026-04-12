@@ -1015,6 +1015,7 @@ fun CreateTimerScreen(
         }
         }
     }
+    } // Box
 
     // Date Picker Dialog
     if (showDatePicker) {
