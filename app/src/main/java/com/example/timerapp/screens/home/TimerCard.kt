@@ -383,13 +383,13 @@ internal fun TimerCard(
                         }
 
                         // Klasse pill (if set)
-                        if (timer.klasse.isNotBlank()) {
+                        if (timer.klasse?.isNotBlank() == true) {
                             Surface(
                                 shape = RoundedCornerShape(50),
                                 color = DesignTokens.IndigoAccent.copy(alpha = 0.12f)
                             ) {
                                 Text(
-                                    text = timer.klasse,
+                                    text = timer.klasse ?: "",
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = DesignTokens.NavActiveColor,
