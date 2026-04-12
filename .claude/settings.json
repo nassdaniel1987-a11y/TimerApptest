@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__stitch__list_screens",
+      "Bash(curl -s \"https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sX2RkNjFkMzIwYmRiMzRmNzA5NWYzOTM0NDUwMTE1OTBkEgsSBxCjsdS41BcYAZIBIwoKcHJvamVjdF9pZBIVQhM0NDcyOTA1MDM1ODU5NjQzOTE0&filename=&opi=96797242\" -o /tmp/create_timer.html)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(curl -s \"https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sX2U2MGEwODhmNGNlNTQxYTNhYjA4ODExYWIyNjQzYjFjEgsSBxCjsdS41BcYAZIBIwoKcHJvamVjdF9pZBIVQhM0NDcyOTA1MDM1ODU5NjQzOTE0&filename=&opi=96797242\" -o /tmp/settings.html)"
+    ]
+  }
+}

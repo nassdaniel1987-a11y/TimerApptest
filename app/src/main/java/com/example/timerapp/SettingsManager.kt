@@ -115,11 +115,17 @@ class SettingsManager private constructor(context: Context) {
         get() = prefs.getInt(KEY_AUTO_CLEANUP_DAYS, 7)
         set(value) = prefs.edit().putInt(KEY_AUTO_CLEANUP_DAYS, value).apply()
 
+    // ── Design-Theme ──────────────────────────────────────────────────────────
+    var appDesignTheme: AppDesignTheme
+        get() = AppDesignTheme.fromKey(prefs.getString(KEY_APP_DESIGN_THEME, AppDesignTheme.CLASSIC.key) ?: AppDesignTheme.CLASSIC.key)
+        set(value) = prefs.edit().putString(KEY_APP_DESIGN_THEME, value.key).apply()
+
     companion object {
         val KLASSE_OPTIONS = listOf("Klasse 1", "Klasse 2", "Klasse 3", "Klasse 4")
 
         private const val DEFAULT_PICKUP_TIMES = "13:00,13:45,14:00,14:45,15:00,15:45,16:00"
 
+        private const val KEY_APP_DESIGN_THEME = "app_design_theme"
         private const val KEY_SOUND_ENABLED = "sound_enabled"
         private const val KEY_VIBRATION_ENABLED = "vibration_enabled"
         private const val KEY_PRE_REMINDER_ENABLED = "pre_reminder_enabled"
@@ -148,5 +154,20 @@ class SettingsManager private constructor(context: Context) {
                 }
             }
         }
+    }
+}
+
+/**
+ * Wählbare Design-Themes der App.
+ * CLASSIC  = Glassmorphismus (bestehend)
+ * NEUMORPHISM = Neumorphism (neu)
+ */
+enum class AppDesignTheme(val key: String, val displayName: String) {
+    CLASSIC("classic", "Klassisch"),
+    NEUMORPHISM("neumorphism", "Neumorphism");
+
+    companion object {
+        fun fromKey(key: String): AppDesignTheme =
+            entries.firstOrNull { it.key == key } ?: CLASSIC
     }
 }

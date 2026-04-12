@@ -39,9 +39,15 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.models.Timer
 import com.example.timerapp.screens.EmptyStateView
+import com.example.timerapp.AppDesignTheme
 import com.example.timerapp.ui.theme.GradientColors
 import com.example.timerapp.ui.theme.GlassColors
+import com.example.timerapp.ui.theme.LocalAppDesignTheme
 import com.example.timerapp.ui.components.MeshGradientBackground
+import com.example.timerapp.ui.components.neumorphColorsLight
+import com.example.timerapp.ui.components.neumorphColorsDark
+import com.example.timerapp.ui.components.NeumorphicBackground
+import com.example.timerapp.ui.components.NeumorphicFAB
 import com.example.timerapp.viewmodel.TimerViewModel
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
@@ -75,6 +81,10 @@ fun HomeScreen(
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val haptic = LocalHapticFeedback.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val isDark = isSystemInDarkTheme()
+    val designTheme = LocalAppDesignTheme.current
+    val isNeumorphism = designTheme == AppDesignTheme.NEUMORPHISM
+    val nmColors = if (isDark) neumorphColorsDark() else neumorphColorsLight()
 
     var hasExactAlarmPermission by remember { mutableStateOf(true) }
     var filterCategory by remember { mutableStateOf<String?>(null) }
@@ -210,16 +220,26 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
     ) {
-        // Neuer Animierter Mesh Background
-        com.example.timerapp.ui.components.MeshGradientBackground()
+        // Hintergrund je nach aktivem Design-Theme
+        if (isNeumorphism) {
+            NeumorphicBackground(colors = nmColors) {}
+        } else {
+            com.example.timerapp.ui.components.MeshGradientBackground()
+        }
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-            containerColor = Color.Transparent,
+            containerColor = if (isNeumorphism) nmColors.bg else Color.Transparent,
             topBar = {
             LargeTopAppBar(
-                title = { Text("Timer") },
+                title = {
+                    Text(
+                        "Meine Timer",
+                        fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Default.Menu, contentDescription = "Menü öffnen")
@@ -294,53 +314,57 @@ fun HomeScreen(
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent,
-                    scrolledContainerColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
+                    scrolledContainerColor = if (isNeumorphism) nmColors.bg
+                    else if (isDark) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
                 ),
                 scrollBehavior = scrollBehavior
             )
         },
         floatingActionButton = {
-            val fabScale by animateFloatAsState(
-                targetValue = 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                ),
-                label = "fabScale"
-            )
-
-            FloatingActionButton(
-                onClick = onCreateTimer,
-                modifier = Modifier
-                    .scale(fabScale)
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.4f),
-                                Color.White.copy(alpha = 0.1f)
-                            )
-                        ),
-                        shape = CircleShape
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = Color.White.copy(alpha = 0.5f),
-                        shape = CircleShape
-                    ),
-                containerColor = Color.Transparent,
-                contentColor = Color.White,
-                elevation = FloatingActionButtonDefaults.elevation(
-                    defaultElevation = 0.dp,
-                    pressedElevation = 0.dp
-                ),
-                shape = CircleShape
-            ) {
-                Icon(
-                    Icons.Default.Add,
+            if (isNeumorphism) {
+                NeumorphicFAB(
+                    icon = Icons.Default.Add,
                     contentDescription = "Timer erstellen",
-                    modifier = Modifier.size(28.dp),
-                    tint = Color.White
+                    onClick = onCreateTimer,
+                    colors = nmColors,
                 )
+            } else {
+                FloatingActionButton(
+                    onClick = onCreateTimer,
+                    modifier = Modifier
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = com.example.timerapp.ui.theme.GradientColors.PrimaryButton
+                            ),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+                        ),
+                    containerColor = Color.Transparent,
+                    contentColor = Color.White,
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp
+                    ),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 0.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Timer erstellen",
+                            modifier = Modifier.size(22.dp),
+                            tint = Color.White
+                        )
+                        Text(
+                            text = "Neuer Timer",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                }
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }

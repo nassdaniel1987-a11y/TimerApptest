@@ -24,10 +24,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.timerapp.BuildConfig
+import com.example.timerapp.AppDesignTheme
 import com.example.timerapp.SettingsManager
 import com.example.timerapp.ui.theme.GradientColors
 import com.example.timerapp.ui.theme.GlassColors
+import com.example.timerapp.ui.theme.LocalAppDesignTheme
+import com.example.timerapp.ui.theme.NeumorphismColors
 import com.example.timerapp.ui.components.MeshGradientBackground
+import com.example.timerapp.ui.components.neumorphColorsLight
+import com.example.timerapp.ui.components.neumorphColorsDark
+import com.example.timerapp.ui.components.neumorphicRaised
+import com.example.timerapp.ui.components.neumorphicPressed
 import com.example.timerapp.utils.NotificationHelper
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -41,7 +48,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
-    onDarkModeChange: (Boolean) -> Unit = {}
+    onDarkModeChange: (Boolean) -> Unit = {},
+    onDesignThemeChange: (AppDesignTheme) -> Unit = {},
 ) {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -67,6 +75,7 @@ fun SettingsScreen(
     var autoCleanupDays by remember { mutableStateOf(settingsManager.autoCleanupDays) }
     var myKlasse by remember { mutableStateOf(settingsManager.myKlasse) }
     var showKlasseDialog by remember { mutableStateOf(false) }
+    var selectedDesignTheme by remember { mutableStateOf(settingsManager.appDesignTheme) }
 
     val ringtonePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -102,13 +111,18 @@ fun SettingsScreen(
                     title = {
                         Text(
                             "Einstellungen",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
+                            fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleLarge
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Zurück",
+                                tint = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -131,9 +145,10 @@ fun SettingsScreen(
                 // ═══════════ MEINE KLASSE ═══════════
                 Text(
                     "Meine Klasse",
-                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
 
@@ -142,7 +157,7 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = glassColor
                     ),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                 ) {
                     ListItem(
                         headlineContent = { Text("Zugeordnete Klasse", fontWeight = FontWeight.Medium) },
@@ -167,9 +182,10 @@ fun SettingsScreen(
                 // ═══════════ DARSTELLUNG ═══════════
                 Text(
                     "Darstellung",
-                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
 
@@ -178,7 +194,7 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = glassColor
                     ),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                 ) {
                     ListItem(
                         headlineContent = { Text("Dark Mode", fontWeight = FontWeight.Medium) },
@@ -197,18 +213,41 @@ fun SettingsScreen(
                                     isDarkModeEnabled = it
                                     settingsManager.isDarkModeEnabled = it
                                     onDarkModeChange(it)
-                                }
+                                },
+                                colors = SwitchDefaults.colors(checkedTrackColor = com.example.timerapp.ui.theme.DesignTokens.PrimaryDim)
                             )
                         }
                     )
                 }
 
+                // ═══════════ DESIGN-AUSWAHL ═══════════
+                Text(
+                    "App-Design",
+                    fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                DesignThemeSelector(
+                    selectedTheme = selectedDesignTheme,
+                    isDark = isDarkModeEnabled,
+                    glassColor = glassColor,
+                    onThemeSelected = { theme ->
+                        selectedDesignTheme = theme
+                        settingsManager.appDesignTheme = theme
+                        onDesignThemeChange(theme)
+                    }
+                )
+
                 // ═══════════ ALARM-EINSTELLUNGEN ═══════════
                 Text(
                     "Alarm-Einstellungen",
-                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
 
@@ -217,7 +256,7 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = glassColor
                     ),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                 ) {
                     ListItem(
                         headlineContent = { Text("Sound", fontWeight = FontWeight.Medium) },
@@ -235,7 +274,10 @@ fun SettingsScreen(
                                 onCheckedChange = {
                                     isSoundEnabled = it
                                     settingsManager.isSoundEnabled = it
-                                }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = com.example.timerapp.ui.theme.DesignTokens.PrimaryDim
+                                )
                             )
                         }
                     )
@@ -279,7 +321,8 @@ fun SettingsScreen(
                                 onCheckedChange = {
                                     isVibrationEnabled = it
                                     settingsManager.isVibrationEnabled = it
-                                }
+                                },
+                                colors = SwitchDefaults.colors(checkedTrackColor = com.example.timerapp.ui.theme.DesignTokens.PrimaryDim)
                             )
                         }
                     )
@@ -302,7 +345,8 @@ fun SettingsScreen(
                                 onCheckedChange = {
                                     isEscalatingAlarmEnabled = it
                                     settingsManager.isEscalatingAlarmEnabled = it
-                                }
+                                },
+                                colors = SwitchDefaults.colors(checkedTrackColor = com.example.timerapp.ui.theme.DesignTokens.PrimaryDim)
                             )
                         }
                     )
@@ -375,9 +419,10 @@ fun SettingsScreen(
                 // ═══════════ ERINNERUNGEN ═══════════
                 Text(
                     "Erinnerungen",
-                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
 
@@ -386,7 +431,7 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = glassColor
                     ),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                 ) {
                     ListItem(
                         headlineContent = { Text("Vorab-Erinnerung", fontWeight = FontWeight.Medium) },
@@ -411,7 +456,8 @@ fun SettingsScreen(
                                 onCheckedChange = {
                                     isPreReminderEnabled = it
                                     settingsManager.isPreReminderEnabled = it
-                                }
+                                },
+                                colors = SwitchDefaults.colors(checkedTrackColor = com.example.timerapp.ui.theme.DesignTokens.PrimaryDim)
                             )
                         }
                     )
@@ -460,9 +506,10 @@ fun SettingsScreen(
                 // ═══════════ BEDIENUNG ═══════════
                 Text(
                     "Bedienung",
-                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
 
@@ -471,7 +518,7 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = glassColor
                     ),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                 ) {
                     ListItem(
                         headlineContent = { Text("Haptisches Feedback", fontWeight = FontWeight.Medium) },
@@ -489,7 +536,8 @@ fun SettingsScreen(
                                 onCheckedChange = {
                                     isHapticFeedbackEnabled = it
                                     settingsManager.isHapticFeedbackEnabled = it
-                                }
+                                },
+                                colors = SwitchDefaults.colors(checkedTrackColor = com.example.timerapp.ui.theme.DesignTokens.PrimaryDim)
                             )
                         }
                     )
@@ -512,7 +560,8 @@ fun SettingsScreen(
                                 onCheckedChange = {
                                     isDashboardLayoutEnabled = it
                                     settingsManager.isDashboardLayoutEnabled = it
-                                }
+                                },
+                                colors = SwitchDefaults.colors(checkedTrackColor = com.example.timerapp.ui.theme.DesignTokens.PrimaryDim)
                             )
                         }
                     )
@@ -521,9 +570,10 @@ fun SettingsScreen(
                 // ═══════════ ABHOLZEITEN ═══════════
                 Text(
                     "Abholzeiten-Vorlagen",
-                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
 
@@ -532,7 +582,7 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = glassColor
                     ),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -597,9 +647,10 @@ fun SettingsScreen(
                 // ═══════════ AUFRÄUMEN ═══════════
                 Text(
                     "Aufräumen",
-                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
 
@@ -608,7 +659,7 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = glassColor
                     ),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                 ) {
                     ListItem(
                         headlineContent = { Text("Auto-Aufräumen", fontWeight = FontWeight.Medium) },
@@ -633,7 +684,8 @@ fun SettingsScreen(
                                 onCheckedChange = {
                                     isAutoCleanupEnabled = it
                                     settingsManager.isAutoCleanupEnabled = it
-                                }
+                                },
+                                colors = SwitchDefaults.colors(checkedTrackColor = com.example.timerapp.ui.theme.DesignTokens.PrimaryDim)
                             )
                         }
                     )
@@ -663,9 +715,10 @@ fun SettingsScreen(
                 // ═══════════ INFO ═══════════
                 Text(
                     "Information",
-                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
 
@@ -674,7 +727,7 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = glassColor
                     ),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                 ) {
                     ListItem(
                         headlineContent = { Text("Zeitzone", fontWeight = FontWeight.Medium) },
@@ -709,7 +762,7 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
                     ),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(20.dp),
@@ -1076,5 +1129,182 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Design-Theme Selector Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun DesignThemeSelector(
+    selectedTheme: AppDesignTheme,
+    isDark: Boolean,
+    glassColor: Color,
+    onThemeSelected: (AppDesignTheme) -> Unit,
+) {
+    val nmColors = if (isDark) neumorphColorsDark() else neumorphColorsLight()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = glassColor),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                text = "Design-Theme wählen",
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                text = "Wähle das visuelle Design der App. Das gewählte Theme wird sofort angewendet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // ── Karte: Klassisch ──────────────────────────────────────────
+                DesignThemePreviewCard(
+                    label = AppDesignTheme.CLASSIC.displayName,
+                    description = "Glassmorphismus mit Mesh-Gradient",
+                    isSelected = selectedTheme == AppDesignTheme.CLASSIC,
+                    modifier = Modifier.weight(1f),
+                    previewContent = {
+                        // Mini-Vorschau: Glassmorphismus-Look
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(80.dp)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            Color(0xFF6366F1).copy(alpha = 0.6f),
+                                            Color(0xFF8B5CF6).copy(alpha = 0.4f)
+                                        )
+                                    ),
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                ),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .width(50.dp)
+                                    .height(28.dp)
+                                    .background(
+                                        color = Color.White.copy(alpha = 0.2f),
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                    )
+                                    .border(
+                                        1.dp,
+                                        Color.White.copy(alpha = 0.3f),
+                                        androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                    )
+                            )
+                        }
+                    },
+                    onClick = { onThemeSelected(AppDesignTheme.CLASSIC) }
+                )
+
+                // ── Karte: Neumorphism ────────────────────────────────────────
+                DesignThemePreviewCard(
+                    label = AppDesignTheme.NEUMORPHISM.displayName,
+                    description = "Weiches 3D-Design mit Schatten",
+                    isSelected = selectedTheme == AppDesignTheme.NEUMORPHISM,
+                    modifier = Modifier.weight(1f),
+                    previewContent = {
+                        // Mini-Vorschau: Neumorphism-Look
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(80.dp)
+                                .background(
+                                    color = nmColors.bg,
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(50.dp)
+                                    .height(28.dp)
+                                    .neumorphicRaised(
+                                        bgColor = nmColors.bg,
+                                        lightShadow = nmColors.lightShadow,
+                                        darkShadow = nmColors.darkShadow,
+                                        cornerRadius = 8f,
+                                        offset = 3f,
+                                        blur = 6f,
+                                    )
+                                    .background(
+                                        color = nmColors.bg,
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                    )
+                            )
+                        }
+                    },
+                    onClick = { onThemeSelected(AppDesignTheme.NEUMORPHISM) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DesignThemePreviewCard(
+    label: String,
+    description: String,
+    isSelected: Boolean,
+    previewContent: @Composable BoxScope.() -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val borderColor = if (isSelected)
+        com.example.timerapp.ui.theme.DesignTokens.IndigoAccent
+    else
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+
+    val borderWidth = if (isSelected) 2.dp else 1.dp
+
+    Column(
+        modifier = modifier
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(content = previewContent)
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                modifier = Modifier.size(18.dp),
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent
+                )
+            )
+            Column {
+                Text(
+                    text = label,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }

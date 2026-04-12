@@ -62,13 +62,18 @@ fun ManageTemplatesScreen(
                     title = {
                         Text(
                             "Vorlagen",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
+                            fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleLarge
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Zurück",
+                                tint = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -180,7 +185,7 @@ private fun TemplateItem(
         colors = CardDefaults.cardColors(
             containerColor = glassColor
         ),
-        shape = MaterialTheme.shapes.extraLarge
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
     ) {
         Row(
             modifier = Modifier

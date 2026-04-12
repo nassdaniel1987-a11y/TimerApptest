@@ -252,101 +252,89 @@ fun CreateTimerScreen(
                     title = {
                         Text(
                             "Neuer Timer",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
+                            fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleLarge
                         )
                     },
                     navigationIcon = {
-                        TextButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.Close, contentDescription = "Schließen", modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Abbrechen")
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Zurück",
+                                tint = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent
+                            )
                         }
                     },
                     actions = {
-                    Button(
-                        onClick = {
-                            // ✅ Validierung: Name
-                            nameError = when {
-                                name.isBlank() -> "Name darf nicht leer sein"
-                                name.length > MAX_NAME_LENGTH -> "Max. $MAX_NAME_LENGTH Zeichen"
-                                else -> null
-                            }
-
-                            val targetDateTime = ZonedDateTime.of(
-                                selectedDate,
-                                selectedTime,
-                                userZone
-                            )
-
-                            // ✅ Validierung: Datum in Vergangenheit
-                            dateError = if (targetDateTime.isBefore(ZonedDateTime.now(userZone))) {
-                                "Datum muss in der Zukunft liegen"
-                            } else null
-
-                            // ✅ Validierung: Custom Weekdays
-                            weekdayError = if (recurrence == "custom" && selectedWeekdays.isEmpty()) {
-                                "Bitte mindestens einen Wochentag auswählen"
-                            } else null
-
-                            // Wenn Fehler existieren, nicht erstellen
-                            if (nameError != null || dateError != null || weekdayError != null) {
-                                return@Button
-                            }
-
-                            val timer = Timer(
-                                name = name.trim(),
-                                target_time = targetDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
-                                category = selectedCategory,
-                                note = note.trim().ifBlank { null },
-                                recurrence = recurrence,
-                                recurrence_end_date = recurrenceEndDate?.atStartOfDay(userZone)?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
-                                recurrence_weekdays = if (recurrence == "custom" && selectedWeekdays.isNotEmpty()) {
-                                    selectedWeekdays.sorted().joinToString(",")
-                                } else null,
-                                klasse = settingsManager.myKlasse
-                            )
-
-                            viewModel.createTimer(timer)
-                            onNavigateBack()
-                        },
-                        enabled = name.isNotBlank() && name.length <= MAX_NAME_LENGTH,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .background(
-                                brush = Brush.linearGradient(
-                                    colors = listOf(
-                                        Color.White.copy(alpha = 0.3f),
-                                        Color.White.copy(alpha = 0.1f)
+                        val isValid = name.isNotBlank() && name.length <= MAX_NAME_LENGTH
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 12.dp)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                .background(
+                                    brush = if (isValid) {
+                                        Brush.linearGradient(com.example.timerapp.ui.theme.GradientColors.PrimaryButton)
+                                    } else {
+                                        Brush.linearGradient(
+                                            listOf(
+                                                Color.White.copy(alpha = 0.08f),
+                                                Color.White.copy(alpha = 0.08f)
+                                            )
+                                        )
+                                    }
+                                )
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    nameError = when {
+                                        name.isBlank() -> "Name darf nicht leer sein"
+                                        name.length > MAX_NAME_LENGTH -> "Max. $MAX_NAME_LENGTH Zeichen"
+                                        else -> null
+                                    }
+                                    val targetDateTime = ZonedDateTime.of(selectedDate, selectedTime, userZone)
+                                    dateError = if (targetDateTime.isBefore(ZonedDateTime.now(userZone))) {
+                                        "Datum muss in der Zukunft liegen"
+                                    } else null
+                                    weekdayError = if (recurrence == "custom" && selectedWeekdays.isEmpty()) {
+                                        "Bitte mindestens einen Wochentag auswählen"
+                                    } else null
+                                    if (nameError != null || dateError != null || weekdayError != null) return@TextButton
+                                    val timer = Timer(
+                                        name = name.trim(),
+                                        target_time = targetDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                                        category = selectedCategory,
+                                        note = note.trim().ifBlank { null },
+                                        recurrence = recurrence,
+                                        recurrence_end_date = recurrenceEndDate?.atStartOfDay(userZone)?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                                        recurrence_weekdays = if (recurrence == "custom" && selectedWeekdays.isNotEmpty()) {
+                                            selectedWeekdays.sorted().joinToString(",")
+                                        } else null,
+                                        klasse = settingsManager.myKlasse
                                     )
+                                    viewModel.createTimer(timer)
+                                    onNavigateBack()
+                                },
+                                enabled = isValid,
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = Color.White,
+                                    disabledContentColor = Color.White.copy(alpha = 0.3f)
                                 ),
-                                shape = androidx.compose.foundation.shape.CircleShape
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = Color.White.copy(alpha = 0.5f),
-                                shape = androidx.compose.foundation.shape.CircleShape
-                            ),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Transparent,
-                            disabledContainerColor = Color.Transparent,
-                            contentColor = Color.White,
-                            disabledContentColor = Color.White.copy(alpha = 0.4f)
-                        ),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            "Erstellen",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    "Timer erstellen",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                    )
                 )
-            )
         }
         ) { padding ->
         Column(
@@ -406,14 +394,21 @@ fun CreateTimerScreen(
                 }
             }
 
-            // 🎨 Hero Section - Timer Preview
+            // Hero Section - Timer Preview
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = glassColor
-                ),
-                shape = MaterialTheme.shapes.extraLarge
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (isSystemInDarkTheme()) GlassColors.GlassBorderDark else GlassColors.GlassBorderLight
+                )
             ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(glassColor)
+                ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -535,10 +530,10 @@ fun CreateTimerScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = glassColor
                 ),
-                shape = MaterialTheme.shapes.extraLarge
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(

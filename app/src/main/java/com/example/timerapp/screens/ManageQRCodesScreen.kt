@@ -68,13 +68,18 @@ fun ManageQRCodesScreen(
                     title = {
                         Text(
                             "QR-Codes verwalten",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
+                            fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleLarge
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Zurück",
+                                tint = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -137,7 +142,7 @@ private fun QRCodeItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
         ),
-        shape = MaterialTheme.shapes.extraLarge
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
     ) {
         Row(
             modifier = Modifier

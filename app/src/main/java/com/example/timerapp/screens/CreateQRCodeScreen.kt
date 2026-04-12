@@ -49,10 +49,20 @@ fun CreateQRCodeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("QR-Code erstellen") },
+                title = {
+                    Text(
+                        "QR-Code erstellen",
+                        fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Zurück",
+                            tint = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent
+                        )
                     }
                 },
                 actions = {

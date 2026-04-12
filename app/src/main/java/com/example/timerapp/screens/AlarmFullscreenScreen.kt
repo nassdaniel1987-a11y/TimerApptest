@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.timerapp.ui.theme.GradientColors
+import com.example.timerapp.ui.theme.ManropeFontFamily
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -146,15 +147,16 @@ fun AlarmFullscreenScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 🎨 Moderne Alarm-Nachricht
+            // Alarm message
             Text(
                 text = if (timerNames.size > 1) {
                     "${timerNames.size} Timer abgelaufen!"
                 } else {
                     "Zeit abgelaufen!"
                 },
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
+                fontFamily = ManropeFontFamily,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 28.sp,
                 color = Color.White,
                 textAlign = TextAlign.Center
             )
@@ -169,7 +171,7 @@ fun AlarmFullscreenScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White.copy(alpha = 0.15f)
                 ),
-                shape = MaterialTheme.shapes.extraLarge
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
             ) {
                 Column(
                     modifier = Modifier

@@ -23,8 +23,11 @@ import androidx.navigation.compose.rememberNavController
 import com.example.timerapp.navigation.*
 import com.example.timerapp.screens.*
 import com.example.timerapp.screens.home.HomeScreen
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.navigation.toRoute
+import com.example.timerapp.ui.theme.LocalAppDesignTheme
 import com.example.timerapp.ui.theme.TimerAppTheme
+import com.example.timerapp.AppDesignTheme
 import com.example.timerapp.utils.NotificationHelper
 import com.example.timerapp.viewmodel.TimerViewModel
 import com.example.timerapp.workers.DailyReminderWorker
@@ -95,20 +98,26 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settingsManager = remember { SettingsManager.getInstance(this) }
             var isDarkMode by remember { mutableStateOf(settingsManager.isDarkModeEnabled) }
+            var designTheme by remember { mutableStateOf(settingsManager.appDesignTheme) }
             val shortcutAction by _shortcutAction
 
             TimerAppTheme(darkTheme = isDarkMode) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    AppNavigation(
-                        shortcutAction = shortcutAction,
-                        onShortcutHandled = { _shortcutAction.value = null },
-                        onDarkModeChange = { enabled ->
-                            isDarkMode = enabled
-                        }
-                    )
+                CompositionLocalProvider(LocalAppDesignTheme provides designTheme) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        AppNavigation(
+                            shortcutAction = shortcutAction,
+                            onShortcutHandled = { _shortcutAction.value = null },
+                            onDarkModeChange = { enabled ->
+                                isDarkMode = enabled
+                            },
+                            onDesignThemeChange = { theme ->
+                                designTheme = theme
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -248,7 +257,8 @@ fun AppNavigation(
     viewModel: TimerViewModel = hiltViewModel(),
     shortcutAction: String? = null,
     onShortcutHandled: () -> Unit = {},
-    onDarkModeChange: (Boolean) -> Unit = {}
+    onDarkModeChange: (Boolean) -> Unit = {},
+    onDesignThemeChange: (AppDesignTheme) -> Unit = {},
 ) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -344,7 +354,8 @@ fun AppNavigation(
                     onNavigateBack = {
                         navController.popBackStack()
                     },
-                    onDarkModeChange = onDarkModeChange
+                    onDarkModeChange = onDarkModeChange,
+                    onDesignThemeChange = onDesignThemeChange,
                 )
             }
 
