@@ -35,6 +35,7 @@ import com.example.timerapp.ui.components.neumorphColorsLight
 import com.example.timerapp.ui.components.neumorphColorsDark
 import com.example.timerapp.ui.components.neumorphicRaised
 import com.example.timerapp.ui.components.neumorphicPressed
+import com.example.timerapp.ui.theme.BrutalistColors
 import com.example.timerapp.utils.NotificationHelper
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -1162,91 +1163,147 @@ private fun DesignThemeSelector(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // Horizontally scrollable row so all 3 cards fit on any screen width
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp)
             ) {
-                // ── Karte: Klassisch ──────────────────────────────────────────
-                DesignThemePreviewCard(
-                    label = AppDesignTheme.CLASSIC.displayName,
-                    description = "Glassmorphismus mit Mesh-Gradient",
-                    isSelected = selectedTheme == AppDesignTheme.CLASSIC,
-                    modifier = Modifier.weight(1f),
-                    previewContent = {
-                        // Mini-Vorschau: Glassmorphismus-Look
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(80.dp)
-                                .background(
-                                    brush = Brush.linearGradient(
-                                        colors = listOf(
-                                            Color(0xFF6366F1).copy(alpha = 0.6f),
-                                            Color(0xFF8B5CF6).copy(alpha = 0.4f)
-                                        )
-                                    ),
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                                ),
-                        ) {
+                item {
+                    // ── Karte: Klassisch ──────────────────────────────────────────
+                    DesignThemePreviewCard(
+                        label = AppDesignTheme.CLASSIC.displayName,
+                        description = "Glassmorphismus & Mesh-Gradient",
+                        isSelected = selectedTheme == AppDesignTheme.CLASSIC,
+                        modifier = Modifier.width(140.dp),
+                        previewContent = {
                             Box(
                                 modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .width(50.dp)
-                                    .height(28.dp)
+                                    .fillMaxWidth()
+                                    .height(80.dp)
                                     .background(
-                                        color = Color.White.copy(alpha = 0.2f),
-                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                        brush = Brush.linearGradient(
+                                            colors = listOf(
+                                                Color(0xFF6366F1).copy(alpha = 0.6f),
+                                                Color(0xFF8B5CF6).copy(alpha = 0.4f)
+                                            )
+                                        ),
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                    ),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .width(50.dp)
+                                        .height(28.dp)
+                                        .background(
+                                            color = Color.White.copy(alpha = 0.2f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                        )
+                                        .border(
+                                            1.dp,
+                                            Color.White.copy(alpha = 0.3f),
+                                            androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                        )
+                                )
+                            }
+                        },
+                        onClick = { onThemeSelected(AppDesignTheme.CLASSIC) }
+                    )
+                }
+
+                item {
+                    // ── Karte: Neumorphism ────────────────────────────────────────
+                    DesignThemePreviewCard(
+                        label = AppDesignTheme.NEUMORPHISM.displayName,
+                        description = "Weiches 3D-Design mit Schatten",
+                        isSelected = selectedTheme == AppDesignTheme.NEUMORPHISM,
+                        modifier = Modifier.width(140.dp),
+                        previewContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(80.dp)
+                                    .background(
+                                        color = nmColors.bg,
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(50.dp)
+                                        .height(28.dp)
+                                        .neumorphicRaised(
+                                            bgColor = nmColors.bg,
+                                            lightShadow = nmColors.lightShadow,
+                                            darkShadow = nmColors.darkShadow,
+                                            cornerRadius = 8f,
+                                            offset = 3f,
+                                            blur = 6f,
+                                        )
+                                        .background(
+                                            color = nmColors.bg,
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                        )
+                                )
+                            }
+                        },
+                        onClick = { onThemeSelected(AppDesignTheme.NEUMORPHISM) }
+                    )
+                }
+
+                item {
+                    // ── Karte: Brutalist ──────────────────────────────────────────
+                    DesignThemePreviewCard(
+                        label = AppDesignTheme.BRUTALIST.displayName,
+                        description = "Industrial Dark mit Neon-Cyan",
+                        isSelected = selectedTheme == AppDesignTheme.BRUTALIST,
+                        modifier = Modifier.width(140.dp),
+                        previewContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(80.dp)
+                                    .background(
+                                        color = BrutalistColors.Background,
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
                                     )
                                     .border(
                                         1.dp,
-                                        Color.White.copy(alpha = 0.3f),
-                                        androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                        BrutalistColors.Border,
+                                        androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.Start,
+                                    modifier = Modifier.padding(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(32.dp)
+                                            .height(4.dp)
+                                            .background(BrutalistColors.Cyan)
                                     )
-                            )
-                        }
-                    },
-                    onClick = { onThemeSelected(AppDesignTheme.CLASSIC) }
-                )
-
-                // ── Karte: Neumorphism ────────────────────────────────────────
-                DesignThemePreviewCard(
-                    label = AppDesignTheme.NEUMORPHISM.displayName,
-                    description = "Weiches 3D-Design mit Schatten",
-                    isSelected = selectedTheme == AppDesignTheme.NEUMORPHISM,
-                    modifier = Modifier.weight(1f),
-                    previewContent = {
-                        // Mini-Vorschau: Neumorphism-Look
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(80.dp)
-                                .background(
-                                    color = nmColors.bg,
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .width(50.dp)
-                                    .height(28.dp)
-                                    .neumorphicRaised(
-                                        bgColor = nmColors.bg,
-                                        lightShadow = nmColors.lightShadow,
-                                        darkShadow = nmColors.darkShadow,
-                                        cornerRadius = 8f,
-                                        offset = 3f,
-                                        blur = 6f,
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(2.dp)
+                                            .background(BrutalistColors.Border)
                                     )
-                                    .background(
-                                        color = nmColors.bg,
-                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.6f)
+                                            .height(2.dp)
+                                            .background(BrutalistColors.Border)
                                     )
-                            )
-                        }
-                    },
-                    onClick = { onThemeSelected(AppDesignTheme.NEUMORPHISM) }
-                )
+                                }
+                            }
+                        },
+                        onClick = { onThemeSelected(AppDesignTheme.BRUTALIST) }
+                    )
+                }
             }
         }
     }

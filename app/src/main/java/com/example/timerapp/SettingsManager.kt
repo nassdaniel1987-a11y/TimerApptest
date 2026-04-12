@@ -164,7 +164,8 @@ class SettingsManager private constructor(context: Context) {
  */
 enum class AppDesignTheme(val key: String, val displayName: String) {
     CLASSIC("classic", "Klassisch"),
-    NEUMORPHISM("neumorphism", "Neumorphism");
+    NEUMORPHISM("neumorphism", "Neumorphism"),
+    BRUTALIST("brutalist", "Brutalist");
 
     companion object {
         fun fromKey(key: String): AppDesignTheme =

@@ -34,6 +34,11 @@ import com.example.timerapp.ui.theme.ManropeFontFamily
 import com.example.timerapp.ui.components.neumorphColorsLight
 import com.example.timerapp.ui.components.neumorphColorsDark
 import com.example.timerapp.ui.components.neumorphicRaised
+import com.example.timerapp.ui.components.BrutalistProgressBar
+import com.example.timerapp.ui.components.BrutalistStatusDot
+import com.example.timerapp.ui.components.BrutalistTag
+import com.example.timerapp.ui.components.brutalistAccentBar
+import com.example.timerapp.ui.theme.BrutalistColors
 import me.saket.swipe.SwipeAction
 import me.saket.swipe.SwipeableActionsBox
 import java.time.ZonedDateTime
@@ -183,7 +188,16 @@ internal fun TimerCard(
     val cardShape = RoundedCornerShape(24.dp)
     val designTheme = LocalAppDesignTheme.current
     val isNeumorphism = designTheme == AppDesignTheme.NEUMORPHISM
+    val isBrutalist = designTheme == AppDesignTheme.BRUTALIST
     val nmColors = if (isDark) neumorphColorsDark() else neumorphColorsLight()
+
+    // Brutalist accent colour maps to timer state colours
+    val brutalistAccent = when (timerState) {
+        TimerState.PENDING   -> BrutalistColors.StatusPending
+        TimerState.RUNNING   -> BrutalistColors.StatusRunning
+        TimerState.COMPLETED -> BrutalistColors.StatusCompleted
+        TimerState.ALARM     -> BrutalistColors.StatusAlarm
+    }
 
     SwipeableActionsBox(
         startActions = if (!timer.is_completed) listOf(completeAction) else emptyList(),
@@ -214,10 +228,20 @@ internal fun TimerCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .scale(cardScale)
-                    .clip(cardShape)
                     .then(
-                        if (isNeumorphism)
-                            Modifier
+                        when {
+                            isBrutalist -> Modifier
+                                .clip(RoundedCornerShape(0.dp))
+                                .background(BrutalistColors.Surface)
+                                .border(1.dp, BrutalistColors.Border, RoundedCornerShape(0.dp))
+                                .brutalistAccentBar(
+                                    accentColor = brutalistAccent.copy(
+                                        alpha = if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) pulseAlpha else 1f
+                                    ),
+                                    barWidth = 3f
+                                )
+                            isNeumorphism -> Modifier
+                                .clip(cardShape)
                                 .neumorphicRaised(
                                     bgColor     = nmColors.bg,
                                     lightShadow = nmColors.lightShadow,
@@ -230,8 +254,8 @@ internal fun TimerCard(
                                     color = accentColor.copy(alpha = if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) pulseAlpha else 0.5f),
                                     shape = cardShape
                                 )
-                        else
-                            Modifier
+                            else -> Modifier
+                                .clip(cardShape)
                                 .background(glassBg)
                                 .border(1.dp, glassBorder, cardShape)
                                 .border(
@@ -243,6 +267,7 @@ internal fun TimerCard(
                                     },
                                     shape = cardShape
                                 )
+                        }
                     )
                     .clickable(
                         interactionSource = cardInteraction,
@@ -251,27 +276,44 @@ internal fun TimerCard(
                     )
                     .animateContentSize()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier.padding(
+                        start = if (isBrutalist) 20.dp else 16.dp,
+                        top = 16.dp, end = 16.dp, bottom = 16.dp
+                    )
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Status dot
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(accentColor)
-                        )
+                        // Status dot — square for Brutalist
+                        if (isBrutalist) {
+                            BrutalistStatusDot(
+                                color = brutalistAccent,
+                                pulseAlpha = if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) pulseAlpha else 1f,
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(accentColor)
+                            )
+                        }
 
                         // Timer name
                         Text(
-                            text = timer.name,
-                            fontFamily = ManropeFontFamily,
+                            text = if (isBrutalist) timer.name.uppercase() else timer.name,
+                            fontFamily = if (isBrutalist) com.example.timerapp.ui.components.BrutalistFontFamily else ManropeFontFamily,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = if (isNeumorphism) nmColors.textPrimary else MaterialTheme.colorScheme.onSurface,
+                            fontSize = if (isBrutalist) 13.sp else 16.sp,
+                            color = when {
+                                isBrutalist   -> BrutalistColors.TextPrimary
+                                isNeumorphism -> nmColors.textPrimary
+                                else          -> MaterialTheme.colorScheme.onSurface
+                            },
+                            letterSpacing = if (isBrutalist) 1.sp else 0.sp,
                             modifier = Modifier.weight(1f)
                         )
 
@@ -339,14 +381,14 @@ internal fun TimerCard(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Countdown / time text (large, monospace feel)
+                    // Countdown / time text
                     Text(
                         text = timeText,
-                        fontFamily = ManropeFontFamily,
+                        fontFamily = if (isBrutalist) com.example.timerapp.ui.components.BrutalistFontFamily else ManropeFontFamily,
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 22.sp,
-                        color = accentColor,
-                        letterSpacing = (-0.5).sp
+                        fontSize = if (isBrutalist) 18.sp else 22.sp,
+                        color = if (isBrutalist) brutalistAccent else accentColor,
+                        letterSpacing = if (isBrutalist) 0.sp else (-0.5).sp
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -356,45 +398,60 @@ internal fun TimerCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Category pill
                         val catColor = com.example.timerapp.utils.CategoryColors.getColor(timer.category)
-                        Surface(
-                            shape = RoundedCornerShape(50),
-                            color = catColor.copy(alpha = 0.15f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(RoundedCornerShape(50))
-                                        .background(catColor)
-                                )
-                                Text(
-                                    text = timer.category,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = catColor,
-                                    fontWeight = FontWeight.SemiBold
+
+                        if (isBrutalist) {
+                            // Brutalist: square tags, no pills
+                            BrutalistTag(
+                                text = timer.category,
+                                color = BrutalistColors.TextSecondary,
+                                borderColor = BrutalistColors.Border,
+                            )
+                            if (timer.klasse?.isNotBlank() == true) {
+                                BrutalistTag(
+                                    text = timer.klasse ?: "",
+                                    color = BrutalistColors.Cyan,
+                                    borderColor = BrutalistColors.CyanDim,
                                 )
                             }
-                        }
-
-                        // Klasse pill (if set)
-                        if (timer.klasse?.isNotBlank() == true) {
+                        } else {
+                            // Classic / Neumorphism: pill badges
                             Surface(
                                 shape = RoundedCornerShape(50),
-                                color = DesignTokens.IndigoAccent.copy(alpha = 0.12f)
+                                color = catColor.copy(alpha = 0.15f)
                             ) {
-                                Text(
-                                    text = timer.klasse ?: "",
+                                Row(
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = DesignTokens.NavActiveColor,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(RoundedCornerShape(50))
+                                            .background(catColor)
+                                    )
+                                    Text(
+                                        text = timer.category,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = catColor,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                            if (timer.klasse?.isNotBlank() == true) {
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = DesignTokens.IndigoAccent.copy(alpha = 0.12f)
+                                ) {
+                                    Text(
+                                        text = timer.klasse ?: "",
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = DesignTokens.NavActiveColor,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
                         }
 
@@ -403,7 +460,7 @@ internal fun TimerCard(
                             Text(
                                 text = timer.note,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (isBrutalist) BrutalistColors.TextSecondary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -412,15 +469,22 @@ internal fun TimerCard(
                     // Progress bar
                     if (!timer.is_completed && !isPast) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(3.dp)
-                                .clip(RoundedCornerShape(50)),
-                            color = accentColor,
-                            trackColor = accentColor.copy(alpha = 0.15f)
-                        )
+                        if (isBrutalist) {
+                            BrutalistProgressBar(
+                                progress = progress,
+                                accentColor = brutalistAccent,
+                            )
+                        } else {
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(50)),
+                                color = accentColor,
+                                trackColor = accentColor.copy(alpha = 0.15f)
+                            )
+                        }
                     }
                 }
             }

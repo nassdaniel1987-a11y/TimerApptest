@@ -48,6 +48,9 @@ import com.example.timerapp.ui.components.neumorphColorsLight
 import com.example.timerapp.ui.components.neumorphColorsDark
 import com.example.timerapp.ui.components.NeumorphicBackground
 import com.example.timerapp.ui.components.NeumorphicFAB
+import com.example.timerapp.ui.components.BrutalistBackground
+import com.example.timerapp.ui.components.BrutalistFAB
+import com.example.timerapp.ui.theme.BrutalistColors
 import com.example.timerapp.viewmodel.TimerViewModel
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
@@ -84,6 +87,7 @@ fun HomeScreen(
     val isDark = isSystemInDarkTheme()
     val designTheme = LocalAppDesignTheme.current
     val isNeumorphism = designTheme == AppDesignTheme.NEUMORPHISM
+    val isBrutalist = designTheme == AppDesignTheme.BRUTALIST
     val nmColors = if (isDark) neumorphColorsDark() else neumorphColorsLight()
 
     var hasExactAlarmPermission by remember { mutableStateOf(true) }
@@ -221,16 +225,20 @@ fun HomeScreen(
             .fillMaxSize()
     ) {
         // Hintergrund je nach aktivem Design-Theme
-        if (isNeumorphism) {
-            NeumorphicBackground(colors = nmColors) {}
-        } else {
-            com.example.timerapp.ui.components.MeshGradientBackground()
+        when {
+            isNeumorphism -> NeumorphicBackground(colors = nmColors) {}
+            isBrutalist   -> BrutalistBackground() {}
+            else          -> com.example.timerapp.ui.components.MeshGradientBackground()
         }
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-            containerColor = if (isNeumorphism) nmColors.bg else Color.Transparent,
+            containerColor = when {
+                isNeumorphism -> nmColors.bg
+                isBrutalist   -> BrutalistColors.Background
+                else          -> Color.Transparent
+            },
             topBar = {
             LargeTopAppBar(
                 title = {
@@ -314,22 +322,30 @@ fun HomeScreen(
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent,
-                    scrolledContainerColor = if (isNeumorphism) nmColors.bg
-                    else if (isDark) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
+                    scrolledContainerColor = when {
+                        isNeumorphism -> nmColors.bg
+                        isBrutalist   -> BrutalistColors.Surface
+                        isDark        -> GlassColors.GlassSurfaceDark
+                        else          -> GlassColors.GlassSurfaceLight
+                    }
                 ),
                 scrollBehavior = scrollBehavior
             )
         },
         floatingActionButton = {
-            if (isNeumorphism) {
-                NeumorphicFAB(
+            when {
+                isNeumorphism -> NeumorphicFAB(
                     icon = Icons.Default.Add,
                     contentDescription = "Timer erstellen",
                     onClick = onCreateTimer,
                     colors = nmColors,
                 )
-            } else {
-                FloatingActionButton(
+                isBrutalist -> BrutalistFAB(
+                    icon = Icons.Default.Add,
+                    contentDescription = "Timer erstellen",
+                    onClick = onCreateTimer,
+                )
+                else -> FloatingActionButton(
                     onClick = onCreateTimer,
                     modifier = Modifier
                         .background(

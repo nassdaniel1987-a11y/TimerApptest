@@ -31,6 +31,7 @@ import com.example.timerapp.ui.theme.ManropeFontFamily
 import com.example.timerapp.ui.components.neumorphColorsLight
 import com.example.timerapp.ui.components.neumorphColorsDark
 import com.example.timerapp.ui.components.NeumorphColors
+import com.example.timerapp.ui.theme.BrutalistColors
 
 @Composable
 fun DrawerContent(
@@ -46,8 +47,10 @@ fun DrawerContent(
     val isDark = isSystemInDarkTheme()
     val designTheme = LocalAppDesignTheme.current
     val isNeumorphism = designTheme == AppDesignTheme.NEUMORPHISM
+    val isBrutalist = designTheme == AppDesignTheme.BRUTALIST
     val nmColors = if (isDark) neumorphColorsDark() else neumorphColorsLight()
     val drawerBg = when {
+        isBrutalist   -> BrutalistColors.Background
         isNeumorphism -> nmColors.bg
         isDark        -> DesignTokens.SurfaceContainerLow
         else          -> Color(0xFFF8FAFC)
@@ -72,15 +75,26 @@ fun DrawerContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        if (isNeumorphism)
-                            Brush.linearGradient(listOf(nmColors.accent.copy(alpha = 0.10f), nmColors.bg))
-                        else
-                            Brush.linearGradient(
+                        when {
+                            isBrutalist   -> Brush.linearGradient(
+                                listOf(BrutalistColors.Surface, BrutalistColors.Background)
+                            )
+                            isNeumorphism -> Brush.linearGradient(listOf(nmColors.accent.copy(alpha = 0.10f), nmColors.bg))
+                            else          -> Brush.linearGradient(
                                 listOf(
                                     DesignTokens.IndigoAccent.copy(alpha = 0.15f),
                                     DesignTokens.VioletAccent.copy(alpha = 0.08f)
                                 )
                             )
+                        }
+                    )
+                    .then(
+                        if (isBrutalist)
+                            Modifier.border(
+                                width = 0.dp, // no top/side border needed; bottom border shown via Box below
+                                color = Color.Transparent
+                            )
+                        else Modifier
                     )
                     .padding(horizontal = 24.dp, vertical = 28.dp)
             ) {
@@ -88,39 +102,50 @@ fun DrawerContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // App icon circle
+                    // App icon — square for Brutalist, circle otherwise
                     Box(
                         modifier = Modifier
                             .size(56.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isNeumorphism)
-                                    Brush.linearGradient(listOf(nmColors.accent, nmColors.accentSuccess))
+                            .then(
+                                if (isBrutalist)
+                                    Modifier
+                                        .background(BrutalistColors.Cyan, RoundedCornerShape(4.dp))
+                                        .border(1.dp, BrutalistColors.CyanDim, RoundedCornerShape(4.dp))
                                 else
-                                    Brush.linearGradient(GradientColors.PrimaryButton)
+                                    Modifier
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isNeumorphism)
+                                                Brush.linearGradient(listOf(nmColors.accent, nmColors.accentSuccess))
+                                            else
+                                                Brush.linearGradient(GradientColors.PrimaryButton)
+                                        )
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.Timer,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = if (isBrutalist) BrutalistColors.Background else Color.White,
                             modifier = Modifier.size(30.dp)
                         )
                     }
 
                     Column {
                         Text(
-                            text = "TimerApp",
-                            fontFamily = ManropeFontFamily,
+                            text = if (isBrutalist) "TIMERAPP" else "TimerApp",
+                            fontFamily = if (isBrutalist) androidx.compose.ui.text.font.FontFamily.Monospace else ManropeFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 20.sp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            letterSpacing = if (isBrutalist) 3.sp else 0.sp,
+                            color = if (isBrutalist) BrutalistColors.TextPrimary else MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Abholzeiten Manager",
+                            text = if (isBrutalist) "ABHOLZEITEN_MGR" else "Abholzeiten Manager",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                            fontFamily = if (isBrutalist) androidx.compose.ui.text.font.FontFamily.Monospace else null,
+                            letterSpacing = if (isBrutalist) 1.sp else 0.sp,
+                            color = if (isBrutalist) BrutalistColors.TextSecondary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                         )
 
                         // Online status
@@ -132,18 +157,32 @@ fun DrawerContent(
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(DesignTokens.StatusOnline)
+                                    .then(
+                                        if (isBrutalist) Modifier.background(BrutalistColors.Cyan)
+                                        else Modifier.clip(CircleShape).background(DesignTokens.StatusOnline)
+                                    )
                             )
                             Text(
-                                text = "Synchronisiert",
+                                text = if (isBrutalist) "SYNC_OK" else "Synchronisiert",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = DesignTokens.StatusOnline,
-                                fontWeight = FontWeight.Medium
+                                fontFamily = if (isBrutalist) androidx.compose.ui.text.font.FontFamily.Monospace else null,
+                                color = if (isBrutalist) BrutalistColors.Cyan else DesignTokens.StatusOnline,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = if (isBrutalist) 1.sp else 0.sp,
                             )
                         }
                     }
                 }
+            }
+
+            // Bottom border line for Brutalist header
+            if (isBrutalist) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(BrutalistColors.Border)
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -156,6 +195,7 @@ fun DrawerContent(
                 isSelected = currentRoute.contains("Home"),
                 onClick = { onNavigateToHome(); onCloseDrawer() },
                 nmColors = nm,
+                isBrutalist = isBrutalist,
             )
             DrawerNavItem(
                 icon = Icons.Default.Category,
@@ -163,6 +203,7 @@ fun DrawerContent(
                 isSelected = currentRoute.contains("Categories"),
                 onClick = { onNavigateToCategories(); onCloseDrawer() },
                 nmColors = nm,
+                isBrutalist = isBrutalist,
             )
             DrawerNavItem(
                 icon = Icons.Default.PlaylistAdd,
@@ -170,6 +211,7 @@ fun DrawerContent(
                 isSelected = currentRoute.contains("ManageTemplates"),
                 onClick = { onNavigateToTemplates(); onCloseDrawer() },
                 nmColors = nm,
+                isBrutalist = isBrutalist,
             )
             DrawerNavItem(
                 icon = Icons.Default.QrCodeScanner,
@@ -177,6 +219,7 @@ fun DrawerContent(
                 isSelected = currentRoute.contains("QRScanner"),
                 onClick = { onNavigateToQRScanner(); onCloseDrawer() },
                 nmColors = nm,
+                isBrutalist = isBrutalist,
             )
             DrawerNavItem(
                 icon = Icons.Default.QrCode,
@@ -184,6 +227,7 @@ fun DrawerContent(
                 isSelected = currentRoute.contains("ManageQRCodes"),
                 onClick = { onNavigateToManageQRCodes(); onCloseDrawer() },
                 nmColors = nm,
+                isBrutalist = isBrutalist,
             )
 
             HorizontalDivider(
@@ -241,11 +285,20 @@ fun DrawerContent(
                 isSelected = currentRoute.contains("SettingsRoute"),
                 onClick = { onNavigateToSettings(); onCloseDrawer() },
                 nmColors = nm,
+                isBrutalist = isBrutalist,
             )
 
             Spacer(modifier = Modifier.weight(1f))
 
             // ── Footer ───────────────────────────────────────────────────────
+            if (isBrutalist) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(BrutalistColors.Border)
+                )
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -255,13 +308,17 @@ fun DrawerContent(
                     Text(
                         text = "TIMERAPP  ·  v${BuildConfig.VERSION_NAME}".uppercase(),
                         style = MaterialTheme.typography.labelSmall,
+                        fontFamily = if (isBrutalist) androidx.compose.ui.text.font.FontFamily.Monospace else null,
                         letterSpacing = 1.5.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                        color = if (isBrutalist) BrutalistColors.TextSecondary.copy(alpha = 0.6f)
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                     )
                     Text(
                         text = java.time.ZoneId.systemDefault().id,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                        fontFamily = if (isBrutalist) androidx.compose.ui.text.font.FontFamily.Monospace else null,
+                        color = if (isBrutalist) BrutalistColors.TextSecondary.copy(alpha = 0.6f)
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                     )
                 }
             }
@@ -276,27 +333,50 @@ private fun DrawerNavItem(
     isSelected: Boolean,
     onClick: () -> Unit,
     nmColors: NeumorphColors? = null,
+    isBrutalist: Boolean = false,
 ) {
     val isNeumorphism = nmColors != null
     NavigationDrawerItem(
         icon = { Icon(icon, contentDescription = null) },
         label = {
             Text(
-                text = label,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                text = if (isBrutalist) label.uppercase() else label,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                fontFamily = if (isBrutalist) androidx.compose.ui.text.font.FontFamily.Monospace else null,
+                letterSpacing = if (isBrutalist) 1.sp else 0.sp,
+                fontSize = if (isBrutalist) 11.sp else 14.sp,
             )
         },
         selected = isSelected,
         onClick = onClick,
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
         colors = NavigationDrawerItemDefaults.colors(
-            selectedContainerColor = if (isNeumorphism) nmColors!!.accent.copy(alpha = 0.15f)
-                                     else DesignTokens.IndigoAccent.copy(alpha = 0.15f),
-            selectedIconColor = if (isNeumorphism) nmColors!!.accent else DesignTokens.IndigoAccent,
-            selectedTextColor = if (isNeumorphism) nmColors!!.accent else DesignTokens.IndigoAccent,
-            unselectedIconColor = if (isNeumorphism) nmColors!!.textSecondary else MaterialTheme.colorScheme.onSurfaceVariant,
-            unselectedTextColor = if (isNeumorphism) nmColors!!.textPrimary else MaterialTheme.colorScheme.onSurface,
+            selectedContainerColor = when {
+                isBrutalist   -> BrutalistColors.Cyan.copy(alpha = 0.12f)
+                isNeumorphism -> nmColors!!.accent.copy(alpha = 0.15f)
+                else          -> DesignTokens.IndigoAccent.copy(alpha = 0.15f)
+            },
+            selectedIconColor = when {
+                isBrutalist   -> BrutalistColors.Cyan
+                isNeumorphism -> nmColors!!.accent
+                else          -> DesignTokens.IndigoAccent
+            },
+            selectedTextColor = when {
+                isBrutalist   -> BrutalistColors.Cyan
+                isNeumorphism -> nmColors!!.accent
+                else          -> DesignTokens.IndigoAccent
+            },
+            unselectedIconColor = when {
+                isBrutalist   -> BrutalistColors.TextSecondary
+                isNeumorphism -> nmColors!!.textSecondary
+                else          -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            unselectedTextColor = when {
+                isBrutalist   -> BrutalistColors.TextSecondary
+                isNeumorphism -> nmColors!!.textPrimary
+                else          -> MaterialTheme.colorScheme.onSurface
+            },
         ),
-        shape = RoundedCornerShape(50)
+        shape = if (isBrutalist) RoundedCornerShape(2.dp) else RoundedCornerShape(50)
     )
 }
