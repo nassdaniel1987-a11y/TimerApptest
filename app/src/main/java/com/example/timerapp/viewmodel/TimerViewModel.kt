@@ -402,6 +402,62 @@ class TimerViewModel @Inject constructor(
     }
 
     // Template Operations
+
+    /**
+     * Erstellt mehrere Timer gleichzeitig aus einer Liste von Vorlagen.
+     * Alle Timer erhalten dasselbe Datum, die jeweilige Zeit aus der Vorlage.
+     * @param templates Ausgewählte Vorlagen
+     * @param targetDate Zieldatum als LocalDate
+     * @param onDone Callback nach Abschluss (mit Anzahl erstellter Timer)
+     */
+    fun createTimersFromTemplates(
+        templates: List<TimerTemplate>,
+        targetDate: java.time.LocalDate,
+        onDone: (createdCount: Int) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            var createdCount = 0
+            alarmMutex.withLock {
+                for (template in templates) {
+                    try {
+                        val parts = template.default_time.split(":")
+                        val hour = parts[0].toInt()
+                        val minute = parts[1].toInt()
+                        val targetTime = java.time.ZonedDateTime.of(
+                            targetDate,
+                            java.time.LocalTime.of(hour, minute),
+                            java.time.ZoneId.systemDefault()
+                        )
+                        val timer = com.example.timerapp.models.Timer(
+                            id = java.util.UUID.randomUUID().toString(),
+                            name = template.name,
+                            target_time = targetTime.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                            category = template.category,
+                            note = template.note,
+                            klasse = template.klasse
+                        )
+                        repository.createTimer(timer)
+                            .onSuccess { createdCount++ }
+                            .onError { exception, _ ->
+                                Log.e("TimerViewModel", "❌ Fehler beim Erstellen von Timer aus Vorlage '${template.name}': ${exception.message}")
+                            }
+                    } catch (e: Exception) {
+                        Log.e("TimerViewModel", "❌ Vorlage '${template.name}' konnte nicht verarbeitet werden: ${e.message}")
+                    }
+                }
+                if (createdCount > 0) {
+                    updateWidgetCache()
+                    debouncedRescheduleAlarms()
+                }
+            }
+            if (createdCount > 0) {
+                syncManager.triggerSyncIfOnline()
+            }
+            Log.d("TimerViewModel", "✅ $createdCount/${templates.size} Timer aus Vorlagen erstellt")
+            onDone(createdCount)
+        }
+    }
+
     fun createTemplate(template: TimerTemplate) {
         viewModelScope.launch {
             repository.createTemplate(template)

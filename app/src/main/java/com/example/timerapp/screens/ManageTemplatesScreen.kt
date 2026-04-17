@@ -1,7 +1,10 @@
 package com.example.timerapp.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -21,7 +25,7 @@ import com.example.timerapp.models.TimerTemplate
 import com.example.timerapp.ui.theme.GlassColors
 import com.example.timerapp.ui.components.MeshGradientBackground
 import com.example.timerapp.viewmodel.TimerViewModel
-import com.example.timerapp.screens.WheelTimePicker
+import java.time.LocalDate
 import java.time.LocalTime
 import java.util.UUID
 
@@ -37,6 +41,10 @@ fun ManageTemplatesScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showAddDialog by remember { mutableStateOf(false) }
+
+    // ── Auswahl-Modus ──────────────────────────────────────────────────────
+    var selectedIds by remember { mutableStateOf(setOf<String>()) }
+    var showStartDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(error) {
         error?.let {
@@ -60,20 +68,39 @@ fun ManageTemplatesScreen(
             topBar = {
                 TopAppBar(
                     title = {
-                        Text(
-                            "Vorlagen",
-                            fontFamily = com.example.timerapp.ui.theme.ManropeFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleLarge
-                        )
+                        if (selectedIds.isEmpty()) {
+                            Text(
+                                "Vorlagen",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            Text(
+                                "${selectedIds.size} ausgewählt",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     },
                     navigationIcon = {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(
-                                Icons.Default.ArrowBack,
-                                contentDescription = "Zurück",
-                                tint = com.example.timerapp.ui.theme.DesignTokens.IndigoAccent
-                            )
+                        if (selectedIds.isNotEmpty()) {
+                            // Im Auswahl-Modus: Auswahl aufheben
+                            IconButton(onClick = { selectedIds = emptySet() }) {
+                                Icon(Icons.Default.Close, contentDescription = "Auswahl aufheben")
+                            }
+                        } else {
+                            IconButton(onClick = onNavigateBack) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
+                            }
+                        }
+                    },
+                    actions = {
+                        // "Alle auswählen" nur wenn Vorlagen vorhanden und noch nicht alle selektiert
+                        if (templates.isNotEmpty() && selectedIds.size != templates.size) {
+                            TextButton(onClick = { selectedIds = templates.map { it.id }.toSet() }) {
+                                Text("Alle")
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -83,71 +110,181 @@ fun ManageTemplatesScreen(
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { showAddDialog = true },
-                    modifier = Modifier
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.4f),
-                                    Color.White.copy(alpha = 0.1f)
-                                )
-                            ),
-                            shape = CircleShape
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = Color.White.copy(alpha = 0.5f),
-                            shape = CircleShape
-                        ),
-                    containerColor = Color.Transparent,
-                    contentColor = Color.White,
-                    elevation = FloatingActionButtonDefaults.elevation(
-                        defaultElevation = 0.dp,
-                        pressedElevation = 0.dp
-                    ),
-                    shape = CircleShape
+                // FAB nur anzeigen wenn kein Timer-Start-Button sichtbar
+                AnimatedVisibility(
+                    visible = selectedIds.isEmpty(),
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut()
                 ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Vorlage hinzufügen",
-                        modifier = Modifier.size(28.dp),
-                        tint = Color.White
-                    )
+                    FloatingActionButton(
+                        onClick = { showAddDialog = true },
+                        modifier = Modifier
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.4f),
+                                        Color.White.copy(alpha = 0.1f)
+                                    )
+                                ),
+                                shape = CircleShape
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = Color.White.copy(alpha = 0.5f),
+                                shape = CircleShape
+                            ),
+                        containerColor = Color.Transparent,
+                        contentColor = Color.White,
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 0.dp,
+                            pressedElevation = 0.dp
+                        ),
+                        shape = CircleShape
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Vorlage hinzufügen",
+                            modifier = Modifier.size(28.dp),
+                            tint = Color.White
+                        )
+                    }
                 }
             }
         ) { padding ->
-            if (templates.isEmpty()) {
-                EmptyStateView(
-                    icon = Icons.Default.PlaylistAdd,
-                    title = "Keine Vorlagen vorhanden",
-                    subtitle = "Erstelle Vorlagen für häufig verwendete Timer.\nDamit kannst du im CreateTimerScreen schnell einen Timer aus einer Vorlage erstellen.",
-                    ctaText = "Vorlage erstellen",
-                    onCtaClick = { showAddDialog = true },
-                    modifier = Modifier.padding(padding)
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                if (templates.isEmpty()) {
+                    EmptyStateView(
+                        icon = Icons.Default.PlaylistAdd,
+                        title = "Keine Vorlagen vorhanden",
+                        subtitle = "Erstelle Vorlagen für häufig verwendete Timer.\nDamit kannst du schnell mehrere Timer auf einmal starten.",
+                        ctaText = "Vorlage erstellen",
+                        onCtaClick = { showAddDialog = true },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 16.dp,
+                            // Extra Platz unten, damit der Bottom-Button nichts verdeckt
+                            bottom = if (selectedIds.isNotEmpty()) 100.dp else 16.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Hinweis-Banner wenn keine Auswahl
+                        if (selectedIds.isEmpty() && templates.isNotEmpty()) {
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                    ),
+                                    shape = MaterialTheme.shapes.large
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.TouchApp,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = "Tippe auf Vorlagen, um sie zu markieren – dann alle auf einmal starten.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        items(templates, key = { it.id }) { template ->
+                            val isSelected = template.id in selectedIds
+                            TemplateItem(
+                                template = template,
+                                glassColor = glassColor,
+                                categories = categories.map { it.name },
+                                isSelected = isSelected,
+                                onToggleSelect = {
+                                    selectedIds = if (isSelected) {
+                                        selectedIds - template.id
+                                    } else {
+                                        selectedIds + template.id
+                                    }
+                                },
+                                onDelete = { viewModel.deleteTemplate(template.id) },
+                                onEdit = { editedTemplate -> viewModel.updateTemplate(editedTemplate) }
+                            )
+                        }
+                    }
+                }
+
+                // ── Animierter "Timer starten"-Button am unteren Rand ──────
+                AnimatedVisibility(
+                    visible = selectedIds.isNotEmpty(),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
                 ) {
-                    items(templates) { template ->
-                        TemplateItem(
-                            template = template,
-                            glassColor = glassColor,
-                            categories = categories.map { it.name },
-                            onDelete = { viewModel.deleteTemplate(template.id) },
-                            onEdit = { editedTemplate -> viewModel.updateTemplate(editedTemplate) }
-                        )
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        tonalElevation = 8.dp,
+                        shadowElevation = 12.dp,
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                    ) {
+                        Button(
+                            onClick = { showStartDialog = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.tertiary
+                                        )
+                                    ),
+                                    shape = MaterialTheme.shapes.extraLarge
+                                ),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Transparent
+                            ),
+                            contentPadding = PaddingValues(vertical = 16.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = if (selectedIds.size == 1) "1 Timer starten"
+                                       else "${selectedIds.size} Timer starten",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
+    // ── Dialog: Neue Vorlage ───────────────────────────────────────────────
     if (showAddDialog) {
         TemplateDialog(
             title = "Neue Vorlage",
@@ -167,25 +304,61 @@ fun ManageTemplatesScreen(
             }
         )
     }
+
+    // ── Dialog: Timer starten (Datum wählen) ──────────────────────────────
+    if (showStartDialog) {
+        val selectedTemplates = templates.filter { it.id in selectedIds }
+        StartTimersDialog(
+            templateCount = selectedTemplates.size,
+            templateNames = selectedTemplates.map { it.name },
+            glassColor = glassColor,
+            onDismiss = { showStartDialog = false },
+            onConfirm = { targetDate ->
+                viewModel.createTimersFromTemplates(
+                    templates = selectedTemplates,
+                    targetDate = targetDate
+                )
+                showStartDialog = false
+                selectedIds = emptySet()
+            }
+        )
+    }
 }
+
+// ── TemplateItem ──────────────────────────────────────────────────────────────
 
 @Composable
 private fun TemplateItem(
     template: TimerTemplate,
     glassColor: Color,
     categories: List<String>,
+    isSelected: Boolean,
+    onToggleSelect: () -> Unit,
     onDelete: () -> Unit,
     onEdit: (TimerTemplate) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
 
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+        animationSpec = tween(200),
+        label = "templateBorder"
+    )
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 2.dp,
+                color = borderColor,
+                shape = MaterialTheme.shapes.extraLarge
+            )
+            .clickable(onClick = onToggleSelect),
         colors = CardDefaults.cardColors(
             containerColor = glassColor
         ),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Row(
             modifier = Modifier
@@ -194,6 +367,39 @@ private fun TemplateItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Auswahl-Indikator (Checkbox-Kreis) links
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    )
+                    .border(
+                        width = 2.dp,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                AnimatedVisibility(
+                    visible = isSelected,
+                    enter = scaleIn(spring(Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                    exit = scaleOut() + fadeOut()
+                ) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -333,6 +539,189 @@ private fun TemplateItem(
         )
     }
 }
+
+// ── StartTimersDialog ─────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StartTimersDialog(
+    templateCount: Int,
+    templateNames: List<String>,
+    glassColor: Color,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate) -> Unit
+) {
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val today = LocalDate.now()
+    val tomorrow = today.plusDays(1)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+                Text(
+                    if (templateCount == 1) "1 Timer starten"
+                    else "$templateCount Timer starten"
+                )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Vorschau der ausgewählten Vorlagen
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = glassColor),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            "Ausgewählte Vorlagen:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        templateNames.take(5).forEach { name ->
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Circle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(6.dp)
+                                )
+                                Text(
+                                    name,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                        if (templateNames.size > 5) {
+                            Text(
+                                "… und ${templateNames.size - 5} weitere",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // Datum-Auswahl
+                Text(
+                    "Für welchen Tag?",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedDate == today,
+                        onClick = { selectedDate = today },
+                        label = {
+                            Text(
+                                "Heute",
+                                fontWeight = if (selectedDate == today) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        leadingIcon = if (selectedDate == today) {
+                            { Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
+                        } else null,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = selectedDate == tomorrow,
+                        onClick = { selectedDate = tomorrow },
+                        label = {
+                            Text(
+                                "Morgen",
+                                fontWeight = if (selectedDate == tomorrow) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        leadingIcon = if (selectedDate == tomorrow) {
+                            { Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
+                        } else null,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Anderes Datum
+                OutlinedButton(
+                    onClick = { showDatePicker = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (selectedDate != today && selectedDate != tomorrow) {
+                            java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy").format(selectedDate)
+                        } else {
+                            "Anderes Datum…"
+                        }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(selectedDate) }) {
+                Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Starten")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+        }
+    )
+
+    // DatePicker
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate
+                .atStartOfDay(java.time.ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            selectedDate = java.time.Instant.ofEpochMilli(millis)
+                                .atZone(java.time.ZoneOffset.UTC)
+                                .toLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                ) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Abbrechen") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+// ── TemplateDialog ────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -479,3 +868,5 @@ private fun TemplateDialog(
         }
     )
 }
+
+
