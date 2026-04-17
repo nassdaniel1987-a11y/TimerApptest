@@ -882,22 +882,65 @@ fun SettingsScreen(
 
     // Sound Picker Dialog
     if (showSoundPickerDialog) {
-        val soundOptions = listOf(
-            "Standard-Alarm" to null,
-            "Standard-Klingelton" to RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)?.toString(),
+        val packageName = context.packageName
+
+        // ── Eigene Sounds aus res/raw ──────────────────────────────────────
+        val customSounds = listOf(
+            "Alarm 1"   to "android.resource://$packageName/raw/alarm2",
+            "Alarm 2"   to "android.resource://$packageName/raw/alarm4",
+            "Alarm 3"   to "android.resource://$packageName/raw/alarm4_v2",
+            "Alarm 4"   to "android.resource://$packageName/raw/alarm7",
+            "Alarm 5"   to "android.resource://$packageName/raw/alarm7_v2",
+            "Alarm 6"   to "android.resource://$packageName/raw/alarm8"
+        )
+
+        // ── System-Sounds ──────────────────────────────────────────────────
+        val systemSounds = listOf(
+            "Standard-Alarm"          to null,
+            "Standard-Klingelton"     to RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)?.toString(),
             "Standard-Benachrichtigung" to RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)?.toString()
         )
 
+        // aktuell laufende Vorschau stoppen beim Schließen
+        var previewRingtone by remember { mutableStateOf<android.media.Ringtone?>(null) }
+
         AlertDialog(
-            onDismissRequest = { showSoundPickerDialog = false },
-            title = { Text("Alarm-Sound wählen") },
+            onDismissRequest = {
+                previewRingtone?.stop()
+                showSoundPickerDialog = false
+            },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        Icons.Default.MusicNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text("Alarm-Sound wählen")
+                }
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    soundOptions.forEach { (name, uriString) ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+
+                    // ── Eigene Sounds ──────────────────────────────────────
+                    Text(
+                        "Eigene Sounds",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp, top = 4.dp)
+                    )
+
+                    customSounds.forEach { (name, uriString) ->
+                        val isSelected = alarmSoundName == name
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
+                                    previewRingtone?.stop()
                                     settingsManager.alarmSoundUri = uriString
                                     settingsManager.alarmSoundName = name
                                     alarmSoundName = name
@@ -905,11 +948,82 @@ fun SettingsScreen(
                                     showSoundPickerDialog = false
                                 },
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             RadioButton(
-                                selected = alarmSoundName == name,
+                                selected = isSelected,
                                 onClick = {
+                                    previewRingtone?.stop()
+                                    settingsManager.alarmSoundUri = uriString
+                                    settingsManager.alarmSoundName = name
+                                    alarmSoundName = name
+                                    NotificationHelper.recreateNotificationChannel(context)
+                                    showSoundPickerDialog = false
+                                }
+                            )
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                            // Vorschau-Button
+                            IconButton(
+                                onClick = {
+                                    previewRingtone?.stop()
+                                    try {
+                                        val uri = Uri.parse(uriString)
+                                        val ringtone = RingtoneManager.getRingtone(context, uri)
+                                        previewRingtone = ringtone
+                                        ringtone?.play()
+                                        CoroutineScope(Dispatchers.Main).launch {
+                                            delay(3000)
+                                            ringtone?.stop()
+                                        }
+                                    } catch (e: Exception) { /* ignore */ }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.PlayArrow,
+                                    contentDescription = "Vorschau $name",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary
+                                           else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    // ── System-Sounds ──────────────────────────────────────
+                    Text(
+                        "System-Sounds",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                    )
+
+                    systemSounds.forEach { (name, uriString) ->
+                        val isSelected = alarmSoundName == name
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    previewRingtone?.stop()
+                                    settingsManager.alarmSoundUri = uriString
+                                    settingsManager.alarmSoundName = name
+                                    alarmSoundName = name
+                                    NotificationHelper.recreateNotificationChannel(context)
+                                    showSoundPickerDialog = false
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = {
+                                    previewRingtone?.stop()
                                     settingsManager.alarmSoundUri = uriString
                                     settingsManager.alarmSoundName = name
                                     alarmSoundName = name
@@ -924,23 +1038,26 @@ fun SettingsScreen(
                             )
                             IconButton(
                                 onClick = {
-                                    val previewUri = if (uriString != null) {
-                                        Uri.parse(uriString)
-                                    } else {
-                                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                                    }
-                                    val ringtone = RingtoneManager.getRingtone(context, previewUri)
-                                    ringtone?.play()
-                                    CoroutineScope(Dispatchers.Main).launch {
-                                        delay(3000)
-                                        ringtone?.stop()
-                                    }
+                                    previewRingtone?.stop()
+                                    val previewUri = if (uriString != null) Uri.parse(uriString)
+                                                     else RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                                    try {
+                                        val ringtone = RingtoneManager.getRingtone(context, previewUri)
+                                        previewRingtone = ringtone
+                                        ringtone?.play()
+                                        CoroutineScope(Dispatchers.Main).launch {
+                                            delay(3000)
+                                            ringtone?.stop()
+                                        }
+                                    } catch (e: Exception) { /* ignore */ }
                                 }
                             ) {
                                 Icon(
                                     Icons.Default.PlayArrow,
-                                    contentDescription = "Vorschau",
-                                    modifier = Modifier.size(20.dp)
+                                    contentDescription = "Vorschau $name",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary
+                                           else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -948,11 +1065,12 @@ fun SettingsScreen(
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                    // Custom picker option
+                    // ── Aus Gerät wählen ───────────────────────────────────
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
+                                previewRingtone?.stop()
                                 showSoundPickerDialog = false
                                 val existingUri = settingsManager.alarmSoundUri?.let { Uri.parse(it) }
                                 val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
@@ -974,7 +1092,8 @@ fun SettingsScreen(
                     ) {
                         RadioButton(
                             selected = settingsManager.alarmSoundUri != null
-                                    && soundOptions.none { it.second == settingsManager.alarmSoundUri },
+                                    && customSounds.none { it.second == settingsManager.alarmSoundUri }
+                                    && systemSounds.none { it.second == settingsManager.alarmSoundUri },
                             onClick = null
                         )
                         Icon(
@@ -993,12 +1112,16 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showSoundPickerDialog = false }) {
+                TextButton(onClick = {
+                    previewRingtone?.stop()
+                    showSoundPickerDialog = false
+                }) {
                     Text("Schließen")
                 }
             }
         )
     }
+
 
     // Add Time Preset Dialog
     if (showAddTimeDialog) {
