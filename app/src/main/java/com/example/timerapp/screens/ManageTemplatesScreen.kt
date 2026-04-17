@@ -382,21 +382,23 @@ private fun TemplateItem(
                                 else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                         shape = CircleShape
                     ),
-                contentAlignment = Alignment.Center
-            ) {
-                AnimatedVisibility(
-                    visible = isSelected,
-                    enter = scaleIn(spring(Spring.DampingRatioMediumBouncy)) + fadeIn(),
-                    exit = scaleOut() + fadeOut()
-                ) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(16.dp)
+                contentAlignment = Alignment.Center,
+                content = {
+                    val iconAlpha by animateFloatAsState(
+                        targetValue = if (isSelected) 1f else 0f,
+                        animationSpec = tween(200),
+                        label = "checkAlpha"
                     )
+                    if (iconAlpha > 0f) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = iconAlpha),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
-            }
+            )
 
             Spacer(Modifier.width(12.dp))
 
