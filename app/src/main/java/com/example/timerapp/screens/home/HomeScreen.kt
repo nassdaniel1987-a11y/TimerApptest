@@ -681,29 +681,7 @@ fun HomeScreen(
                         items(filteredTimers, key = { it.id }) { timer ->
                             val isSelected = timer.id in selectedTimerIds
                             Box(
-                                modifier = Modifier
-                                    .animateItem()
-                            ) {
-                            AnimatedVisibility(
-                                visible = true,
-                                enter = slideInVertically(
-                                    initialOffsetY = { it / 2 },
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessMediumLow
-                                    )
-                                ) + fadeIn(
-                                    animationSpec = tween(300)
-                                ),
-                                exit = slideOutVertically(
-                                    targetOffsetY = { -it / 2 },
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessMedium
-                                    )
-                                ) + fadeOut(
-                                    animationSpec = tween(200)
-                                )
+                                modifier = Modifier.animateItem()
                             ) {
                                 if (isDashboardLayoutEnabled) {
                                     val cardModifier = Modifier
@@ -876,7 +854,6 @@ fun HomeScreen(
                                         }
                                     }
                                 }
-                            } // AnimatedVisibility
                             } // Box
                         }
                     }
@@ -888,30 +865,10 @@ fun HomeScreen(
                             ListHeader("Abgeschlossen", completedTimers.size)
                         }
                         items(completedTimers, key = { it.id }) { timer ->
-                            AnimatedVisibility(
-                                visible = true,
-                                enter = slideInVertically(
-                                    initialOffsetY = { it / 2 },
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessMediumLow
-                                    )
-                                ) + fadeIn(
-                                    animationSpec = tween(300)
-                                ),
-                                exit = slideOutVertically(
-                                    targetOffsetY = { -it / 2 },
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessMedium
-                                    )
-                                ) + fadeOut(
-                                    animationSpec = tween(200)
-                                )
-                            ) {
+                            Box(modifier = Modifier.animateItem()) {
                                 if (isDashboardLayoutEnabled) {
                                     CompactTimerCard(
-                                        modifier = Modifier.animateItem(),
+                                        modifier = Modifier.fillMaxWidth(),
                                         timer = timer,
                                         onComplete = { },
                                         onDelete = {
@@ -934,7 +891,7 @@ fun HomeScreen(
                                     )
                                 } else {
                                     TimerCard(
-                                        modifier = Modifier.animateItem(),
+                                        modifier = Modifier.fillMaxWidth(),
                                         timer = timer,
                                         onComplete = { },
                                         onDelete = {
