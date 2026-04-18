@@ -84,26 +84,7 @@ internal fun TimerCard(
         else -> TimerState.PENDING
     }
 
-    // Pulse animation for RUNNING / ALARM states
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.03f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseScale"
-    )
+
 
     // State-based accent colour (left border + dot)
     val accentColor = when (timerState) {
@@ -177,7 +158,7 @@ internal fun TimerCard(
     val cardInteraction = remember { MutableInteractionSource() }
     val isPressed by cardInteraction.collectIsPressedAsState()
     val cardScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else if (timerState == TimerState.ALARM || timerState == TimerState.RUNNING) pulseScale else 1f,
+        targetValue = if (isPressed) 0.97f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "cardScale"
     )
@@ -206,23 +187,7 @@ internal fun TimerCard(
     ) {
         Box(modifier = modifier.fillMaxWidth()) {
             // Ambient glow for active states
-            if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp)
-                        .align(Alignment.BottomCenter)
-                        .blur(32.dp)
-                        .background(
-                            Brush.radialGradient(
-                                listOf(
-                                    accentColor.copy(alpha = 0.25f * pulseAlpha),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-            }
+
 
             Box(
                 modifier = Modifier
@@ -235,9 +200,7 @@ internal fun TimerCard(
                                 .background(BrutalistColors.Surface)
                                 .border(1.dp, BrutalistColors.Border, RoundedCornerShape(0.dp))
                                 .brutalistAccentBar(
-                                    accentColor = brutalistAccent.copy(
-                                        alpha = if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) pulseAlpha else 1f
-                                    ),
+                                    accentColor = brutalistAccent,
                                     barWidth = 3f
                                 )
                             isNeumorphism -> Modifier
@@ -251,7 +214,7 @@ internal fun TimerCard(
                                 .background(nmColors.bg, cardShape)
                                 .border(
                                     width = 2.dp,
-                                    color = accentColor.copy(alpha = if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) pulseAlpha else 0.5f),
+                                    color = accentColor.copy(alpha = 0.7f),
                                     shape = cardShape
                                 )
                             else -> Modifier
@@ -260,11 +223,7 @@ internal fun TimerCard(
                                 .border(1.dp, glassBorder, cardShape)
                                 .border(
                                     width = 3.dp,
-                                    brush = if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) {
-                                        Brush.linearGradient(listOf(accentColor.copy(alpha = pulseAlpha), accentColor.copy(alpha = pulseAlpha * 0.4f)))
-                                    } else {
-                                        Brush.linearGradient(listOf(accentColor.copy(alpha = 0.7f), accentColor.copy(alpha = 0.2f)))
-                                    },
+                                    brush = Brush.linearGradient(listOf(accentColor.copy(alpha = 0.7f), accentColor.copy(alpha = 0.2f))),
                                     shape = cardShape
                                 )
                         }
@@ -291,7 +250,7 @@ internal fun TimerCard(
                         if (isBrutalist) {
                             BrutalistStatusDot(
                                 color = brutalistAccent,
-                                pulseAlpha = if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) pulseAlpha else 1f,
+                                pulseAlpha = 1f,
                             )
                         } else {
                             Box(

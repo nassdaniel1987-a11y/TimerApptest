@@ -339,6 +339,11 @@ class TimerViewModel @Inject constructor(
         Log.d("TimerViewModel", "↩️ Timer-Löschung rückgängig gemacht: $id")
     }
 
+    // Mehrere Timer gleichzeitig soft-löschen (Bulk)
+    fun softDeleteTimers(ids: Set<String>) {
+        ids.forEach { softDeleteTimer(it) }
+    }
+
     fun markTimerCompleted(id: String) {
         viewModelScope.launch {
             alarmMutex.withLock {

@@ -71,26 +71,7 @@ internal fun CompactTimerCard(
         else -> TimerState.PENDING
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseScale"
-    )
 
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
 
     val (borderColor, borderWidth) = when (timerState) {
         TimerState.PENDING -> Color(0xFF2196F3) to 1.5.dp
@@ -128,23 +109,6 @@ internal fun CompactTimerCard(
     )
 
     Box(modifier = modifier) {
-        if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .scale(pulseScale * 1.05f)
-                    .blur(20.dp)
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                borderColor.copy(alpha = 0.3f * pulseAlpha),
-                                Color.Transparent
-                            )
-                        ),
-                        shape = MaterialTheme.shapes.extraLarge
-                    )
-            )
-        }
 
         val glassColor = if (isSystemInDarkTheme()) GlassColors.GlassSurfaceDark else GlassColors.GlassSurfaceLight
         val borderAlpha = if (isSystemInDarkTheme()) 0.2f else 0.8f
@@ -153,27 +117,10 @@ internal fun CompactTimerCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .animateContentSize()
-                .then(
-                    if (timerState == TimerState.RUNNING || timerState == TimerState.ALARM) {
-                        Modifier
-                            .scale(pulseScale)
-                            .border(
-                                width = borderWidth,
-                                brush = Brush.linearGradient(
-                                    colors = listOf(
-                                        borderColor.copy(alpha = pulseAlpha),
-                                        borderColor.copy(alpha = pulseAlpha * 0.5f)
-                                    )
-                                ),
-                                shape = MaterialTheme.shapes.extraLarge
-                            )
-                    } else {
-                        Modifier.border(
-                            width = borderWidth,
-                            color = borderColor.copy(alpha = 0.2f),
-                            shape = MaterialTheme.shapes.extraLarge
-                        )
-                    }
+                .border(
+                    width = borderWidth,
+                    color = borderColor.copy(alpha = 0.6f),
+                    shape = MaterialTheme.shapes.extraLarge
                 )
                 .clickable(
                     interactionSource = cardInteractionSource,

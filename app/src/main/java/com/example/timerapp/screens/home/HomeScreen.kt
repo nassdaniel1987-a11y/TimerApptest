@@ -11,6 +11,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -100,6 +101,16 @@ fun HomeScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
+
+    // ── Multi-Select Löschen ─────────────────────────────────────────
+    var isSelectMode by remember { mutableStateOf(false) }
+    var selectedTimerIds by remember { mutableStateOf(setOf<String>()) }
+    var showDeleteSelectedDialog by remember { mutableStateOf(false) }
+
+    fun exitSelectMode() {
+        isSelectMode = false
+        selectedTimerIds = emptySet()
+    }
 
     var timeFilter by remember { mutableStateOf(TimeFilter.ALL) }
 
@@ -333,58 +344,62 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            when {
-                isNeumorphism -> NeumorphicFAB(
-                    icon = Icons.Default.Add,
-                    contentDescription = "Timer erstellen",
-                    onClick = onCreateTimer,
-                    colors = nmColors,
-                )
-                isBrutalist -> BrutalistFAB(
-                    icon = Icons.Default.Add,
-                    contentDescription = "Timer erstellen",
-                    onClick = onCreateTimer,
-                )
-                else -> FloatingActionButton(
-                    onClick = onCreateTimer,
-                    modifier = Modifier
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = com.example.timerapp.ui.theme.GradientColors.PrimaryButton
+            // FAB im Auswahl-Modus ausblenden
+            if (!isSelectMode) {
+                when {
+                    isNeumorphism -> NeumorphicFAB(
+                        icon = Icons.Default.Add,
+                        contentDescription = "Timer erstellen",
+                        onClick = onCreateTimer,
+                        colors = nmColors,
+                    )
+                    isBrutalist -> BrutalistFAB(
+                        icon = Icons.Default.Add,
+                        contentDescription = "Timer erstellen",
+                        onClick = onCreateTimer,
+                    )
+                    else -> FloatingActionButton(
+                        onClick = onCreateTimer,
+                        modifier = Modifier
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = com.example.timerapp.ui.theme.GradientColors.PrimaryButton
+                                ),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
                             ),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+                        containerColor = Color.Transparent,
+                        contentColor = Color.White,
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 0.dp,
+                            pressedElevation = 0.dp
                         ),
-                    containerColor = Color.Transparent,
-                    contentColor = Color.White,
-                    elevation = FloatingActionButtonDefaults.elevation(
-                        defaultElevation = 0.dp,
-                        pressedElevation = 0.dp
-                    ),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 0.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Timer erstellen",
-                            modifier = Modifier.size(22.dp),
-                            tint = Color.White
-                        )
-                        Text(
-                            text = "Neuer Timer",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelLarge
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 0.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Timer erstellen",
+                                modifier = Modifier.size(22.dp),
+                                tint = Color.White
+                            )
+                            Text(
+                                text = "Neuer Timer",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
                     }
                 }
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
+        Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.padding(padding)) {
             // Pause-Banner
             if (isAppPaused) {
@@ -664,6 +679,11 @@ fun HomeScreen(
                             )
                         }
                         items(filteredTimers, key = { it.id }) { timer ->
+                            val isSelected = timer.id in selectedTimerIds
+                            Box(
+                                modifier = Modifier
+                                    .animateItem()
+                            ) {
                             AnimatedVisibility(
                                 visible = true,
                                 enter = slideInVertically(
@@ -686,73 +706,178 @@ fun HomeScreen(
                                 )
                             ) {
                                 if (isDashboardLayoutEnabled) {
+                                    val cardModifier = Modifier
+                                        .animateContentSize()
+                                        .then(
+                                            if (isSelectMode) {
+                                                Modifier
+                                                    .border(
+                                                        width = if (isSelected) 3.dp else 1.dp,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                                        shape = MaterialTheme.shapes.extraLarge
+                                                    )
+                                                    .clickable {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        selectedTimerIds = if (isSelected)
+                                                            selectedTimerIds - timer.id
+                                                        else
+                                                            selectedTimerIds + timer.id
+                                                        if (selectedTimerIds.isEmpty()) exitSelectMode()
+                                                    }
+                                            } else {
+                                                Modifier.combinedClickable(
+                                                    onClick = {},
+                                                    onLongClick = {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        isSelectMode = true
+                                                        selectedTimerIds = setOf(timer.id)
+                                                    }
+                                                )
+                                            }
+                                        )
                                     CompactTimerCard(
-                                        modifier = Modifier
-                                            .animateItem()
-                                            .animateContentSize(),
+                                        modifier = cardModifier,
                                         timer = timer,
                                         onComplete = {
-                                            performHaptic(haptic, settingsManager)
-                                            viewModel.markTimerCompleted(timer.id)
-                                            showSnackbar(snackbarHostState, "Timer abgeschlossen")
+                                            if (!isSelectMode) {
+                                                performHaptic(haptic, settingsManager)
+                                                viewModel.markTimerCompleted(timer.id)
+                                                showSnackbar(snackbarHostState, "Timer abgeschlossen")
+                                            }
                                         },
                                         onDelete = {
-                                            performHaptic(haptic, settingsManager)
-                                            viewModel.softDeleteTimer(timer.id)
-                                            CoroutineScope(Dispatchers.Main).launch {
-                                                val result = snackbarHostState.showSnackbar(
-                                                    message = "'${timer.name}' gelöscht",
-                                                    actionLabel = "Rückgängig",
-                                                    duration = SnackbarDuration.Long
-                                                )
-                                                if (result == SnackbarResult.ActionPerformed) {
-                                                    viewModel.undoDeleteTimer(timer.id)
+                                            if (!isSelectMode) {
+                                                performHaptic(haptic, settingsManager)
+                                                viewModel.softDeleteTimer(timer.id)
+                                                CoroutineScope(Dispatchers.Main).launch {
+                                                    val result = snackbarHostState.showSnackbar(
+                                                        message = "'${timer.name}' gelöscht",
+                                                        actionLabel = "Rückgängig",
+                                                        duration = SnackbarDuration.Long
+                                                    )
+                                                    if (result == SnackbarResult.ActionPerformed) {
+                                                        viewModel.undoDeleteTimer(timer.id)
+                                                    }
                                                 }
                                             }
                                         },
                                         onEdit = { editedTimer ->
-                                            performHaptic(haptic, settingsManager)
-                                            viewModel.updateTimer(timer.id, editedTimer)
-                                            showSnackbar(snackbarHostState, "Timer aktualisiert")
+                                            if (!isSelectMode) {
+                                                performHaptic(haptic, settingsManager)
+                                                viewModel.updateTimer(timer.id, editedTimer)
+                                                showSnackbar(snackbarHostState, "Timer aktualisiert")
+                                            }
                                         },
                                         settingsManager = settingsManager,
                                         haptic = haptic
                                     )
+                                    // Ausgewählt-Overlay
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .background(
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                                    shape = MaterialTheme.shapes.extraLarge
+                                                ),
+                                            contentAlignment = Alignment.TopEnd
+                                        ) {
+                                            Icon(
+                                                Icons.Default.CheckCircle,
+                                                contentDescription = "Ausgewählt",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(8.dp).size(22.dp)
+                                            )
+                                        }
+                                    }
                                 } else {
+                                    val cardModifier = Modifier
+                                        .animateContentSize()
+                                        .then(
+                                            if (isSelectMode) {
+                                                Modifier
+                                                    .border(
+                                                        width = if (isSelected) 3.dp else 1.dp,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+                                                    )
+                                                    .clickable {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        selectedTimerIds = if (isSelected)
+                                                            selectedTimerIds - timer.id
+                                                        else
+                                                            selectedTimerIds + timer.id
+                                                        if (selectedTimerIds.isEmpty()) exitSelectMode()
+                                                    }
+                                            } else {
+                                                Modifier.combinedClickable(
+                                                    onClick = {},
+                                                    onLongClick = {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        isSelectMode = true
+                                                        selectedTimerIds = setOf(timer.id)
+                                                    }
+                                                )
+                                            }
+                                        )
                                     TimerCard(
-                                        modifier = Modifier
-                                            .animateItem()
-                                            .animateContentSize(),
+                                        modifier = cardModifier,
                                         timer = timer,
                                         onComplete = {
-                                            performHaptic(haptic, settingsManager)
-                                            viewModel.markTimerCompleted(timer.id)
-                                            showSnackbar(snackbarHostState, "Timer abgeschlossen")
+                                            if (!isSelectMode) {
+                                                performHaptic(haptic, settingsManager)
+                                                viewModel.markTimerCompleted(timer.id)
+                                                showSnackbar(snackbarHostState, "Timer abgeschlossen")
+                                            }
                                         },
                                         onDelete = {
-                                            performHaptic(haptic, settingsManager)
-                                            viewModel.softDeleteTimer(timer.id)
-                                            CoroutineScope(Dispatchers.Main).launch {
-                                                val result = snackbarHostState.showSnackbar(
-                                                    message = "'${timer.name}' gelöscht",
-                                                    actionLabel = "Rückgängig",
-                                                    duration = SnackbarDuration.Long
-                                                )
-                                                if (result == SnackbarResult.ActionPerformed) {
-                                                    viewModel.undoDeleteTimer(timer.id)
+                                            if (!isSelectMode) {
+                                                performHaptic(haptic, settingsManager)
+                                                viewModel.softDeleteTimer(timer.id)
+                                                CoroutineScope(Dispatchers.Main).launch {
+                                                    val result = snackbarHostState.showSnackbar(
+                                                        message = "'${timer.name}' gelöscht",
+                                                        actionLabel = "Rückgängig",
+                                                        duration = SnackbarDuration.Long
+                                                    )
+                                                    if (result == SnackbarResult.ActionPerformed) {
+                                                        viewModel.undoDeleteTimer(timer.id)
+                                                    }
                                                 }
                                             }
                                         },
                                         onEdit = { editedTimer ->
-                                            performHaptic(haptic, settingsManager)
-                                            viewModel.updateTimer(timer.id, editedTimer)
-                                            showSnackbar(snackbarHostState, "Timer aktualisiert")
+                                            if (!isSelectMode) {
+                                                performHaptic(haptic, settingsManager)
+                                                viewModel.updateTimer(timer.id, editedTimer)
+                                                showSnackbar(snackbarHostState, "Timer aktualisiert")
+                                            }
                                         },
                                         settingsManager = settingsManager,
                                         haptic = haptic
                                     )
+                                    // Ausgewählt-Overlay
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .background(
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+                                                ),
+                                            contentAlignment = Alignment.TopEnd
+                                        ) {
+                                            Icon(
+                                                Icons.Default.CheckCircle,
+                                                contentDescription = "Ausgewählt",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(12.dp).size(22.dp)
+                                            )
+                                        }
+                                    }
                                 }
-                            }
+                            } // AnimatedVisibility
+                            } // Box
                         }
                     }
 
@@ -838,6 +963,74 @@ fun HomeScreen(
             }
             }
         } // Column
+
+            // ── Auswahl-Modus Bottom-Bar ───────────────────────────
+            AnimatedVisibility(
+                visible = isSelectMode,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    tonalElevation = 8.dp,
+                    shadowElevation = 16.dp,
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .navigationBarsPadding(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Abbrechen
+                        IconButton(onClick = { exitSelectMode() }) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Auswahl aufheben",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        // Anzahl
+                        Text(
+                            text = "${selectedTimerIds.size} ausgewählt",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Alle auswählen
+                            TextButton(
+                                onClick = {
+                                    selectedTimerIds = filteredTimers.map { it.id }.toSet()
+                                }
+                            ) {
+                                Text("Alle")
+                            }
+                            // Löschen
+                            Button(
+                                onClick = { showDeleteSelectedDialog = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Löschen")
+                            }
+                        }
+                    }
+                }
+            }
+        } // Box (outer)
     }
 }
 
@@ -850,6 +1043,41 @@ fun HomeScreen(
             onSortChange = { sortBy = it },
             onFilterChange = { filterCategory = it },
             onDismiss = { showFilterDialog = false }
+        )
+    }
+
+    // Bulk-Löschen Bestätigung
+    if (showDeleteSelectedDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteSelectedDialog = false },
+            icon = {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = { Text("${selectedTimerIds.size} Timer löschen?") },
+            text = { Text("Möchtest du alle ${selectedTimerIds.size} ausgewählten Timer unwiderruflich löschen?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val idsToDelete = selectedTimerIds
+                        viewModel.softDeleteTimers(idsToDelete)
+                        exitSelectMode()
+                        showDeleteSelectedDialog = false
+                        showSnackbar(snackbarHostState, "${idsToDelete.size} Timer gelöscht")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Löschen")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteSelectedDialog = false }) {
+                    Text("Abbrechen")
+                }
+            }
         )
     }
 }
